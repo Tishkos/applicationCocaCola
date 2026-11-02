@@ -30,6 +30,9 @@ class FakeHost:
         self.open_now = 0
         self.max_open = 0
         self.silent = False                       # True: accept requests but never answer
+        self.refuse: dict[tuple[int, int], int] = {}   # (unit, start address) -> Modbus exception code to answer
+        self.flap: set[tuple[int, int]] = set()        # (unit, start address) answered "busy" every other request
+        self._flip = 0
         self._loop = None
         self._server = None
 
@@ -52,6 +55,14 @@ class FakeHost:
             if set_values is not None:
                 from pymodbus.constants import ExcCodes
                 return ExcCodes.ILLEGAL_FUNCTION
+            from pymodbus.constants import ExcCodes
+            code = self.refuse.get((unit, address))
+            if code:
+                return ExcCodes(code)
+            if (unit, address) in self.flap:
+                self._flip += 1
+                if self._flip % 2:
+                    return ExcCodes.DEVICE_BUSY
             img = self.images[unit]
             current_registers[address - start_address:address - start_address + count] = img[address:address + count]
             return None

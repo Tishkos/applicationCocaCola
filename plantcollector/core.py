@@ -76,13 +76,23 @@ class Collector:
         # devices read less often than the site read: config `slow: {device: seconds}`, plus the ones the live
         # guard slowed down (remembered in settings.json)
         self.every_override: dict[str, int] = {}
-        for did, s in ((self.registry.extra.get("slow") or {}) if not self.simulated else {}).items():
-            if did in self.registry.devices and int(s) > 0:
-                self.every_override[did] = int(s)
+        slow_cfg = self.registry.extra.get("slow") if not self.simulated else None
+        for did, s in (slow_cfg.items() if isinstance(slow_cfg, dict) else []):
+            try:
+                s = int(s)
+            except (TypeError, ValueError):
+                continue
+            if did in self.registry.devices and s > 0:
+                self.every_override[did] = s
         if not self.simulated:
-            for did, s in (self._load_settings().get("slowed_devices") or {}).items():
-                if did in self.registry.devices and int(s) > 0:
-                    self.every_override[did] = max(int(s), self.every_override.get(did, 0))
+            slowed = self._load_settings().get("slowed_devices")
+            for did, s in (slowed.items() if isinstance(slowed, dict) else []):
+                try:
+                    s = int(s)
+                except (TypeError, ValueError):      # a hand edit gone wrong must never stop the collector
+                    continue
+                if did in self.registry.devices and s > 0:
+                    self.every_override[did] = max(s, self.every_override.get(did, 0))
         self.live = None                         # the live reader (plantcollector.live), started by `run`
         from collections import deque
         self._sim_history: deque = deque(maxlen=200)       # the demo's live chart (no live reader there)
@@ -124,9 +134,23 @@ class Collector:
     def _load_settings(self) -> dict:
         try:
             with open(self.settings_path) as f:
-                return json.load(f) or {}
-        except (FileNotFoundError, ValueError):
+                data = json.load(f) or {}
+            return data if isinstance(data, dict) else {}
+        except (FileNotFoundError, ValueError, OSError):
             return {}
+
+    _settings_lock = threading.Lock()
+
+    def _update_settings(self, change) -> None:
+        """Read settings.json, apply `change(data)`, write it back - one writer at a time (the dashboard's
+        API threads and the live reader both write it), through a temporary file of its own."""
+        with Collector._settings_lock:
+            data = self._load_settings()
+            change(data)
+            tmp = f"{self.settings_path}.{os.getpid()}.{threading.get_ident()}.tmp"
+            with open(tmp, "w") as f:
+                json.dump(data, f, indent=2)
+            os.replace(tmp, self.settings_path)
 
     def set_poll_interval(self, seconds: int) -> None:
         """Change the polling rate at runtime and remember it. Only the fixed options are allowed;
@@ -137,13 +161,11 @@ class Collector:
         if self.simulated:
             raise ValueError("the demo refreshes every 30 s; this setting applies to the real plant config")
         self.registry.site.poll_interval_s = float(seconds)
-        data = self._load_settings()
-        data["poll_interval_s"] = seconds
-        data["changed_at"] = datetime.now(timezone.utc).isoformat()
-        tmp = self.settings_path + ".tmp"
-        with open(tmp, "w") as f:
-            json.dump(data, f, indent=2)
-        os.replace(tmp, self.settings_path)
+
+        def change(data):
+            data["poll_interval_s"] = seconds
+            data["changed_at"] = datetime.now(timezone.utc).isoformat()
+        self._update_settings(change)
         self.settings_source = "settings.json"
         self.store.event("settings", f"poll interval set to {seconds} s", severity="info", code="SETTINGS")
 
@@ -168,13 +190,15 @@ class Collector:
         """Read `did` only every `seconds` from now on, and remember it (the live guard calls this)."""
         self.every_override[did] = int(seconds)
         if not self.simulated:
-            data = self._load_settings()
-            data.setdefault("slowed_devices", {})[did] = int(seconds)
-            data["slowed_at"] = datetime.now(timezone.utc).isoformat()
-            tmp = self.settings_path + ".tmp"
-            with open(tmp, "w") as f:
-                json.dump(data, f, indent=2)
-            os.replace(tmp, self.settings_path)
+            def change(data):
+                if not isinstance(data.get("slowed_devices"), dict):
+                    data["slowed_devices"] = {}
+                data["slowed_devices"][did] = int(seconds)
+                data["slowed_at"] = datetime.now(timezone.utc).isoformat()
+            try:
+                self._update_settings(change)
+            except OSError as exc:
+                print(f"[collector] could not save the slower rate of {did}: {exc}")
         self.store.event("read_rate", why, device_id=did, severity="warning", code="READ_SLOWED")
 
     def start_live(self) -> bool:
@@ -193,7 +217,11 @@ class Collector:
     def turkey_latest(self, did: str) -> dict:
         """The device's values as the Turkey feed shows them: those of the last site read."""
         snap = self.site_snapshot
-        return dict(snap.get(did, {})) if snap is not None else self.store.latest(did)
+        if snap is not None:
+            return dict(snap.get(did, {}))
+        if self.live is not None and did in self.live.device_ids:
+            return {}                            # before the first site read: nothing yet, as always (never live values)
+        return self.store.latest(did)
 
     def live_point(self) -> list:
         """[epoch ms, load, solar, gensets, grid] now, for the live chart."""
@@ -226,8 +254,9 @@ class Collector:
         now_mono = time.monotonic()
         prev_host = None
         for did, ad in self.adapters.items():
-            if live is not None and did in live.device_ids:
+            if live is not None and did in live.device_ids and not live.failures_in_row:
                 continue                         # read every few seconds by the live reader; its values are current
+                                                 # (while it backs off, the site read reads the device itself)
             if not self._due(did, now_mono):
                 continue                         # a slow device: its last values stay until it is due
             conn = self.registry.devices[did].connection
@@ -241,7 +270,8 @@ class Collector:
                 d = self.registry.devices[did]
                 from .adapters import reading
                 rows = {p.id: reading(p, None, Quality.BAD, f"read failed: {exc}") for p in d.points}
-            self.read_times[did] = time.time()
+            if getattr(ad, "last_ok_blocks", 1) > 0:   # the guard counts only reads the device answered
+                self.read_times[did] = time.time()
             self._last_read_mono[did] = time.monotonic()
             self.store.ingest(did, rows)
             self._health(did, rows)

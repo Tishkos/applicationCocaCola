@@ -257,6 +257,8 @@ def cmd_probe(a) -> int:
     from .registry import load_registry
     from .trace import probe
     reg = load_registry(a.config)
+    from .adapters import modbus_tcp
+    modbus_tcp.set_source_address((reg.extra.get("network") or {}).get("source_address"))
     targets: list[tuple[str, int, int]] = []
     for item in a.targets or []:
         parts = item.split(":")

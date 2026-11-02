@@ -166,6 +166,7 @@ def test_live_values_are_stored_sparingly(tmp_path, hosts):
         rows = lambda pid: c.store._read("SELECT COUNT(*) FROM readings WHERE device_id='neo-01' AND point_id=?", (pid,))[0][0]
         assert rows("pv_prod_kw") == 1                        # numbers: once a minute (once at the start here)
         assert rows("g1_running") == 1
+        c.live.state_gap_s = 0                                # (on/off signals: at most every 10 s on the plant)
         neo.set(NEO_UNIT, 1227, 0b00001)                      # Gen 2 leaves the bus: stored at once
         wait_cycles(c, 2)
         assert rows("g2_running") == 2 and rows("g1_running") == 1
@@ -281,4 +282,127 @@ def test_source_address_is_used(tmp_path, hosts):
     finally:
         from plantcollector.adapters import modbus_tcp
         modbus_tcp.set_source_address(None)
+        c.close()
+
+
+# ---------------------------------------------------------------- from the independent review
+
+def test_turkey_shows_nothing_from_the_live_reader_before_the_first_site_read(tmp_path, hosts):
+    neo, sau, mains = hosts
+    c = plant(tmp_path, neo, sau, mains)
+    pub = ModbusPublisher(c, bind="127.0.0.1", port=free_port(), unit_id=1)
+    pub.start()
+    try:
+        c.start_live()
+        wait_cycles(c, 2)
+        assert c.store.latest("neo-01")["pv_prod_kw"].value == 500       # the dashboard has it ...
+        pub.refresh()                                                   # ... the one-minute tick before any site read
+        cl = ModbusTcpClient("127.0.0.1", port=pub.port)
+        assert cl.connect()
+        assert turkey_tag(cl, pub, "Psum3")[1] == 0                     # ... Turkey does not: no data yet, as always
+        assert TestClient(create_app(c)).get("/api/v1/tags/Psum3").json()["value"] is None
+        c.poll()
+        assert turkey_tag(cl, pub, "Psum3") == (500.0, 1)
+        cl.close()
+    finally:
+        c.close()
+        pub.stop()
+
+
+def test_a_refused_block_costs_no_new_connection_and_no_back_off(tmp_path, hosts):
+    neo, sau, mains = hosts
+    neo.refuse[(NEO_UNIT, 1256)] = 2                  # the controller does not have one of the blocks (exception 2)
+    c = plant(tmp_path, neo, sau, mains)
+    try:
+        c.start_live()
+        wait_cycles(c, 5)
+        assert neo.connects == 1                      # answered at once: the link is fine, no reconnect
+        assert c.live.failures_in_row == 0 and not c.live.status()["backing_off"]
+        assert c.store.latest("neo-01")["pv_prod_kw"].value == 500
+    finally:
+        c.close()
+
+
+def test_busy_answers_back_off_without_reconnecting(tmp_path, hosts):
+    neo, sau, mains = hosts
+    neo.refuse[(NEO_UNIT, 1148)] = 6                  # "device busy" on one block, every time
+    c = plant(tmp_path, neo, sau, mains)
+    try:
+        c.start_live()
+        time.sleep(7)
+        assert neo.connects == 1
+        assert c.live.failures_in_row >= 2 and c.live.cycles <= 4     # 1 s, 2 s, 4 s ... not every second
+        before = neo.total_requests()
+        c.poll()                                      # while the live reader backs off, the site read reads the master
+        assert neo.total_requests() > before
+    finally:
+        c.close()
+
+
+def test_a_flapping_block_is_stored_at_most_once_a_minute_and_raises_no_event_storm(tmp_path, hosts):
+    neo, sau, mains = hosts
+    neo.flap.add((NEO_UNIT, 1148))                    # busy on every other request
+    c = plant(tmp_path, neo, sau, mains, extra="  idle_store_s: 300")
+    try:
+        c.start_live()
+        c.live.failures_in_row = 0
+        time.sleep(8)
+        rows = c.store._read("SELECT COUNT(*) FROM readings WHERE device_id='neo-01' AND point_id='battery_v'")[0][0]
+        assert rows <= 2
+        events = [e for e in c.store.events(datetime.now(timezone.utc) - timedelta(hours=1), 100) if e["code"] in ("COMMS_LOST", "COMMS_OK")]
+        assert not events                             # part of the master answers: not "no data"
+    finally:
+        c.close()
+
+
+def test_states_are_stored_when_they_change(tmp_path, hosts):
+    neo, sau, mains = hosts
+    c = plant(tmp_path, neo, sau, mains)
+    try:
+        c.start_live()
+        sp = c.live.state_points["neo-01"]
+        assert {"breaker_state", "controller_mode", "can_present_mask", "g1_running", "eth_status"} <= sp
+        assert not {"pv_prod_kw", "pv_pf", "bus_frequency_hz", "load_kw"} & sp
+        c.live.state_gap_s = 0
+        neo.set(NEO_UNIT, 1192, 3)
+        wait_cycles(c, 2)
+        neo.set(NEO_UNIT, 1192, 7)
+        wait_cycles(c, 2)
+        neo.set(NEO_UNIT, 1192, 3)
+        wait_cycles(c, 2)
+        vals = [v for (v,) in c.store._read("SELECT value FROM readings WHERE device_id='neo-01' AND point_id='breaker_state' ORDER BY ts")]
+        assert vals[-3:] == [3.0, 7.0, 3.0]
+    finally:
+        c.close()
+
+
+def test_the_guard_does_not_blame_us_for_a_link_that_drops_on_its_own(tmp_path, hosts):
+    neo, sau, mains = hosts
+    c = plant(tmp_path, neo, sau, mains)
+    try:
+        c.start_live()
+        wait_cycles(c, 1)
+        for _ in range(4):                            # MAIN 1 drops four times with no read of ours before it
+            neo.set(NEO_UNIT, 1268, 0b1); wait_cycles(c, 1)
+            neo.set(NEO_UNIT, 1268, 0); wait_cycles(c, 1)
+        for _ in range(2):                            # ... and twice right after our read: 2 of 6, by chance
+            c.poll()
+            neo.set(NEO_UNIT, 1268, 0b1); wait_cycles(c, 1)
+            neo.set(NEO_UNIT, 1268, 0); wait_cycles(c, 1)
+        assert "main-01" not in c.every_override
+        mains.stop()                                  # our read fails (MAIN 1 gone): that read is not ours to blame
+        c.read_times.pop("main-01", None)
+        c.poll()
+        assert "main-01" not in c.read_times
+    finally:
+        c.close()
+
+
+def test_a_broken_settings_file_never_stops_the_collector(tmp_path, hosts):
+    neo, sau, mains = hosts
+    (tmp_path / "data").mkdir()
+    for bad in ('{"slowed_devices": null}', '{"slowed_devices": {"main-01": "soon"}}', '{"slowed_devices": [1]}', '[]', '{'):
+        (tmp_path / "data" / "settings.json").write_text(bad)
+        c = plant(tmp_path, neo, sau, mains, live=False)
+        assert "main-01" not in c.every_override
         c.close()

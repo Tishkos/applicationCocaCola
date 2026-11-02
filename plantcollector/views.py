@@ -150,6 +150,16 @@ class SummaryCache:
 _daily_cache = SummaryCache(30.0)
 
 
+def _cached(c: Collector, name: str, ttl: float, fn):
+    """A value of this collector kept for `ttl` seconds: COUNT(*) and MIN(ts) over all readings are slow on a big
+    database, and the summary is asked for every 3 s while the master is read live."""
+    caches = c.__dict__.setdefault("_view_caches", {})
+    hit = caches.get(name)
+    if hit is None or time.time() - hit[0] > ttl:
+        hit = caches[name] = (time.time(), fn())
+    return hit[1]
+
+
 def device_comms(c: Collector, did: str) -> str:
     dev = c.registry.devices[did]
     rows = {pid: r for pid, r in c.store.latest(did).items() if not (dev.point(pid) and dev.point(pid).raw.get("derived"))}
@@ -228,7 +238,8 @@ def summary(c: Collector) -> dict:
         "collector": {"polls": c.polls, "last_poll": c.last_poll_at.isoformat() if c.last_poll_at else None,
                       "next_poll": (c.last_poll_at + timedelta(seconds=c.registry.site.poll_interval_s)).isoformat() if c.last_poll_at else None,
                       "uptime_s": int((datetime.now(timezone.utc) - c.started_at).total_seconds()),
-                      "rows": st.count(), "first_sample": st.first_ts(), "config": os.path.basename(c.config_path),
+                      "rows": _cached(c, "rows", 60.0, st.count), "first_sample": _cached(c, "first", 300.0, st.first_ts),
+                      "config": os.path.basename(c.config_path),
                       "database": c.db_path},
         "kpi": kpi,
         "live": c.live.status() if c.live is not None else {"enabled": False, "running": False},

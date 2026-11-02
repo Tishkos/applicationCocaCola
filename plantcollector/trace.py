@@ -109,6 +109,8 @@ class Trace:
         for dev_id in self.watch:
             if dev_id not in self.every:
                 raise ValueError(f"watch device '{dev_id}' must also be traced (every)")
+        from .adapters import modbus_tcp
+        modbus_tcp.set_source_address((registry.extra.get("network") or {}).get("source_address"))
         self.adapters = {d: build_adapter(registry.devices[d]) for d in self.every}
         self.files = {d: _DailyCsv(out_dir, d, ["ts", "ms", "wait_ms", "ok_blocks", "failed_blocks"] + [p.id for p in registry.devices[d].points])
                       for d in self.every}
@@ -504,7 +506,9 @@ def probe(targets: list[tuple[str, int, int]], address: int = 0, timeout: float 
         row = {"host": host, "port": port, "unit": unit, "tcp": "", "modbus": "", "ms": None}
         t0 = time.perf_counter()
         try:
-            s = socket.create_connection((host, port), timeout=timeout)
+            from .adapters import modbus_tcp
+            src = (modbus_tcp._SOURCE, 0) if modbus_tcp._SOURCE else None     # config network.source_address
+            s = socket.create_connection((host, port), timeout=timeout, source_address=src)
             s.close()
             row["tcp"] = "open"
         except OSError as exc:
@@ -513,7 +517,7 @@ def probe(targets: list[tuple[str, int, int]], address: int = 0, timeout: float 
             row["ms"] = round((time.perf_counter() - t0) * 1000, 1)
             rows.append(row)
             continue
-        c = ModbusTcpClient(host=host, port=port, timeout=timeout)
+        c = ModbusTcpClient(host=host, port=port, timeout=timeout, source_address=src)
         try:
             c.connect()
             t1 = time.perf_counter()

@@ -1790,7 +1790,8 @@ a.rcard:hover { border-color: var(--xc); }
     legend("lg-live", "c-live", ds, "kW");
     const lo = r.last_ok ? Date.parse(r.last_ok) : null;
     $("#liveNote").textContent = r.running
-      ? (r.backing_off ? `master not answering · last answer ${lo ? clockS(lo) : "—"}` : `master every ${fmt(r.every_s)} s · ${lo ? clockS(lo) : ""}`)
+      ? (r.backing_off ? (lo ? `master slow or not answering · last good answer ${clockS(lo)}` : "master slow or not answering")
+                       : (lo ? `master every ${fmt(r.every_s)} s · ${clockS(lo)}` : `master every ${fmt(r.every_s)} s`))
       : `from the site read · every ${everyText(r.site_every_s)}`;
     const L = Object.values(r.links || {});
     $("#p-mlinks").hidden = !L.length;

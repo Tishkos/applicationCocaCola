@@ -97,6 +97,14 @@ def _decode(regs: list[int], kind: str, scale: float, word_order: str) -> float 
     return struct.unpack(fmt, packed)[0] * scale
 
 
+class Refused(RuntimeError):
+    """The device answered, with a Modbus exception (2 address, 6 busy, ...): the link itself is fine."""
+
+    def __init__(self, text: str, code):
+        super().__init__(text)
+        self.code = code
+
+
 def _size(kind: str) -> int:
     return 2 if "32" in kind else 1
 
@@ -114,6 +122,8 @@ class ModbusTcpAdapter(Adapter):
         self._blocks = self._plan_blocks(device.points)
         self.last_ok_blocks = 0                 # statistics of the last read(), for the trace
         self.last_failed_blocks = 0
+        self.last_io_failed = 0                 # of those: no answer at all (timeout, no connection, broken link)
+        self.last_busy = 0                      # of those: answered "busy" (exception 6)
         self.last_ms = 0.0
         self.last_wait_ms = 0.0
 
@@ -232,7 +242,7 @@ class ModbusTcpAdapter(Adapter):
                     derived.append(p)
                 else:
                     out[p.id] = reading(p, None, Quality.BAD, "no register mapping", now)
-        ok_blocks = failed_blocks = 0
+        ok_blocks = failed_blocks = io_failed = busy = 0
         no_link = False                     # the device could not be connected: do not try again for every block
         queue = list(self._blocks)
         while queue:
@@ -246,7 +256,9 @@ class ModbusTcpAdapter(Adapter):
                         no_link = True
                         raise ConnectionError(f"no connection to {self.device.connection.get('host')}")
                 rr = call(address=start + self.address_offset, count=count, device_id=self.unit_id)
-                if rr is None or rr.isError():
+                if rr is None:
+                    raise TimeoutError("no response")
+                if rr.isError():
                     code = getattr(rr, "exception_code", None)
                     runs = self._split_runs(fn, pts)
                     if code in (2, 3, 4) and len(runs) > 1:
@@ -258,11 +270,15 @@ class ModbusTcpAdapter(Adapter):
                         log.info("%s: block %d+%d refused (exception %s); reading it as %d contiguous blocks from now on",
                                  self.device.id, start, count, code, len(runs))
                         continue
-                    raise RuntimeError(str(rr))
+                    raise Refused(str(rr), code)
                 regs = [int(b) for b in rr.bits[:count]] if fn in ("coil", "discrete") else rr.registers   # a coil is a 0/1 "register"
                 ok_blocks += 1
             except Exception as exc:
                 failed_blocks += 1
+                if isinstance(exc, Refused):
+                    busy += 1 if exc.code == 6 else 0
+                else:
+                    io_failed += 1
                 for p in pts:
                     out[p.id] = reading(p, None, Quality.BAD, f"modbus: {exc}", now)
                 continue
@@ -286,6 +302,7 @@ class ModbusTcpAdapter(Adapter):
                 except Exception as exc:
                     out[p.id] = reading(p, None, Quality.BAD, f"decode: {exc}", now)
         self.last_ok_blocks, self.last_failed_blocks = ok_blocks, failed_blocks
+        self.last_io_failed, self.last_busy = io_failed, busy
         for p in derived:
             if p.raw.get("derived") == "comm_error":   # the device answered nothing this poll
                 if not self._blocks:                    # nothing mapped yet: nothing was asked, so unknown

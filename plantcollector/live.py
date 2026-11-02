@@ -34,8 +34,6 @@ from datetime import datetime, timedelta, timezone
 
 from .registry import Quality
 
-STATE_UNITS = ("",)          # an integer point without a unit is a state or a counter: stored when it changes
-
 
 class LiveReader:
     def __init__(self, collector, cfg: dict):
@@ -60,10 +58,22 @@ class LiveReader:
         self.back_off = {d for d in (cfg.get("back_off") or []) if d in reg.devices}
         self.guard_window_s = float(cfg.get("guard_window_s", 15))
         self.guard_count = int(cfg.get("guard_count", 2))
+        self.guard_period_s = float(cfg.get("guard_period_s", 86400))      # the hits must fall within a day ...
+        self.guard_share = float(cfg.get("guard_share", 0.5))              # ... and be at least half of that link's fails
         self.back_off_s = int(cfg.get("back_off_s", 3600))
+        # a few readings in a row before "no data" / "data restored" is written (a 2 s blip is not an event)
+        self.comms_debounce = max(1, int(cfg.get("comms_debounce", 3)))
+        self.state_gap_s = 10.0                                  # an on/off signal or state: stored at most every 10 s
+        # states: on/off signals and unit-less words without a scale (mode, breaker state, CAN mask ...)
+        self.state_points = {d: {p.id for p in reg.devices[d].points
+                                 if p.type == "boolean" or (p.unit == "" and "scale" not in p.raw and "derived" not in p.raw)}
+                             for d in self.device_ids}
         self._persisted: dict[tuple[str, str], tuple] = {}       # (device, point) -> (value, quality, monotonic time)
         self._link_state: dict[str, tuple[bool, float]] = {}    # point -> (failing, since epoch)
-        self._near_misses: dict[str, int] = {}
+        self._near_misses: dict[str, list[float]] = {}          # device -> times the master lost it right after our read
+        self._edges: dict[str, list[float]] = {}                # device -> times the master lost it at all
+        self._bad_run = {d: 0 for d in self.device_ids}
+        self._ok_run = {d: 0 for d in self.device_ids}
         self.history: deque = deque(maxlen=int(900 / self.every_s) + 5)   # the last 15 min for the live chart
         self.stop = threading.Event()
         self.thread: threading.Thread | None = None
@@ -87,7 +97,7 @@ class LiveReader:
                 "requests_per_cycle": self.requests_per_cycle(),
                 "cycles": self.cycles, "last_ok": self.last_ok_at.isoformat() if self.last_ok_at else None,
                 "last_ms": self.last_ms, "backing_off": self.failures_in_row > 0,
-                "links": {pid: {"name": name, "failing": self._link_state.get(pid, (False, 0))[0],
+                "links": {pid: {"name": name, "failing": self._link_state.get(pid, (None, 0))[0],
                                 "since": datetime.fromtimestamp(self._link_state[pid][1], timezone.utc).isoformat()
                                 if pid in self._link_state and self._link_state[pid][1] else None}
                           for pid, (name, _d) in self.links.items()}}
@@ -113,31 +123,44 @@ class LiveReader:
             self.failures_in_row = 0 if ok else min(self.failures_in_row + 1, 6)
             wait = self.every_s * (2 ** self.failures_in_row) if self.failures_in_row else self.every_s
             wait = min(60.0, wait)
-            self.stop.wait(max(0.2, wait - (time.monotonic() - t0)))
+            elapsed = time.monotonic() - t0
+            # a slow master gets more rest, not less: never busy with it more than half of the time
+            self.stop.wait(max(0.2, wait - elapsed, min(elapsed, 60.0)))
 
     # ------------------------------------------------------------------ one cycle
     def cycle(self) -> bool:
-        """Read every live device once. Returns True when at least one block answered."""
+        """Read every live device once. Returns True when the cycle was healthy: something answered, nothing
+        timed out and nothing said "busy" (a block the device refuses for its address is not a reason to slow
+        down: it answers at once). Anything else counts towards the back-off."""
         from .adapters import reading
-        any_ok = False
+        healthy, any_ok = True, False
         t0 = time.perf_counter()
         for did in self.device_ids:
             ad = self.c.adapters[did]
             dev = self.c.registry.devices[did]
             try:
                 rows = ad.read()
+                failed = getattr(ad, "last_failed_blocks", 0)
+                ok_blocks = getattr(ad, "last_ok_blocks", 0 if failed else 1)
+                io_failed, busy = getattr(ad, "last_io_failed", failed), getattr(ad, "last_busy", 0)
             except Exception as exc:
                 rows = {p.id: reading(p, None, Quality.BAD, f"read failed: {exc}") for p in dev.points}
-            failed = getattr(ad, "last_failed_blocks", 0)
-            ok_blocks = getattr(ad, "last_ok_blocks", 0 if failed else 1)
-            if failed:                                        # a fresh connection next time: no late answer is ever
-                try:                                          # taken for the answer to the next request
+                failed, ok_blocks, io_failed, busy = 1, 0, 1, 0
+            if io_failed:                                     # no answer: a fresh connection next time, so a late answer
+                try:                                          # is never taken for the answer to the next request
                     ad.close()
                 except Exception:
                     pass
             any_ok = any_ok or ok_blocks > 0
+            healthy = healthy and ok_blocks > 0 and not io_failed and not busy
             self.c.store.ingest(did, rows, persist=self._to_store(did, rows))
-            self.c._health(did, rows)
+            all_bad = ok_blocks == 0 and failed > 0
+            self._bad_run[did] = self._bad_run[did] + 1 if all_bad else 0
+            self._ok_run[did] = 0 if all_bad else self._ok_run[did] + 1
+            lost = did in self.c._comms_lost
+            if (all_bad and self._bad_run[did] >= self.comms_debounce) or \
+                    (not all_bad and (not lost or self._ok_run[did] >= self.comms_debounce)):
+                self.c._health(did, rows)                     # comms lost / restored only after a few readings in a row
             self._watch_links(did, rows)
         self.last_ms = round((time.perf_counter() - t0) * 1000, 1)
         self._pace()
@@ -147,7 +170,7 @@ class LiveReader:
         if any_ok:
             self.last_ok_at = now
         self.history.append(self.c.live_point())
-        return any_ok
+        return healthy
 
     def requests_per_cycle(self) -> int:
         return sum(len(getattr(self.c.adapters[d], "_blocks", [])) or 1 for d in self.device_ids)
@@ -169,11 +192,13 @@ class LiveReader:
             key = (did, pid)
             last = self._persisted.get(key)
             v = r.value
-            state = isinstance(v, bool) or (isinstance(v, int) and r.unit in STATE_UNITS)
-            if last is None or last[1] != r.quality:
+            state = pid in self.state_points.get(did, ())
+            if last is None:
                 due = True
+            elif last[1] != r.quality:                        # a flapping link is stored at most once a minute
+                due = t - last[2] >= self.store_every_s
             elif state:
-                due = v != last[0] or t - last[2] >= self.idle_store_s
+                due = (v != last[0] and t - last[2] >= self.state_gap_s) or t - last[2] >= self.idle_store_s
             else:
                 due = (t - last[2] >= self.store_every_s and v != last[0]) or t - last[2] >= self.idle_store_s
             if due:
@@ -202,8 +227,11 @@ class LiveReader:
                 if after is not None:
                     msg += f", {after[1]:.0f} s after this program read {after[0]}"
                 self.c.store.event("master_link", msg, device_id=did, severity="warning", code="MASTER_LINK_FAIL")
+                for d in devs:
+                    self._edges.setdefault(d, []).append(now)
                 if after is not None:
-                    self._near_miss(after[0], name)
+                    self._near_misses.setdefault(after[0], []).append(now)
+                    self._judge(after[0], name, now)
             elif was and not r.value:
                 self._link_state[pid] = (False, 0.0)
                 self.c.store.event("master_link", f"{did}: {name} comm back on the master after {now - since:.0f} s",
@@ -226,12 +254,20 @@ class LiveReader:
         own = next((d for d in devs if endpoint(reg.devices[d]) == endpoint(reg.devices[best[0]])), best[0])
         return own, best[1]
 
-    def _near_miss(self, did: str, name: str) -> None:
-        n = self._near_misses[did] = self._near_misses.get(did, 0) + 1
-        if did in self.back_off and n >= self.guard_count and self.c.device_every_s(did) < self.back_off_s:
+    def _judge(self, did: str, name: str, now: float) -> None:
+        """Slow `did` down only when the master lost it right after our read at least guard_count times within
+        guard_period_s AND those were at least guard_share of all the times it lost it: a link that drops every
+        minute for its own reasons falls after our read now and then by chance, and must not be blamed on us."""
+        cut = now - self.guard_period_s
+        hits = self._near_misses[did] = [x for x in self._near_misses.get(did, []) if x >= cut]
+        edges = self._edges[did] = [x for x in self._edges.get(did, []) if x >= cut]
+        if did not in self.back_off or self.c.device_every_s(did) >= self.back_off_s:
+            return
+        if len(hits) >= self.guard_count and len(hits) >= self.guard_share * max(1, len(edges)):
             self.c.slow_down(did, self.back_off_s,
-                             f"{did}: the master lost {name} right after this program read it, {n} times; "
-                             f"{did} is read only every {self.back_off_s // 60} min from now on")
+                             f"{did}: the master lost {name} right after this program read it, {len(hits)} of "
+                             f"{len(edges)} times in the last {self.guard_period_s / 3600:g} h; {did} is read only every "
+                             f"{self.back_off_s // 60} min from now on")
 
 
 def endpoint(dev) -> tuple[str, int]:

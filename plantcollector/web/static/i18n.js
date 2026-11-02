@@ -29,6 +29,7 @@
     ["Last 15 minutes · live", "آخر 15 دقيقة · مباشر", "دوایین 15 خولەک · ڕاستەوخۆ", "Son 15 dakika · canlı"],
     ["Devices the master reads", "الأجهزة التي يقرؤها المتحكم الرئيسي", "ئەو ئامێرانەی کۆنترۆڵەری سەرەکی دەیانخوێنێتەوە", "Ana kontrolörün okuduğu cihazlar"],
     ["COMM FAIL", "انقطاع الاتصال", "پەیوەندی پچڕاوە", "İLETİŞİM HATASI"], ["Read", "القراءة", "خوێندنەوە", "Okuma"],
+    ["master slow or not answering", "المتحكم الرئيسي بطيء أو لا يستجيب", "کۆنترۆڵەری سەرەکی خاوە یان وەڵام ناداتەوە", "ana kontrolör yavaş veya yanıt vermiyor"],
     ["Reading the master…", "جارٍ قراءة المتحكم الرئيسي…", "خوێندنەوەی کۆنترۆڵەری سەرەکی…", "Ana kontrolör okunuyor…"], ["No values yet.", "لا توجد قيم بعد.", "هێشتا هیچ بەهایەک نییە.", "Henüz değer yok."],
     ["What feeds the plant, second by second: solar, gensets and grid stacked, the site load as a dashed line. From the master controller, which already knows every source, so nothing extra is asked of the SAU or the incomers. The Turkey feed does not follow these values; it changes at the site read.",
      "ما يغذي المحطة ثانية بثانية: الطاقة الشمسية والمولدات والشبكة مكدسة، وحمل الموقع خط متقطع. من المتحكم الرئيسي الذي يعرف كل مصدر، فلا يُطلب شيء إضافي من SAU أو المغذيات. تغذية تركيا لا تتبع هذه القيم؛ تتغير عند قراءة الموقع.",
@@ -371,7 +372,8 @@
     [/^live · master every ([\d.,]+) s · site read (\d\d:\d\d:\d\d), every ([\d.,]+) (s|min|h)$/, (m) => { const u = UNITS[m[4]];
       return [`مباشر · المتحكم الرئيسي كل ${m[1]} ث · قراءة الموقع ${m[2]}، كل ${m[3]} ${u[0]}`, `ڕاستەوخۆ · کۆنترۆڵەری سەرەکی هەر ${m[1]} چرکە · خوێندنەوەی وێستگە ${m[2]}، هەر ${m[3]} ${u[1]}`, `canlı · ana kontrolör her ${m[1]} sn · tesis okuması ${m[2]}, her ${m[3]} ${u[2]}`]; }],
     [/^master every ([\d.,]+) s · (\d\d:\d\d:\d\d)$/, (m) => [`المتحكم الرئيسي كل ${m[1]} ث · ${m[2]}`, `کۆنترۆڵەری سەرەکی هەر ${m[1]} چرکە · ${m[2]}`, `ana kontrolör her ${m[1]} sn · ${m[2]}`]],
-    [/^master not answering · last answer (.+)$/, (m) => [`المتحكم الرئيسي لا يستجيب · آخر استجابة ${m[1]}`, `کۆنترۆڵەری سەرەکی وەڵام ناداتەوە · دوایین وەڵام ${m[1]}`, `ana kontrolör yanıt vermiyor · son yanıt ${m[1]}`]],
+    [/^master slow or not answering · last good answer (.+)$/, (m) => [`المتحكم الرئيسي بطيء أو لا يستجيب · آخر استجابة سليمة ${m[1]}`, `کۆنترۆڵەری سەرەکی خاوە یان وەڵام ناداتەوە · دوایین وەڵامی باش ${m[1]}`, `ana kontrolör yavaş veya yanıt vermiyor · son iyi yanıt ${m[1]}`]],
+    [/^master every ([\d.,]+) s$/, (m) => [`المتحكم الرئيسي كل ${m[1]} ث`, `کۆنترۆڵەری سەرەکی هەر ${m[1]} چرکە`, `ana kontrolör her ${m[1]} sn`]],
     [/^from the site read · every ([\d.,]+) (s|min|h)$/, (m) => { const u = UNITS[m[2]]; return [`من قراءة الموقع · كل ${m[1]} ${u[0]}`, `لە خوێندنەوەی وێستگەوە · هەر ${m[1]} ${u[1]}`, `tesis okumasından · her ${m[1]} ${u[2]}`]; }],
     [/^COMM FAIL since (\d\d:\d\d:\d\d)$/, (m) => [`انقطاع الاتصال منذ ${m[1]}`, `پەیوەندی پچڕاوە لە ${m[1]}ەوە`, `${m[1]} itibarıyla iletişim hatası`]],
     [/^(\d\d:\d\d) · ([\d.,]+) (s|min|h) ago$/, (m) => { const u = UNITS[m[3]]; return [`${m[1]} · قبل ${m[2]} ${u[0]}`, `${m[1]} · ${m[2]} ${u[1]} لەمەوبەر`, `${m[1]} · ${m[2]} ${u[2]} önce`]; }],
