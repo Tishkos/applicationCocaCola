@@ -41,15 +41,19 @@ class TelemetryStore:
         self._db.commit()
         self._latest: dict[str, dict[str, Reading]] = {}
 
-    def ingest(self, device_id: str, readings: dict[str, Reading]) -> None:
+    def ingest(self, device_id: str, readings: dict[str, Reading], persist: dict[str, Reading] | None = None) -> None:
+        """Make `readings` the latest values and write them to the database. With `persist`, only those
+        readings are written (the live reader keeps every value in memory but stores a few)."""
         with self._lock:
             self._latest.setdefault(device_id, {}).update(readings)
             rows = []
-            for r in readings.values():
+            for r in (readings if persist is None else persist).values():
                 num = r.value if isinstance(r.value, (int, float)) and not isinstance(r.value, bool) else (
                     1.0 if r.value is True else 0.0 if r.value is False else None)
                 txt = None if num is not None or r.value is None else str(r.value)
                 rows.append((r.source_ts.isoformat(), device_id, r.point_id, num, txt, r.quality.value, r.error))
+            if not rows:
+                return
             self._db.executemany("INSERT INTO readings VALUES (?,?,?,?,?,?,?)", rows)
             if not self._bulk:
                 self._db.commit()
@@ -88,7 +92,8 @@ class TelemetryStore:
         return con.execute(sql, args).fetchall()
 
     def latest(self, device_id: str) -> dict[str, Reading]:
-        return dict(self._latest.get(device_id, {}))
+        with self._lock:                    # the live reader updates these while API threads read them
+            return dict(self._latest.get(device_id, {}))
 
     def value(self, device_id: str, point_id: str):
         r = self._latest.get(device_id, {}).get(point_id)

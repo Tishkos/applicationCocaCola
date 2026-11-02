@@ -13,6 +13,16 @@ site:
 simulation:
   model: real_plant                   # grid outages, genset rotation, PV curtailment, SAU stalls, inverter trips
 
+# The names of the master's comm-fail bits, for the dashboard's "Devices the master reads" panel (the demo has
+# no live reader: its values come at every demo step).
+live:
+  links:
+    ecu1_comm_fail: [MAIN 1 (IM210 G2), main-01]
+    ecu2_comm_fail: [PV logger group 1, pv-array]
+    ecu3_comm_fail: [PV logger group 2, pv-array]
+    ecu4_comm_fail: [MAIN 2 (IM210 G2), main-02]
+    ecu5_comm_fail: [MAIN 3 (IM210 G2), main-03]
+
 devices:
   - {id: neo-01,   profile: intelineo_master.yaml, adapter: simulator, connection: {}}
   - {id: inv-01,   profile: inverter_sineng.yaml,  adapter: simulator, connection: {}}

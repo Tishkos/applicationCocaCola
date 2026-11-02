@@ -63,7 +63,9 @@ def series_specs(reg: Registry) -> dict[str, tuple[str, list[tuple[str, str]]]]:
     specs["pv_available_kw"] = ("sum", having("pv", "available_kw"))
     specs["irradiance_wm2"] = ("avg", having("pv", "irradiance_wm2"))
     specs["genset_kw"] = ("sum", having("genset", "power_kw"))
-    specs["mains_kw"] = ("sum", having("grid", "power_kw") or having(None, "mains_power_kw"))
+    # grid import: the site master's Mains Import P when there is one (read live, and the value its own
+    # site load uses), else the incomers added up
+    specs["mains_kw"] = ("sum", having(None, "mains_power_kw") or having("grid", "power_kw"))
     specs["grid_available"] = ("avg", having("grid", "available") or having(None, "mains_available"))
     specs["bess_kw"] = ("sum", having("bess", "power_kw"))
     specs["soc_pct"] = ("avg", having("bess", "soc_pct"))
@@ -161,7 +163,7 @@ def device_comms(c: Collector, did: str) -> str:
         if r.quality == Quality.STALE:
             return "stale"
         p = dev.point(r.point_id)
-        allowed = max(p.max_age_ms / 1000 if p else 300, 2 * c.registry.site.poll_interval_s + 60)
+        allowed = max(p.max_age_ms / 1000 if p else 300, 2 * c.device_every_s(did) + 60)
         if r.quality == Quality.GOOD and (now - r.source_ts).total_seconds() > allowed:
             return "stale"
     return "ok"
@@ -214,6 +216,7 @@ def summary(c: Collector) -> dict:
         devices.append({
             "id": d.id, "kind": d.kind, "vendor": d.vendor, "model": d.model, "adapter": d.adapter,
             "profile_status": d.profile_status, "comms": device_comms(c, d.id),
+            "every_s": c.device_every_s(d.id), "live": c.live is not None and d.id in c.live.device_ids,
             "points": {pid: {"v": r.value, "q": r.quality.value, "unit": r.unit, "ts": r.source_ts.isoformat(),
                              "err": r.error} for pid, r in rows.items()},
         })
@@ -228,6 +231,7 @@ def summary(c: Collector) -> dict:
                       "rows": st.count(), "first_sample": st.first_ts(), "config": os.path.basename(c.config_path),
                       "database": c.db_path},
         "kpi": kpi,
+        "live": c.live.status() if c.live is not None else {"enabled": False, "running": False},
         "active_faults": [f"{i['code']}:{i['device']}" for i in c.active_issues()],
         "devices": devices,
     }
@@ -267,14 +271,19 @@ def load_tag_catalog(path: str | None = None) -> list[dict]:
 
 
 def catalog_values(c: Collector, catalog: list[dict]) -> list[dict]:
+    """The Turkey tags as the Turkey feed shows them: the values of the last site read (every 10 minutes),
+    the same as in their Modbus registers - never the live reader's newer values."""
+    from .publish import turkey_quality
     out = []
+    now = c.now()
+    latest = {d: c.turkey_latest(d) for d in {t.get("device") for t in catalog} if d in c.registry.devices}
     for t in catalog:
         did, pid = t.get("device"), t.get("point")
-        r = c.store.latest(did).get(pid) if did in c.registry.devices else None
+        r = latest[did].get(pid) if did in latest else None
         out.append({
             "name": t["name"], "device": did, "point": pid, "type": t.get("type", "float"), "unit": t.get("unit", ""),
             "value": None if r is None else r.value,
-            "quality": "bad" if r is None else r.quality.value,
+            "quality": "bad" if r is None else turkey_quality(c, r, now).value,
             "ts": None if r is None else r.source_ts.isoformat(),
             "mapped": did in c.registry.devices and bool(c.registry.devices[did].point(pid)),
         })
@@ -290,3 +299,29 @@ def parse_range(frm: str | None, to: str | None, hours: float | None, now: datet
     if since >= until:
         since = until - timedelta(hours=1)
     return since, until
+
+
+# --- the live view: what feeds the plant now, and the last 15 minutes ------------------------------
+
+def live_view(c: Collector, minutes: float = 15.0) -> dict:
+    """Small and cheap, for a refresh every 2 s: the four power figures now, the last `minutes` of them,
+    and the master's view of its links (from the live reader; in the demo from the site reads)."""
+    from .live import history_since
+    hist = history_since(c.live, c, minutes) if c.live is not None else \
+        [p for p in list(c._sim_history) if p[0] >= (c.now() - timedelta(minutes=minutes)).timestamp() * 1000]
+    now = c.live_point()
+    st = c.live.status() if c.live is not None else {"enabled": False, "running": False}
+    if c.live is None:          # no live reader (the demo, or live off): the master's link bits from the site read
+        links = {}
+        for pid, v in ((c.registry.extra.get("live") or {}).get("links") or {}).items():
+            name = v[0] if isinstance(v, (list, tuple)) and v else str(v)
+            dev = next((d for d in c.registry.devices.values() if d.point(pid)), None)
+            val = c.store.value(dev.id, pid) if dev else None
+            links[pid] = {"name": str(name), "failing": None if val is None else bool(val), "since": None}
+        st["links"] = links
+    return {"time": c.now().isoformat(), "every_s": c.live.every_s if c.live is not None else c.poll_interval_s,
+            "running": st.get("running", False), "last_ok": st.get("last_ok"), "backing_off": st.get("backing_off", False),
+            "columns": ["t", "load_kw", "pv_kw", "genset_kw", "mains_kw"], "now": now, "history": hist,
+            "links": st.get("links", {}), "site_read": c.last_poll_at.isoformat() if c.last_poll_at else None,
+            "site_every_s": c.poll_interval_s}
+

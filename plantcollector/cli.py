@@ -99,6 +99,13 @@ def cmd_run(a) -> int:
     stop = threading.Event()
     t = threading.Thread(target=run_loop, args=(c, forced, stop), daemon=True, name="poller")
     t.start()
+    # the live reader: the master every few seconds for the dashboard (never for the Turkey feed)
+    if c.start_live():
+        lv = c.live
+        print(f"[collector] live: {', '.join(lv.device_ids)} every {lv.every_s:g} s on one kept connection "
+              f"(dashboard only; the Turkey feed changes at the site read, every {c.poll_interval_s:.0f} s)")
+    for did, s in sorted(c.every_override.items()):
+        print(f"[collector] {did} is read every {s // 60} min (slower than the site read)")
     # Modbus publisher for the Turkey platform: its port must stay what we told them, so if it
     # cannot start (port taken, VPN address not up yet) it is retried every minute, not moved.
     publisher = None

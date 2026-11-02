@@ -22,8 +22,44 @@ site:
   name: "Erbil Coca-Cola hybrid plant"
   timezone: Asia/Baghdad
   fuel_price_per_l: 0.85            # TODO local diesel price
-  poll_interval_s: 600              # every 10 minutes. The dashboard's Settings page offers 10 min / 30 min / 1 h / 2 h and
-                                    # saves its choice in data\settings.json, which overrides this value.
+  poll_interval_s: 600              # the SITE READ: every device once, then the Turkey feed - every 10 minutes. The
+                                    # dashboard's Settings page offers 10 min / 30 min / 1 h / 2 h and saves its choice
+                                    # in data\settings.json, which overrides this value.
+
+# --- LIVE: the master controller every 2 s, for the dashboard only ------------------------------------------
+# The InteliNeo already knows what feeds the plant (gensets P over CAN, mains import P, PV actual P from its own
+# reads of the SAU, breakers, mode, which genset is on the bus), so the dashboard is live without one extra
+# request to the SAU or the InteliMains. One kept connection, 3 requests per cycle (at most 2 requests a second:
+# if the controller makes us read in smaller pieces, the live rate slows down by itself). It backs off up to a
+# minute when the master does not answer. The Turkey feed does NOT follow the live values: its registers and
+# /api/v1/tags change only at the site read. Numbers go to the database once a minute, on/off signals and
+# states when they change (and every value at least every 5 min). `enabled: false` = everything at the site
+# read, as before.
+live:
+  enabled: true
+  devices: [neo-01]
+  every_s: 2
+  max_requests_per_s: 2
+  store_every_s: 60
+  # The master's own comm-fail bits for the devices it reads (ECU order from the Values export, to verify at the
+  # next alarm): every fail and its end go to the event log, with "N s after this program read <device>" when it
+  # follows one of our reads. A device in back_off that the master loses right after our read twice is read
+  # only hourly from then on (kept in data\settings.json under slowed_devices; delete that entry to undo).
+  links:
+    ecu1_comm_fail: [MAIN 1 (IM210 G2), main-01]
+    ecu2_comm_fail: [PV logger group 1, pv-array]
+    ecu3_comm_fail: [PV logger group 2, pv-array]
+    ecu4_comm_fail: [MAIN 2 (IM210 G2), main-02]
+    ecu5_comm_fail: [MAIN 3 (IM210 G2), main-03]
+  back_off: [main-01, main-02, main-03]
+
+# Devices read less often than the site read (seconds). Empty: all at the site read.
+slow: {}
+
+# This PC's own address on the plant cable, when the PC also has a Wi-Fi or a 4G router in the same 192.168.0.x
+# range (Windows would then send the plant's traffic out through the Wi-Fi and every device would look dead).
+# network:
+#   source_address: 192.168.0.50
 
 devices:
   # --- ComAp master: gensets total, mains, PV total, breakers, alarms --------------------------

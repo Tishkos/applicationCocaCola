@@ -143,6 +143,32 @@ How it behaves:
 
 Changing the poll rate: the dashboard's **Settings** page (10 min / 30 min / 1 h / 2 h, never more often, saved in `data\settings.json`), or `poll_interval_s` in `config\site.plant.yaml`. "Read devices now" in the top bar reads everything once, at any time.
 
+### Live dashboard, gentle on the devices (`live:` in `config\site.plant.yaml`)
+
+| What | How often | Why |
+|---|---|---|
+| **Site read** - every device, then the **Turkey feed** (Modbus registers, `/api/v1/tags`, the tag files) | every 10 min | what Turkey was told; their values change only here |
+| **InteliNeo master** | every 2 s, one kept connection, 3 requests | it already knows gensets P (CAN), mains import P, PV actual P, breakers, mode, which genset is on the bus: the dashboard is live without one extra request to the SAU or the InteliMains |
+| SAU + 10 inverters, pv-array | at the site read (10 min), 0.2 s between devices | no load on the SAU |
+| InteliMains MAIN 1-3 | at the site read (10 min) | see the guard below |
+
+- The live reader never refreshes the Turkey feed. It never asks the master more than `max_requests_per_s` (2): if the
+  controller makes us read in smaller blocks, the live rate slows down by itself. When the master does not answer it
+  backs off (2, 4, 8 ... 60 s). After a failed request the connection is opened fresh, so a late answer is never taken
+  for the answer to the next request.
+- The database gets the master's numbers once a minute and its on/off signals and states when they change (every value
+  at least every 5 min): about 100,000 rows a day instead of 4 million.
+- **The master's own comm-fail bits** (ECU 1-5: MAIN 1-3 and the two PV logger groups) are shown live in "Devices the
+  master reads" and every fail and its end goes to Alarms & events, with "N s after this program read <device>" when it
+  came right after one of our reads. A device in `back_off` (the InteliMains) that the master loses right after our read
+  twice is read only hourly from then on (`slowed_devices` in `data\settings.json`; delete that entry to undo).
+- New on the dashboard: "Last 15 minutes · live" under the single-line diagram, "Devices the master reads" in the master
+  row, and how often each device is read (row titles and device cards). The overview, the diagram, the gensets and the
+  master refresh every 3 s while the master is read live.
+- `live: {enabled: false}` puts everything back at the site read, as before.
+- A PC with Wi-Fi or a 4G router in the same 192.168.0.x range as the plant cable: set `network: {source_address:
+  <the PC's cable address>}`, or Windows sends the plant's traffic out through the Wi-Fi and every device looks dead.
+
 ## QS Collector, SAU watch: SESSION.bat (passive: no load on the SAU)
 
 Runs until its window is closed (and starts again by itself if it ever crashes). A live page opens in the

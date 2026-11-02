@@ -280,6 +280,9 @@ tr.sel { background: rgba(110,159,255,.1); }
 .dev .hd .kind { color: var(--text-3); font-size: calc(11px * var(--zoom)); text-transform: uppercase; letter-spacing: .4px; }
 .dev .hd .chip { margin-inline-start: auto; }
 .dev .model { color: var(--text-3); font-size: calc(11.5px * var(--zoom)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dev .model.rate { font-size: calc(11px * var(--zoom)); margin-top: -2px; }
+.rh .sub.rate { opacity: .8; }
+.rh .sub.rate:empty { display: none; }
 .dev dl { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; margin: 0; font-size: calc(12px * var(--zoom)); }
 .dev dt { color: var(--text-2); } .dev dd { margin: 0; text-align: right; font-family: var(--mono); }
 .dev dd.bad { color: var(--text-3); } .dev dd.stale { color: var(--warn); }
@@ -903,6 +906,11 @@ a.rcard:hover { border-color: var(--xc); }
             <div class="ph"><h3>Single-line diagram</h3><span class="info" title="The plant's LV busbar with every incomer, the load, the solar feeder and the gensets. Green = live (voltage present), grey = dead. A breaker is drawn closed or open as its controller reports it. The arrows move in the direction the power flows; faster = more power."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" id="flowTime"></span><div class="seg sldmode" role="group" aria-label="Diagram detail"><button type="button" data-sld="simple">Simple</button><button type="button" data-sld="detail">Detailed</button></div></div>
             <div class="pb" style="padding:0 8px 8px"><svg class="sld" id="flow" viewBox="0 0 1600 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Single-line diagram of the plant"></svg></div>
           </div>
+          <div class="panel w24" data-src="live" id="p-live">
+            <div class="ph"><h3>Last 15 minutes · live</h3><span class="info" title="What feeds the plant, second by second: solar, gensets and grid stacked, the site load as a dashed line. From the master controller, which already knows every source, so nothing extra is asked of the SAU or the incomers. The Turkey feed does not follow these values; it changes at the site read."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" id="liveNote"></span></div>
+            <div class="pb"><div class="chart"><canvas id="c-live"></canvas></div></div>
+            <div class="legend" id="lg-live"></div>
+          </div>
         </div>
       </section>
 
@@ -955,7 +963,7 @@ a.rcard:hover { border-color: var(--xc); }
 
       <!-- ========================================================== gensets -->
       <section class="row" id="gensets" hidden>
-        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Gensets</h2><span class="sub" id="genSub"></span><span class="upd" data-upd="summary"></span></button>
+        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Gensets</h2><span class="sub" id="genSub"></span><span class="sub rate" id="genRate"></span><span class="upd" data-upd="summary"></span></button>
         <div class="grid">
           <div class="panel w24" data-src="summary">
             <div class="ph"><h3 id="genTilesTitle">Gensets now</h3><span class="info" title="Click a genset for all its values and a trend."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span></div>
@@ -992,7 +1000,7 @@ a.rcard:hover { border-color: var(--xc); }
 
       <!-- ========================================================== master controller -->
       <section class="row" id="master" hidden>
-        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2 id="masterTitle">Master controller</h2><span class="sub" id="masterSub"></span><span class="upd" data-upd="summary"></span></button>
+        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2 id="masterTitle">Master controller</h2><span class="sub" id="masterSub"></span><span class="sub rate" id="masterRate"></span><span class="upd" data-upd="summary"></span></button>
         <div class="grid">
           <div class="panel w4" data-src="summary"><div class="ph"><h3>Mode</h3></div><div class="pb" id="m-mode"></div></div>
           <div class="panel w6" data-src="summary"><div class="ph"><h3>Breaker state</h3></div><div class="pb" id="m-brk"></div></div>
@@ -1001,12 +1009,13 @@ a.rcard:hover { border-color: var(--xc); }
           <div class="panel stat w5" data-src="summary" id="m-hours"></div>
           <div class="panel w12" data-src="summary"><div class="ph"><h3>Healthy signals</h3><span class="info" title="Green = as it should be."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span></div><div class="pb"><div class="sigs" id="m-ok"></div></div></div>
           <div class="panel w12" data-src="summary"><div class="ph"><h3>Alarm signals</h3><span class="info" title="Green = not active. Red = active now."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span></div><div class="pb"><div class="sigs" id="m-al"></div></div></div>
+          <div class="panel w24" data-src="live" id="p-mlinks" hidden><div class="ph"><h3>Devices the master reads</h3><span class="info" title="The master's own comm-fail signal for each device it reads over the network, live. Red = the master is not getting that device's data right now. Every fail and its end is written in Alarms &amp; events, with the time of this program's last read of that device when it came just before."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" data-upd="live"></span></div><div class="pb"><div class="sigs" id="m-links"></div></div></div>
         </div>
       </section>
 
       <!-- ========================================================== solar -->
       <section class="row" id="solar" hidden>
-        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Solar PV</h2><span class="sub" id="pvSub"></span><span class="upd" data-upd="summary"></span></button>
+        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Solar PV</h2><span class="sub" id="pvSub"></span><span class="sub rate" id="pvRate"></span><span class="upd" data-upd="summary"></span></button>
         <div class="grid">
           <div class="panel stat w4" data-src="summary" id="s-link"></div>
           <div class="panel stat w4" data-src="summary" id="s-work"></div>
@@ -1046,7 +1055,7 @@ a.rcard:hover { border-color: var(--xc); }
 
       <!-- ========================================================== mains -->
       <section class="row" id="mains" hidden>
-        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Mains &amp; grid</h2><span class="sub" id="mainsSub"></span><span class="upd" data-upd="summary"></span></button>
+        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Mains &amp; grid</h2><span class="sub" id="mainsSub"></span><span class="sub rate" id="mainsRate"></span><span class="upd" data-upd="summary"></span></button>
         <div class="grid">
           <div class="panel w24" data-src="summary"><div class="ph"><h3 id="mainsTilesTitle">Incomers now</h3></div><div class="pb"><div class="gens" id="mainsTiles"></div></div></div>
           <div class="panel w12" data-src="series">
@@ -1543,7 +1552,7 @@ a.rcard:hover { border-color: var(--xc); }
   const bigBox = (text, color) => `<div class="big" style="background:linear-gradient(135deg, ${color}cc, ${color})">${esc(text)}</div>`;
 
   // ================================================================== nav, theme, size, range, rows, kiosk
-  function redrawCharts() { flowKey = null; Object.values(charts).forEach((c) => c.destroy()); charts = {}; renderSeries(); renderHourly(); renderEvents(); if (summary) renderAll(); }
+  function redrawCharts() { flowKey = null; Object.values(charts).forEach((c) => c.destroy()); charts = {}; renderSeries(); renderHourly(); renderEvents(); if (summary) renderAll(); renderLive(); }
   $("#themeBtn").addEventListener("click", () => {
     const btn = $("#themeBtn"), next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
     const go = () => { document.documentElement.dataset.theme = next; save("pc.theme", next); redrawCharts(); };
@@ -1750,7 +1759,55 @@ a.rcard:hover { border-color: var(--xc); }
   const sv = (k) => (S && S[k]) || [];
   const hasS = (k) => sv(k).some((v) => v !== null);
 
+  // ================================================================== live (the master every few seconds)
+  // /api/v1/local/live: what feeds the plant now and the last 15 minutes, from the live reader. Small, so it
+  // can be asked every 2 s. Without a live reader (the demo, or live off) it comes from the site reads.
+  let liveData = null, liveTimer = null;
+  const isLive = () => !!(summary && summary.live && summary.live.running);
+  const clockS = (ms) => `${hm(ms)}:${p2(parts(ms).s)}`;
+  async function loadLive() {
+    let r; try { r = await getJSON("/api/v1/local/live"); } catch (e) { mark("live", false); return; }
+    liveData = r; mark("live", true); renderLive();
+  }
+  function liveTick() {
+    clearTimeout(liveTimer);
+    const next = () => { liveTimer = setTimeout(liveTick, document.hidden ? 15000 : isLive() ? Math.max(1000, (summary.live.every_s || 2) * 1000) : 30000); };
+    loadLive().finally(next);
+  }
+  function renderLive() {
+    const r = liveData; if (!r) return;
+    const now = Date.parse(r.time), range = [now - 15 * 60e3, now], H = r.history || [];
+    const has = (i) => H.some((p) => p[i] !== null);
+    const pts = (i, f) => H.map((p) => ({ x: p[0], y: p[i] === null ? null : f ? f(p[i]) : p[i] }));
+    const ds = [], pos = (v) => Math.max(0, v);
+    const push = (label, i, color, group) => { if (has(i)) ds.push({ label, data: pts(i, pos), borderColor: color, backgroundColor: color + "59", fill: ds.length ? "-1" : "origin", stack: "src", borderWidth: 1.2, pointRadius: 0, group }); };
+    push("Solar", 2, C("--c-pv")); push("Gensets", 3, C("--c-gen")); push("Grid import", 4, C("--c-grid"), "Grid");
+    if (has(1)) ds.push({ label: "Site load", data: pts(1), borderColor: C("--c-load"), backgroundColor: C("--c-load"), stack: "load", borderWidth: 2, borderDash: [6, 4], pointRadius: 0 });
+    const o = baseOptions("kW", range, { y: { stacked: true, min: 0, suggestedMax: 10 } });
+    o.animation = false;
+    upsert("c-live", ds, o);
+    nodataIn("c-live", !ds.length, r.running ? "Reading the master…" : "No values yet.");
+    legend("lg-live", "c-live", ds, "kW");
+    const lo = r.last_ok ? Date.parse(r.last_ok) : null;
+    $("#liveNote").textContent = r.running
+      ? (r.backing_off ? `master not answering · last answer ${lo ? clockS(lo) : "—"}` : `master every ${fmt(r.every_s)} s · ${lo ? clockS(lo) : ""}`)
+      : `from the site read · every ${everyText(r.site_every_s)}`;
+    const L = Object.values(r.links || {});
+    $("#p-mlinks").hidden = !L.length;
+    if (L.length) redraw($("#m-links"), L.map((x) => {
+      const since = x.since ? Date.parse(x.since) : null, unknown = x.failing === null || x.failing === undefined || (r.running && r.backing_off);
+      return sig(x.name, unknown ? "idle" : x.failing ? "bad" : "ok", unknown ? "—" : x.failing ? (since ? `COMM FAIL since ${clockS(since)}` : "COMM FAIL") : "OK");
+    }).join(""));
+  }
+  // how often a device is read, in words: "live, every 2 s", "every 10 min", "every 1 h"
+  const rateOf = (d) => !d || !isNum(d.every_s) ? "" : d.live && isLive() ? `live, every ${fmt(d.every_s)} s` : `every ${everyText(d.every_s)}`;
+
   // ================================================================== summary
+  let summaryTimer = null;
+  function summaryTick() {
+    clearTimeout(summaryTimer);
+    loadSummary().finally(() => { summaryTimer = setTimeout(summaryTick, !document.hidden && isLive() ? 3000 : 10000); });
+  }
   async function loadSummary() {
     try { summary = await getJSON("/api/v1/local/summary"); }
     catch (e) {
@@ -1773,9 +1830,14 @@ a.rcard:hover { border-color: var(--xc); }
     const lr = Date.parse(summary.collector.last_poll || summary.time), pi = summary.poll_interval_s;
     $("#clock").textContent = stamp(Date.parse(summary.time));
     const ago = Math.max(0, Math.round((Date.now() - lr) / 1000));
-    $("#liveSub").textContent = `last read ${hm(lr)}:${p2(parts(lr).s)}` + (ago < 3600 ? ` · ${ago < 60 ? ago + " s" : Math.floor(ago / 60) + " min"} ago` : "");
     const every = pi >= 3600 ? (pi / 3600) + " h" : pi >= 60 ? (pi / 60) + " min" : pi + " s";
     const nx = summary.collector.next_poll ? Math.max(0, Math.round((new Date(summary.collector.next_poll) - new Date(summary.time)) / 60000)) : null;
+    if (isLive()) {        // the master every few seconds; the rest (and the Turkey feed) at the site read
+      $("#liveSub").textContent = `master every ${fmt(summary.live.every_s)} s · site read ${hm(lr)}`;
+      $("#flowTime").textContent = `live · master every ${fmt(summary.live.every_s)} s · site read ${hm(lr)}:${p2(parts(lr).s)}, every ${every}`;
+      return;
+    }
+    $("#liveSub").textContent = `last read ${hm(lr)}:${p2(parts(lr).s)}` + (ago < 3600 ? ` · ${ago < 60 ? ago + " s" : Math.floor(ago / 60) + " min"} ago` : "");
     $("#flowTime").textContent = `last read ${hm(lr)}:${p2(parts(lr).s)} · every ${every}` + (nx !== null && pi >= 120 ? ` · next in ${nx < 1 ? "<1" : nx} min` : "");
   }
   function renderAll() {
@@ -2047,6 +2109,7 @@ a.rcard:hover { border-color: var(--xc); }
     showSec("gensets", show); if (!show) return;
     const k = summary.kpi;
     $("#genSub").textContent = k.gensets_total ? `${k.gensets_running} of ${k.gensets_total} running · ${fmt(k.genset_kw)} kW` : "";
+    $("#genRate").textContent = M.master && rateOf(M.master) ? `read ${rateOf(M.master)}` : M.units.length && rateOf(M.units[0]) ? `read ${rateOf(M.units[0])}` : "";
     let tiles = "";
     if (M.master) {
       const m = M.master, mask = pt(m, "can_present_mask");
@@ -2105,6 +2168,7 @@ a.rcard:hover { border-color: var(--xc); }
     showSec("master", !!m); if (!m) return;
     $("#masterTitle").textContent = `Master controller · ${m.id}`;
     $("#masterSub").textContent = `${m.vendor} ${m.model}`;
+    $("#masterRate").textContent = rateOf(m) ? `read ${rateOf(m)}` : "";
     const box = (el, map, v) => { const x = isNum(v) ? map[v] || [String(v), "#464c54"] : ["—", "#464c54"]; redraw(el, bigBox(x[0], x[1])); };
     box($("#m-mode"), MODE, pt(m, "controller_mode")); box($("#m-brk"), BRK, pt(m, "breaker_state")); box($("#m-eth"), ETH, pt(m, "eth_status"));
     const bv = pt(m, "battery_v");
@@ -2121,6 +2185,7 @@ a.rcard:hover { border-color: var(--xc); }
     const k = summary.kpi, arr = M.arrays.find((d) => has(d, "inverters_total")) || M.arrays[0] || null, inv = M.inverters;
     const avail = M.pv.some((d) => isNum(pt(d, "available_kw"))) ? M.pv.reduce((a, d) => a + (isNum(pt(d, "available_kw")) ? pt(d, "available_kw") : 0), 0) : null;
     $("#pvSub").textContent = `${fmt(k.pv_kw)} kW now · ${fmt(k.pv_kwh_today)} kWh today` + (inv.length ? ` · ${inv.length} inverters` : "");
+    $("#pvRate").textContent = inv.length && rateOf(inv[0]) ? `inverters read ${rateOf(inv[0])}` : "";
     // link / status tile
     if (arr && has(arr, "comm_error")) {
       const bad = arr.comms !== "ok" || on(pt(arr, "comm_error"));
@@ -2177,6 +2242,7 @@ a.rcard:hover { border-color: var(--xc); }
     const show = M.grids.length > 0 || M.bess.length > 0; showSec("mains", show); if (!show) return;
     const k = summary.kpi;
     $("#mainsSub").textContent = k.grid_available === false ? "grid OFF" : k.grid_available ? `grid on · ${fmt(k.mains_kw)} kW` : "";
+    $("#mainsRate").textContent = M.grids.length && rateOf(M.grids[0]) ? `incomers read ${rateOf(M.grids[0])}` : "";
     $("#mainsTilesTitle").textContent = M.grids.length > 1 ? `Mains incomers (${M.grids.length})` : "Grid connection";
     redraw($("#mainsTiles"), M.grids.map((d) => {
       const av = pt(d, "available"), lost = d.comms !== "ok" && d.comms !== "reading", p = pt(d, "power_kw");
@@ -2184,7 +2250,7 @@ a.rcard:hover { border-color: var(--xc); }
       return `<div class="gen ${lost ? "lost" : on(av) ? "run" : "alarm"}" data-dev="${esc(d.id)}" tabindex="0" role="button">
         <div class="hd"><b>${esc(d.id.replace(/^main-0?/, "MAIN "))}</b><span class="chip ${lost ? "warn" : on(av) ? "info" : "bad"}">${lost ? "no data" : on(av) ? "breaker closed" : "breaker open"}</span></div>
         <div class="kw" style="color:${css("--c-grid")}">${fmt(p)}<small>kW import</small></div>
-        <dl>${row("Load", pt(d, "load_p_kw"), "kW")}${row("Power factor", pt(d, "mains_pf"), "", 2)}${row("Voltage", pt(d, "voltage_v"), "V")}${row("Frequency", pt(d, "frequency_hz"), "Hz", 2)}${row("Imported total", pt(d, "energy_import_kwh"), "kWh")}${row("Controller battery", pt(d, "battery_v"), "V", 1)}</dl></div>`;
+        <dl>${(() => { const at = d.points.power_kw && d.points.power_kw.ts ? Date.parse(d.points.power_kw.ts) : null; return at ? `<dt>Read</dt><dd>${hm(at)} · ${ago(Math.max(0, Math.round((Date.parse(summary.time) - at) / 1000)))} ago</dd>` : ""; })()}${row("Load", pt(d, "load_p_kw"), "kW")}${row("Power factor", pt(d, "mains_pf"), "", 2)}${row("Voltage", pt(d, "voltage_v"), "V")}${row("Frequency", pt(d, "frequency_hz"), "Hz", 2)}${row("Imported total", pt(d, "energy_import_kwh"), "kWh")}${row("Controller battery", pt(d, "battery_v"), "V", 1)}</dl></div>`;
     }).join("") + M.bess.map((d) => `<div class="gen run" data-dev="${esc(d.id)}" tabindex="0" role="button"><div class="hd"><b>${esc(d.id)}</b><span class="chip info">battery</span></div>
         <div class="kw" style="color:${css("--c-bess")}">${fmt(pt(d, "soc_pct"))}<small>% charged</small></div><div class="tank"><i style="width:${pt(d, "soc_pct") || 0}%;background:${css("--c-bess")}"></i></div>
         <dl><dt>Power</dt><dd>${fmt(pt(d, "power_kw"))} kW</dd></dl></div>`).join(""), "data-dev");
@@ -2217,7 +2283,7 @@ a.rcard:hover { border-color: var(--xc); }
         return `<dt>${l}</dt><dd class="${p.q === "good" ? "" : p.q}">${p.q === "bad" ? "n/a" : fmt(p.v, typeof p.v === "number" && !Number.isInteger(p.v) ? 1 : 0)}${p.q === "bad" || !p.unit ? "" : " " + p.unit}</dd>`;
       }).join("");
       return `<div class="dev" data-src="summary" data-dev="${esc(d.id)}" tabindex="0" role="button" aria-label="${esc(d.id)}: all values and trend"><div class="hd"><b>${esc(d.id)}</b><span class="kind">${d.kind}</span><span class="chip ${commsCls(d.comms)}">${comms(d.comms)}</span></div>
-        <div class="model" title="${esc(d.vendor + " " + d.model)}">${esc(d.vendor)} ${esc(d.model)}</div><dl>${rows}</dl></div>`;
+        <div class="model" title="${esc(d.vendor + " " + d.model)}">${esc(d.vendor)} ${esc(d.model)}</div>${rateOf(d) ? `<div class="model rate">${esc(rateOf(d))}</div>` : ""}<dl>${rows}</dl></div>`;
     }).join(""), "data-dev");
   }
   function renderActive(list) {
@@ -3229,8 +3295,10 @@ a.rcard:hover { border-color: var(--xc); }
   withSpin("summary", loadSummary()).then(() => Promise.allSettled([withSpin("series", loadSeries()), withSpin("hourly", loadHourly())]))
     .finally(() => { spin("series", false); spin("hourly", false); });
   withSpin("alarms", loadAlarms()); withSpin("points", loadPoints());
+  summaryTimer = setTimeout(summaryTick, 3000);     // then every 3 s while the master is read live, else every 10 s
+  liveTick();
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) { summaryTick(); liveTick(); } });
   setInterval(loadHourly, 300000);
-  setInterval(loadSummary, 10000);
   setInterval(loadSettings, 60000);
   setInterval(loadSeries, 60000);
   setInterval(loadAlarms, 30000);

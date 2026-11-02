@@ -63,6 +63,17 @@ def build_map(catalog: list[dict]) -> list[dict]:
     return out
 
 
+def turkey_quality(c: Collector, r, now: datetime | None = None) -> Quality:
+    """Quality as docs/TURKEY_MODBUS.md defines it: good, stale when older than two read intervals, bad."""
+    if r is None:
+        return Quality.BAD
+    if r.quality == Quality.GOOD:
+        now = now or c.now()
+        if (now - r.source_ts).total_seconds() > 2 * float(c.poll_interval_s) + 60:
+            return Quality.STALE
+    return r.quality
+
+
 def _f32(v: float) -> tuple[int, int]:
     hi, lo = struct.unpack(">HH", struct.pack(">f", float(v)))
     return hi, lo
@@ -101,14 +112,16 @@ class ModbusPublisher:
     # --- the register image ---------------------------------------------------------------
 
     def refresh(self) -> None:
-        """Rebuild the register image from the collector's latest readings."""
+        """Rebuild the register image from the values of the last site read (never from the live reader's
+        newer values: the Turkey feed changes once per site read, every 10 minutes)."""
         img = [0] * BLOCK_SIZE
         now = self.c.now()
         last = self.c.last_poll_at
         good = 0
+        latest = {d: self.c.turkey_latest(d) for d in {m["device"] for m in self.map} if d in self.c.registry.devices}
         for m in self.map:
-            r = self.c.store.latest(m["device"]).get(m["point"]) if m["device"] in self.c.registry.devices else None
-            q = r.quality if r is not None else Quality.BAD
+            r = latest.get(m["device"], {}).get(m["point"]) if m["device"] in latest else None
+            q = turkey_quality(self.c, r, now)
             val = r.value if r is not None and q != Quality.BAD else None
             if val is not None and isinstance(val, (int, float, bool)):
                 self._last_good[m["index"]] = float(val)

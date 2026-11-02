@@ -70,6 +70,11 @@ def create_app(c: Collector) -> FastAPI:
                 "last_poll": c.last_poll_at.isoformat() if c.last_poll_at else None,
                 "devices": {d: views.device_comms(c, d) for d in c.registry.devices}}
 
+    @app.get("/api/v1/local/live")
+    def live(minutes: float = Query(15, gt=0, le=15)):
+        """What feeds the plant now and the last minutes of it, from the live reader (master every 2 s)."""
+        return views.live_view(c, minutes)
+
     @app.get("/api/v1/local/summary")
     def summary():
         return views.summary(c)

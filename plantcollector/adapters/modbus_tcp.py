@@ -42,6 +42,15 @@ MAX_BLOCK = 100
 _POOL: dict[tuple[str, int], ModbusTcpClient] = {}
 _POOL_LOCK = threading.RLock()
 _CONN_LOCKS: dict[tuple[str, int], threading.RLock] = {}     # one request at a time per connection, not per process
+_SOURCE: str | None = None          # the PC's own address on the plant network, when it has more than one
+
+
+def set_source_address(ip: str | None) -> None:
+    """Send every Modbus request from this local address (config `network.source_address`). Needed on a PC
+    whose Wi-Fi is in the same 192.168.0.x range as the plant cable: Windows would send the plant's
+    traffic out through the Wi-Fi. Only clients made after the call use it."""
+    global _SOURCE
+    _SOURCE = str(ip).strip() if ip else None
 
 
 def shared_client(host: str, port: int, timeout: float) -> ModbusTcpClient:
@@ -51,7 +60,8 @@ def shared_client(host: str, port: int, timeout: float) -> ModbusTcpClient:
             # retries=0: one request, one answer or one timeout. The library's default re-sends a timed-out
             # request three times, which quadruples our load on a stalled gateway at the worst moment and
             # hides the stall's real length.
-            _POOL[key] = ModbusTcpClient(host=host, port=port, timeout=timeout, retries=0)
+            _POOL[key] = ModbusTcpClient(host=host, port=port, timeout=timeout, retries=0,
+                                         source_address=(_SOURCE, 0) if _SOURCE else None)
             _CONN_LOCKS[key] = threading.RLock()
         return _POOL[key]
 
@@ -61,12 +71,16 @@ def connection_lock(host: str, port: int) -> threading.RLock:
         return _CONN_LOCKS.setdefault((host, port), threading.RLock())
 
 
-def close_all() -> None:
-    """Drop every connection; called by the collector after each poll."""
+def close_all(keep: set | frozenset = frozenset()) -> None:
+    """Drop every connection after a site read, except those in `keep` ((host, port): the live reader's one
+    kept connection to the master; opening and closing it every 2 s would cost the controller more)."""
     with _POOL_LOCK:
-        for c in _POOL.values():
+        for (host, port), c in _POOL.items():
+            if (host, port) in keep:
+                continue
             try:
-                c.close()
+                with _CONN_LOCKS[(host, port)]:    # never pull a connection away from a request in progress
+                    c.close()
             except Exception:
                 pass
 
@@ -219,6 +233,7 @@ class ModbusTcpAdapter(Adapter):
                 else:
                     out[p.id] = reading(p, None, Quality.BAD, "no register mapping", now)
         ok_blocks = failed_blocks = 0
+        no_link = False                     # the device could not be connected: do not try again for every block
         queue = list(self._blocks)
         while queue:
             block = queue.pop(0)
@@ -227,7 +242,9 @@ class ModbusTcpAdapter(Adapter):
                     "discrete": self._client.read_discrete_inputs}.get(fn, self._client.read_holding_registers)
             try:
                 if not self._client.connected:
-                    self._client.connect()
+                    if no_link or not self._client.connect():
+                        no_link = True
+                        raise ConnectionError(f"no connection to {self.device.connection.get('host')}")
                 rr = call(address=start + self.address_offset, count=count, device_id=self.unit_id)
                 if rr is None or rr.isError():
                     code = getattr(rr, "exception_code", None)

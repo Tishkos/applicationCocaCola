@@ -25,6 +25,19 @@
     ["Classic", "كلاسيكي", "کلاسیک", "Klasik"], ["Now pick the last day", "اختر الآن اليوم الأخير", "ئێستا دوایین ڕۆژ هەڵبژێرە", "Şimdi son günü seçin"],
     ["Check the times (for example 06:30).", "تحقق من الأوقات (مثلاً 06:30).", "کاتەکان بپشکنە (بۆ نموونە 06:30).", "Saatleri kontrol edin (örneğin 06:30)."],
     ["Classic is the standard sound. Click a sound to hear it and keep it. When alarms and warnings arrive together only the alarm sound plays.", "الصوت الكلاسيكي هو الافتراضي. انقر على صوت لسماعه واختياره. عند وصول إنذارات وتحذيرات معاً يُشغَّل صوت الإنذار فقط.", "کلاسیک دەنگی بنەڕەتییە. کرتە لە دەنگێک بکە بۆ بیستن و هەڵبژاردنی. کاتێک ئاگاداری و هۆشداری پێکەوە دێن تەنها دەنگی ئاگاداری لێدەدرێت.", "Klasik varsayılan sestir. Dinlemek ve seçmek için bir sese tıklayın. Alarm ve uyarı birlikte gelirse yalnızca alarm sesi çalar."],
+    // live reading
+    ["Last 15 minutes · live", "آخر 15 دقيقة · مباشر", "دوایین 15 خولەک · ڕاستەوخۆ", "Son 15 dakika · canlı"],
+    ["Devices the master reads", "الأجهزة التي يقرؤها المتحكم الرئيسي", "ئەو ئامێرانەی کۆنترۆڵەری سەرەکی دەیانخوێنێتەوە", "Ana kontrolörün okuduğu cihazlar"],
+    ["COMM FAIL", "انقطاع الاتصال", "پەیوەندی پچڕاوە", "İLETİŞİM HATASI"], ["Read", "القراءة", "خوێندنەوە", "Okuma"],
+    ["Reading the master…", "جارٍ قراءة المتحكم الرئيسي…", "خوێندنەوەی کۆنترۆڵەری سەرەکی…", "Ana kontrolör okunuyor…"], ["No values yet.", "لا توجد قيم بعد.", "هێشتا هیچ بەهایەک نییە.", "Henüz değer yok."],
+    ["What feeds the plant, second by second: solar, gensets and grid stacked, the site load as a dashed line. From the master controller, which already knows every source, so nothing extra is asked of the SAU or the incomers. The Turkey feed does not follow these values; it changes at the site read.",
+     "ما يغذي المحطة ثانية بثانية: الطاقة الشمسية والمولدات والشبكة مكدسة، وحمل الموقع خط متقطع. من المتحكم الرئيسي الذي يعرف كل مصدر، فلا يُطلب شيء إضافي من SAU أو المغذيات. تغذية تركيا لا تتبع هذه القيم؛ تتغير عند قراءة الموقع.",
+     "چی وێستگە دەداتەوە، چرکە بە چرکە: خۆر، مۆلیدەکان و گرید لەسەر یەک، لۆدی شوێن وەک هێڵی پچڕپچڕ. لە کۆنترۆڵەری سەرەکییەوە، کە هەموو سەرچاوەکان دەزانێت، بۆیە هیچ شتێکی زیاتر لە SAU یان هێڵە هاتووەکان داوا ناکرێت. داتای تورکیا شوێن ئەم بەهایانە ناکەوێت؛ لە خوێندنەوەی وێستگەدا دەگۆڕێت.",
+     "Santrali saniye saniye ne besliyor: güneş, jeneratörler ve şebeke üst üste, tesis yükü kesikli çizgi. Her kaynağı zaten bilen ana kontrolörden; SAU'dan veya girişlerden ek bir şey istenmez. Türkiye beslemesi bu değerleri izlemez; tesis okumasında değişir."],
+    ["The master's own comm-fail signal for each device it reads over the network, live. Red = the master is not getting that device's data right now. Every fail and its end is written in Alarms & events, with the time of this program's last read of that device when it came just before.",
+     "إشارة انقطاع الاتصال الخاصة بالمتحكم الرئيسي لكل جهاز يقرؤه عبر الشبكة، مباشرة. الأحمر = المتحكم لا يحصل على بيانات ذلك الجهاز الآن. كل انقطاع ونهايته يُسجَّل في الإنذارات والأحداث، مع وقت آخر قراءة لهذا البرنامج لذلك الجهاز إذا جاءت قبله مباشرة.",
+     "ئاماژەی پچڕانی پەیوەندیی خودی کۆنترۆڵەری سەرەکی بۆ هەر ئامێرێک کە لە ڕێگەی تۆڕەوە دەیخوێنێتەوە، ڕاستەوخۆ. سوور = کۆنترۆڵەرەکە ئێستا داتای ئەو ئامێرە وەرناگرێت. هەموو پچڕانێک و کۆتاییەکەی لە ئاگادارکردنەوە و ڕووداوەکاندا دەنووسرێت، لەگەڵ کاتی دوایین خوێندنەوەی ئەم بەرنامەیە بۆ ئەو ئامێرە ئەگەر پێش ئەوە هاتبێت.",
+     "Ana kontrolörün ağ üzerinden okuduğu her cihaz için kendi iletişim hatası sinyali, canlı. Kırmızı = ana kontrolör o cihazın verisini şu anda alamıyor. Her hata ve bitişi, hemen öncesinde geldiyse bu programın o cihazı son okuma zamanıyla birlikte Alarmlar ve olaylar'a yazılır."],
     // all the remaining screens: overview details, devices, export, settings, tooltips, events, day report
     ["ON", "يعمل", "هەیە", "AÇIK"],
     ["OFF", "متوقف", "نییە", "KAPALI"],
@@ -345,7 +358,23 @@
   };
   // Kurdish (Sorani) day names, Sunday first: the browsers do not all know them
   const KU_DAYS = ["یەکشەممە", "دووشەممە", "سێشەممە", "چوارشەممە", "پێنجشەممە", "هەینی", "شەممە"];
+  const UNITS = { s: ["ث", "چرکە", "sn"], min: ["د", "خولەک", "dk"], h: ["س", "کاتژمێر", "sa"] };
   const RX = [
+    // live reading (the master every few seconds) and how often each device is read
+    [/^read live, every ([\d.,]+) s$/, (m) => [`يُقرأ مباشرة، كل ${m[1]} ث`, `ڕاستەوخۆ دەخوێندرێتەوە، هەر ${m[1]} چرکە`, `canlı okunuyor, her ${m[1]} sn`]],
+    [/^live, every ([\d.,]+) s$/, (m) => [`مباشر، كل ${m[1]} ث`, `ڕاستەوخۆ، هەر ${m[1]} چرکە`, `canlı, her ${m[1]} sn`]],
+    [/^read every ([\d.,]+) (s|min|h)$/, (m) => { const u = UNITS[m[2]]; return [`يُقرأ كل ${m[1]} ${u[0]}`, `هەر ${m[1]} ${u[1]} دەخوێندرێتەوە`, `her ${m[1]} ${u[2]} okunuyor`]; }],
+    [/^every ([\d.,]+) (s|min|h)$/, (m) => { const u = UNITS[m[2]]; return [`كل ${m[1]} ${u[0]}`, `هەر ${m[1]} ${u[1]}`, `her ${m[1]} ${u[2]}`]; }],
+    [/^(inverters|incomers) read (live, every|every) ([\d.,]+) (s|min|h)$/, (m) => { const u = UNITS[m[4]], w = m[1] === "inverters" ? ["العواكس", "ئینڤێرتەرەکان", "eviriciler"] : ["المغذيات", "هێڵە هاتووەکان", "girişler"];
+      return [`${w[0]} تُقرأ كل ${m[3]} ${u[0]}`, `${w[1]} هەر ${m[3]} ${u[1]} دەخوێندرێنەوە`, `${w[2]} her ${m[3]} ${u[2]} okunuyor`]; }],
+    [/^master every ([\d.,]+) s · site read (\d\d:\d\d)$/, (m) => [`المتحكم الرئيسي كل ${m[1]} ث · قراءة الموقع ${m[2]}`, `کۆنترۆڵەری سەرەکی هەر ${m[1]} چرکە · خوێندنەوەی وێستگە ${m[2]}`, `ana kontrolör her ${m[1]} sn · tesis okuması ${m[2]}`]],
+    [/^live · master every ([\d.,]+) s · site read (\d\d:\d\d:\d\d), every ([\d.,]+) (s|min|h)$/, (m) => { const u = UNITS[m[4]];
+      return [`مباشر · المتحكم الرئيسي كل ${m[1]} ث · قراءة الموقع ${m[2]}، كل ${m[3]} ${u[0]}`, `ڕاستەوخۆ · کۆنترۆڵەری سەرەکی هەر ${m[1]} چرکە · خوێندنەوەی وێستگە ${m[2]}، هەر ${m[3]} ${u[1]}`, `canlı · ana kontrolör her ${m[1]} sn · tesis okuması ${m[2]}, her ${m[3]} ${u[2]}`]; }],
+    [/^master every ([\d.,]+) s · (\d\d:\d\d:\d\d)$/, (m) => [`المتحكم الرئيسي كل ${m[1]} ث · ${m[2]}`, `کۆنترۆڵەری سەرەکی هەر ${m[1]} چرکە · ${m[2]}`, `ana kontrolör her ${m[1]} sn · ${m[2]}`]],
+    [/^master not answering · last answer (.+)$/, (m) => [`المتحكم الرئيسي لا يستجيب · آخر استجابة ${m[1]}`, `کۆنترۆڵەری سەرەکی وەڵام ناداتەوە · دوایین وەڵام ${m[1]}`, `ana kontrolör yanıt vermiyor · son yanıt ${m[1]}`]],
+    [/^from the site read · every ([\d.,]+) (s|min|h)$/, (m) => { const u = UNITS[m[2]]; return [`من قراءة الموقع · كل ${m[1]} ${u[0]}`, `لە خوێندنەوەی وێستگەوە · هەر ${m[1]} ${u[1]}`, `tesis okumasından · her ${m[1]} ${u[2]}`]; }],
+    [/^COMM FAIL since (\d\d:\d\d:\d\d)$/, (m) => [`انقطاع الاتصال منذ ${m[1]}`, `پەیوەندی پچڕاوە لە ${m[1]}ەوە`, `${m[1]} itibarıyla iletişim hatası`]],
+    [/^(\d\d:\d\d) · ([\d.,]+) (s|min|h) ago$/, (m) => { const u = UNITS[m[3]]; return [`${m[1]} · قبل ${m[2]} ${u[0]}`, `${m[1]} · ${m[2]} ${u[1]} لەمەوبەر`, `${m[1]} · ${m[2]} ${u[2]} önce`]; }],
     [/^\((\d+) h (\d+) min\)$/, (m) => [`(${m[1]} س ${m[2]} د)`, `(${m[1]} کاتژمێر ${m[2]} خولەک)`, `(${m[1]} sa ${m[2]} dk)`]],
     [/^\((\d+) min\)$/, (m) => [`(${m[1]} دقيقة)`, `(${m[1]} خولەک)`, `(${m[1]} dk)`]],
     [/^(\d+) of (\d+)$/, (m) => [`${m[1]} من ${m[2]}`, `${m[1]} لە ${m[2]}`, `${m[2]} içinde ${m[1]}`]],

@@ -18,6 +18,7 @@ from .store import TelemetryStore
 
 POLL_MIN_S = 600                                    # never read the plant more often than this (10 min)
 POLL_OPTIONS_S = (600, 1800, 3600, 7200)            # what the dashboard offers: 10 min, 30 min, 1 h, 2 h
+SAME_HOST_PAUSE_S = 0.2                             # between two devices behind the same gateway in a site read
 
 
 class Collector:
@@ -54,16 +55,37 @@ class Collector:
             if saved.get("poll_interval_s") in POLL_OPTIONS_S:
                 self.registry.site.poll_interval_s = float(saved["poll_interval_s"])
                 self.settings_source = "settings.json"
+        # the PC's own plant address, when it has a second network in the same range (config network.source_address)
+        from .adapters import modbus_tcp
+        modbus_tcp.set_source_address((self.registry.extra.get("network") or {}).get("source_address"))
         self.adapters = {d.id: build_adapter(d, plant=self.plant) for d in self.registry.devices.values()}
         # adapters connect on their first read (a connect to an unreachable device blocks for its timeout)
         self._comms_lost: set[str] = set()
         self._alarm_on: set[str] = set()
         self._grid_off: set[str] = set()
         self._poll_lock = threading.RLock()
-        self.after_poll: list = []               # callbacks run after every poll (the Modbus publisher refreshes here)
+        self.after_poll: list = []               # callbacks run after every site read (the Modbus publisher refreshes here)
         self.started_at = datetime.now(timezone.utc)
         self.polls = 0
         self.last_poll_at: datetime | None = None
+        # what the Turkey feed shows: the values as they were at the end of the last site read. The live reader
+        # updates the master's values every few seconds for the dashboard; Turkey sees them change only here.
+        self.site_snapshot: dict[str, dict] | None = None
+        self.read_times: dict[str, float] = {}   # device -> epoch of this program's last read of it (the live guard)
+        self._last_read_mono: dict[str, float] = {}
+        # devices read less often than the site read: config `slow: {device: seconds}`, plus the ones the live
+        # guard slowed down (remembered in settings.json)
+        self.every_override: dict[str, int] = {}
+        for did, s in ((self.registry.extra.get("slow") or {}) if not self.simulated else {}).items():
+            if did in self.registry.devices and int(s) > 0:
+                self.every_override[did] = int(s)
+        if not self.simulated:
+            for did, s in (self._load_settings().get("slowed_devices") or {}).items():
+                if did in self.registry.devices and int(s) > 0:
+                    self.every_override[did] = max(int(s), self.every_override.get(did, 0))
+        self.live = None                         # the live reader (plantcollector.live), started by `run`
+        from collections import deque
+        self._sim_history: deque = deque(maxlen=200)       # the demo's live chart (no live reader there)
         if self.simulated and seed_hours > 0:
             self.poll()
             self._seed_demo(seed_hours)
@@ -126,36 +148,113 @@ class Collector:
         self.store.event("settings", f"poll interval set to {seconds} s", severity="info", code="SETTINGS")
 
     def close(self) -> None:
+        if self.live is not None:
+            self.live.close()
         for a in self.adapters.values():
             try:
                 a.close()
             except Exception:
                 pass
 
+    # --- read rates -------------------------------------------------------------------
+
+    def device_every_s(self, did: str) -> float:
+        """How often this program reads the device: the live interval, a slower one, or the site read's."""
+        if self.live is not None and did in self.live.device_ids:
+            return self.live.every_s
+        return float(self.every_override.get(did, self.poll_interval_s))
+
+    def slow_down(self, did: str, seconds: int, why: str) -> None:
+        """Read `did` only every `seconds` from now on, and remember it (the live guard calls this)."""
+        self.every_override[did] = int(seconds)
+        if not self.simulated:
+            data = self._load_settings()
+            data.setdefault("slowed_devices", {})[did] = int(seconds)
+            data["slowed_at"] = datetime.now(timezone.utc).isoformat()
+            tmp = self.settings_path + ".tmp"
+            with open(tmp, "w") as f:
+                json.dump(data, f, indent=2)
+            os.replace(tmp, self.settings_path)
+        self.store.event("read_rate", why, device_id=did, severity="warning", code="READ_SLOWED")
+
+    def start_live(self) -> bool:
+        """Start the live reader when the config asks for it (real plant only; the demo has its own clock)."""
+        cfg = self.registry.extra.get("live") or {}
+        if self.simulated or not cfg.get("enabled") or self.live is not None:
+            return False
+        from .live import LiveReader
+        r = LiveReader(self, cfg)
+        if not r.device_ids:
+            return False
+        self.live = r
+        r.start()
+        return True
+
+    def turkey_latest(self, did: str) -> dict:
+        """The device's values as the Turkey feed shows them: those of the last site read."""
+        snap = self.site_snapshot
+        return dict(snap.get(did, {})) if snap is not None else self.store.latest(did)
+
+    def live_point(self) -> list:
+        """[epoch ms, load, solar, gensets, grid] now, for the live chart."""
+        from .views import series_specs
+        specs = series_specs(self.registry)
+        out = [int(self.now().timestamp() * 1000)]
+        for key in ("load_kw", "pv_kw", "genset_kw", "mains_kw"):
+            xs = [self.store.value(d, p) for d, p in specs.get(key, ("sum", []))[1]]
+            xs = [float(x) for x in xs if isinstance(x, (int, float)) and not isinstance(x, bool)]
+            out.append(round(sum(xs), 1) if xs else None)
+        return out
+
     # --- polling ----------------------------------------------------------------------
 
     def poll(self) -> None:
-        """Read every device once. Safe to call from the API thread while the loop runs."""
+        """The site read: every device once (the live reader's devices excepted while it runs, and the slow
+        ones only when due), then the Turkey feed. Safe to call from the API thread while the loop runs."""
         with self._poll_lock:
             self._poll()
 
+    def _due(self, did: str, now_mono: float) -> bool:
+        every = self.every_override.get(did)
+        if not every:
+            return True
+        last = self._last_read_mono.get(did)
+        return last is None or now_mono - last >= every - 5          # 5 s grace: the site read itself takes time
+
     def _poll(self) -> None:
+        live = self.live if (self.live is not None and self.live.running) else None
+        now_mono = time.monotonic()
+        prev_host = None
         for did, ad in self.adapters.items():
+            if live is not None and did in live.device_ids:
+                continue                         # read every few seconds by the live reader; its values are current
+            if not self._due(did, now_mono):
+                continue                         # a slow device: its last values stay until it is due
+            conn = self.registry.devices[did].connection
+            host = (conn.get("host"), conn.get("port", 502)) if conn.get("host") else None
+            if host and host == prev_host and not self.simulated:
+                time.sleep(SAME_HOST_PAUSE_S)    # the ten inverters sit behind one gateway: no burst of requests
+            prev_host = host
             try:
                 rows = ad.read()
             except Exception as exc:
                 d = self.registry.devices[did]
                 from .adapters import reading
                 rows = {p.id: reading(p, None, Quality.BAD, f"read failed: {exc}") for p in d.points}
+            self.read_times[did] = time.time()
+            self._last_read_mono[did] = time.monotonic()
             self.store.ingest(did, rows)
             self._health(did, rows)
         try:                                     # free the gateway's connection slots between polls
             from .adapters.modbus_tcp import close_all
-            close_all()
+            close_all(keep=self.live.endpoints if self.live is not None else frozenset())   # the live one stays open
         except Exception:
             pass
+        self.site_snapshot = {did: self.store.latest(did) for did in self.registry.devices}
         self.polls += 1
         self.last_poll_at = datetime.now(timezone.utc)
+        if self.live is None:
+            self._sim_history.append(self.live_point())
         for fn in list(self.after_poll):
             try:
                 fn()
@@ -249,9 +348,10 @@ class Collector:
                           "l_per_kwh": round(litres / kwh, 3) if kwh > 1 else None}
             gen_kwh += kwh
             fuel += litres
-        grid_kwh = sum(st.integrate_kwh(g.id, "power_kw", start, end) for g in reg.by_kind("grid"))
-        if not reg.by_kind("grid"):
-            grid_kwh = sum(st.integrate_kwh(d.id, "mains_power_kw", start, end) for d in reg.devices.values() if d.point("mains_power_kw"))
+        # grid: the site master's Mains Import P when there is one (as the dashboard), else the incomers
+        master_mains = [d for d in reg.devices.values() if d.point("mains_power_kw")]
+        grid_kwh = (sum(st.integrate_kwh(d.id, "mains_power_kw", start, end) for d in master_mains) if master_mains else
+                    sum(st.integrate_kwh(g.id, "power_kw", start, end) for g in reg.by_kind("grid")))
         grid_hours = 0.0
         for d in reg.devices.values():               # several devices see the same grid: the longest, not the sum
             pid = "available" if d.kind == "grid" else ("mains_available" if d.point("mains_available") else None)
