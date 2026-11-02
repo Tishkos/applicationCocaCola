@@ -63,7 +63,11 @@ class LiveReader:
         self.back_off_s = int(cfg.get("back_off_s", 3600))
         # a few readings in a row before "no data" / "data restored" is written (a 2 s blip is not an event)
         self.comms_debounce = max(1, int(cfg.get("comms_debounce", 3)))
-        self.state_gap_s = 10.0                                  # an on/off signal or state: stored at most every 10 s
+        # an on/off signal or a state is stored the moment it changes; only a signal that changes more than
+        # state_burst times a minute (a flapping bit) is held to one row every state_gap_s
+        self.state_gap_s = 10.0
+        self.state_burst = 6
+        self._state_rows: dict[tuple[str, str], deque] = {}
         # states: on/off signals and unit-less words without a scale (mode, breaker state, CAN mask ...)
         self.state_points = {d: {p.id for p in reg.devices[d].points
                                  if p.type == "boolean" or (p.unit == "" and "scale" not in p.raw and "derived" not in p.raw)}
@@ -198,12 +202,16 @@ class LiveReader:
             elif last[1] != r.quality:                        # a flapping link is stored at most once a minute
                 due = t - last[2] >= self.store_every_s
             elif state:
-                due = (v != last[0] and t - last[2] >= self.state_gap_s) or t - last[2] >= self.idle_store_s
+                recent = self._state_rows.setdefault(key, deque(maxlen=self.state_burst))
+                calm = len(recent) < self.state_burst or t - recent[0] >= 60
+                due = (v != last[0] and (calm or t - last[2] >= self.state_gap_s)) or t - last[2] >= self.idle_store_s
             else:
                 due = (t - last[2] >= self.store_every_s and v != last[0]) or t - last[2] >= self.idle_store_s
             if due:
                 keep[pid] = r
                 self._persisted[key] = (v, r.quality, t)
+                if state:
+                    self._state_rows.setdefault(key, deque(maxlen=self.state_burst)).append(t)
         return keep
 
     # ------------------------------------------------------------------ the master's comm-fail bits
@@ -227,8 +235,9 @@ class LiveReader:
                 if after is not None:
                     msg += f", {after[1]:.0f} s after this program read {after[0]}"
                 self.c.store.event("master_link", msg, device_id=did, severity="warning", code="MASTER_LINK_FAIL")
-                for d in devs:
-                    self._edges.setdefault(d, []).append(now)
+                cut = now - self.guard_period_s
+                for d in devs:                                # every fail of the link, the last day only
+                    self._edges[d] = [x for x in self._edges.get(d, []) if x >= cut] + [now]
                 if after is not None:
                     self._near_misses.setdefault(after[0], []).append(now)
                     self._judge(after[0], name, now)

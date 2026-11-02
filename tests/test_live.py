@@ -376,6 +376,31 @@ def test_states_are_stored_when_they_change(tmp_path, hosts):
         c.close()
 
 
+def test_a_short_state_change_right_after_the_start_is_kept(tmp_path, hosts):
+    neo, sau, mains = hosts
+    neo.set(NEO_UNIT, 1192, 3)
+    c = plant(tmp_path, neo, sau, mains)
+    try:
+        c.start_live()
+        wait_cycles(c, 1)
+        neo.set(NEO_UNIT, 1192, 7)                    # a 2-cycle fault a few seconds after the first stored row
+        wait_cycles(c, 2)
+        neo.set(NEO_UNIT, 1192, 3)
+        wait_cycles(c, 2)
+        vals = [v for (v,) in c.store._read("SELECT value FROM readings WHERE device_id='neo-01' AND point_id='breaker_state' ORDER BY ts")]
+        assert vals == [3.0, 7.0, 3.0]                # stored the moment it changed, both ways
+        lv = c.live
+        key = ("neo-01", "breaker_state")
+        for i in range(10):                           # a bit that flaps every cycle is held to one row every 10 s
+            neo.set(NEO_UNIT, 1192, 7 if i % 2 == 0 else 3)
+            wait_cycles(c, 1)
+        n = c.store._read("SELECT COUNT(*) FROM readings WHERE device_id='neo-01' AND point_id='breaker_state'")[0][0]
+        assert n <= 3 + lv.state_burst + 2
+        assert len(lv._state_rows[key]) <= lv.state_burst
+    finally:
+        c.close()
+
+
 def test_the_guard_does_not_blame_us_for_a_link_that_drops_on_its_own(tmp_path, hosts):
     neo, sau, mains = hosts
     c = plant(tmp_path, neo, sau, mains)

@@ -264,13 +264,15 @@ class Collector:
             if host and host == prev_host and not self.simulated:
                 time.sleep(SAME_HOST_PAUSE_S)    # the ten inverters sit behind one gateway: no burst of requests
             prev_host = host
+            answered = True
             try:
                 rows = ad.read()
             except Exception as exc:
+                answered = False
                 d = self.registry.devices[did]
                 from .adapters import reading
                 rows = {p.id: reading(p, None, Quality.BAD, f"read failed: {exc}") for p in d.points}
-            if getattr(ad, "last_ok_blocks", 1) > 0:   # the guard counts only reads the device answered
+            if answered and getattr(ad, "last_ok_blocks", 1) > 0:   # the guard counts only reads the device answered
                 self.read_times[did] = time.time()
             self._last_read_mono[did] = time.monotonic()
             self.store.ingest(did, rows)
