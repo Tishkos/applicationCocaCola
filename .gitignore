@@ -1,0 +1,17 @@
+.venv/
+data/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.sqlite
+*.jsonl
+.env
+data-demo/
+bundles-demo/
+
+# plant and client material: kept on this PC, not published
+docs/site/
+docs/turkey/
+docs/changes/
+*.log
+*.zip

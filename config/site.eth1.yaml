@@ -1,0 +1,80 @@
+# LAPTOP ON THE SAU's SECOND PORT (ETH1) - Erbil Coca-Cola hybrid plant.
+# For a PC cabled to the SAU's ETH1 (192.168.1.x, e.g. the laptop at 192.168.1.50), which cannot reach
+# the ComAp network (192.168.0.x). Use it by copying this file over config\site.plant.yaml on that PC.
+#
+# NOT IN USE since 21 Oct 2026: ETH1 is unplugged, the SAU is only at 192.168.0.128 (use site.plant.yaml).
+# What it reads: the ten inverters and the PV array through the SAU's ETH1 address 192.168.1.123,
+# once an hour, read-only. What it cannot read from there: the InteliNeo master and the three mains
+# (192.168.0.x), so the plant-level Turkey tags that come from them stay "bad" on this PC, and the
+# measuring session (SESSION.bat) has no master to read: run that on the ComAp PC instead.
+#
+site:
+  site_id: erbil-cc-01
+  name: "Erbil Coca-Cola hybrid plant"
+  timezone: Asia/Baghdad
+  fuel_price_per_l: 0.85            # TODO local diesel price
+  poll_interval_s: 3600             # once an hour. The dashboard's Settings page offers 30 min / 1 h / 2 h and
+                                    # saves its choice in data\settings.json, which overrides this value.
+
+devices:
+  # --- ComAp master: NOT reachable from the SAU's ETH1 network (192.168.0.112 is on 192.168.0.x) ---------
+  # - id: neo-01 ... (see site.plant.yaml)
+
+  # --- Sineng inverters through the SAU-100 -------------------------------------------------------
+  # Unit ids = the SAU's TCP device ids from Sineng's TCP protocol document (sheet Explain):
+  # winding 1 INV#1-5 = 3-7, winding 2 INV#1-5 = 8-12. Registers in profiles/inverter_sineng.yaml.
+  - {id: inv-01, profile: inverter_sineng.yaml, adapter: modbus_tcp, connection: {host: 192.168.1.123, port: 502, unit_id: 3,  timeout: 5}}
+  - {id: inv-02, profile: inverter_sineng.yaml, adapter: modbus_tcp, connection: {host: 192.168.1.123, port: 502, unit_id: 4,  timeout: 5}}
+  - {id: inv-03, profile: inverter_sineng.yaml, adapter: modbus_tcp, connection: {host: 192.168.1.123, port: 502, unit_id: 5,  timeout: 5}}
+  - {id: inv-04, profile: inverter_sineng.yaml, adapter: modbus_tcp, connection: {host: 192.168.1.123, port: 502, unit_id: 6,  timeout: 5}}
+  - {id: inv-05, profile: inverter_sineng.yaml, adapter: modbus_tcp, connection: {host: 192.168.1.123, port: 502, unit_id: 7,  timeout: 5}}
+  - {id: inv-06, profile: inverter_sineng.yaml, adapter: modbus_tcp, connection: {host: 192.168.1.123, port: 502, unit_id: 8,  timeout: 5}}
+  - {id: inv-07, profile: inverter_sineng.yaml, adapter: modbus_tcp, connection: {host: 192.168.1.123, port: 502, unit_id: 9,  timeout: 5}}
+  - {id: inv-08, profile: inverter_sineng.yaml, adapter: modbus_tcp, connection: {host: 192.168.1.123, port: 502, unit_id: 10,  timeout: 5}}
+  - {id: inv-09, profile: inverter_sineng.yaml, adapter: modbus_tcp, connection: {host: 192.168.1.123, port: 502, unit_id: 11,  timeout: 5}}
+  - {id: inv-10, profile: inverter_sineng.yaml, adapter: modbus_tcp, connection: {host: 192.168.1.123, port: 502, unit_id: 12, timeout: 5}}
+
+  # --- the whole PV array as the SAU's virtual device (unit 245) ------------------------------------
+  # Registers taken from the InteliNeo's own Modbus-master definition (archive of 2026-10-14): PV power,
+  # available power before curtailment, energies, inverter counts. Unit 245 answered at register 0 on
+  # 14 Oct; CHECK must show ac_power_kw equal to the Neo's PV Actual P.
+  - {id: pv-array, profile: pv_array_sau.yaml, adapter: modbus_tcp, connection: {host: 192.168.1.123, port: 502, unit_id: 245, timeout: 5}}
+
+  # --- the three mains incomers: NOT reachable from here (192.168.0.x) -------------------------------------
+
+  # No PV-side meter and no irradiance / panel-temperature sensor were found on site (the SAU's
+  # meters M1 and M3 are the generator and grid feeders). The Turkey tags that need them stay
+  # "not mapped" until such devices exist.
+
+  # The genset controllers can be read directly later for per-genset detail (fuel level, engine
+  # hours, alarms). Their register tables are the controllers' own Modbus lists - export them with
+  # InteliConfig the same way as the Neo's before enabling:
+  # - {id: gen-01,  profile: ig4_genset.yaml,     adapter: modbus_tcp, connection: {host: 192.168.0.105, port: 502, unit_id: 1, timeout: 3}}
+  # - {id: gen-02,  profile: ig4_genset.yaml,     adapter: modbus_tcp, connection: {host: 192.168.0.106, port: 502, unit_id: 1, timeout: 3}}
+  # - {id: gen-03,  profile: ig4_genset.yaml,     adapter: modbus_tcp, connection: {host: 192.168.0.113, port: 502, unit_id: 1, timeout: 3}}
+  # - {id: gen-04,  profile: ig4_genset.yaml,     adapter: modbus_tcp, connection: {host: 192.168.0.114, port: 502, unit_id: 1, timeout: 3}}
+  # - {id: gen-05,  profile: ig4_genset.yaml,     adapter: modbus_tcp, connection: {host: 192.168.0.115, port: 502, unit_id: 1, timeout: 3}}
+
+# --- probe: the SAU's ETH1 only ---
+probe:
+  hosts: []
+
+# --- Publishing for the DT Turkey / CCI monitoring platform ------------------------------------
+# A read-only Modbus TCP server on this PC with all tags of profiles/tag_catalog.yaml at fixed
+# registers (map: docs/TURKEY_MODBUS.md, or GET /api/v1/tags/registers). Their platform polls
+# this PC, never the SAU or the InteliNeo. Switch on when the VPN is in place and set `bind`
+# to the PC's VPN address so the port is not visible anywhere else. Port 502 is free on the PC.
+publish:
+  modbus_tcp:
+    enabled: false
+    bind: 0.0.0.0            # TODO the PC's VPN address (0.0.0.0 = every interface)
+    port: 502
+    unit_id: 1
+    bad_value: last          # what a tag shows while its device does not answer: last | zero | nan
+
+# When the InteliSCADA on the licensed laptop is on 24/7, this device can be added instead
+# of neo-01 to get the same values with zero load on the controller:
+# - id: neo-01
+#   profile: intelineo_master.yaml      (points then use raw: {trend: "<trend name>"})
+#   adapter: inteliscada
+#   connection: {url: "http://localhost:8801", password: "<site password>"}

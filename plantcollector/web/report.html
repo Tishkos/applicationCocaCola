@@ -1,0 +1,421 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily plant report — CCI Plant Monitoring</title>
+<link rel="icon" href="/static/favicon.png">
+<!--
+  The one-page day report (served at /report). Everything is computed in the browser from the collector's API for
+  one plant-local day (midnight to midnight of this computer's clock, which is plant time on the plant PC):
+  series at 15 min, the event log of that day, the device list. Print it, or "Save as PDF" in the print dialog.
+-->
+<style>
+@font-face { font-family: "Inter"; font-weight: 400; src: url(/static/fonts/inter-latin-400-normal.woff2) format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 500; src: url(/static/fonts/inter-latin-500-normal.woff2) format("woff2"); }
+@font-face { font-family: "Inter"; font-weight: 600; src: url(/static/fonts/inter-latin-600-normal.woff2) format("woff2"); }
+@font-face { font-family: "Noto Sans Arabic"; font-weight: 400; font-display: swap; src: url(/static/fonts/noto-sans-arabic-400-normal.woff2) format("woff2"); unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+FB50-FDFF, U+FE70-FEFF, U+200C-200F, U+25CC; }
+@font-face { font-family: "Noto Sans Arabic"; font-weight: 500; font-display: swap; src: url(/static/fonts/noto-sans-arabic-500-normal.woff2) format("woff2"); unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+FB50-FDFF, U+FE70-FEFF, U+200C-200F, U+25CC; }
+@font-face { font-family: "Noto Sans Arabic"; font-weight: 600; font-display: swap; src: url(/static/fonts/noto-sans-arabic-600-normal.woff2) format("woff2"); unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+FB50-FDFF, U+FE70-FEFF, U+200C-200F, U+25CC; }
+@font-face { font-family: "Noto Sans Arabic"; font-weight: 700; font-display: swap; src: url(/static/fonts/noto-sans-arabic-700-normal.woff2) format("woff2"); unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+FB50-FDFF, U+FE70-FEFF, U+200C-200F, U+25CC; }
+@font-face { font-family: "JetBrains Mono"; font-weight: 400; src: url(/static/fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2"); }
+:root { --ink: #1d2127; --ink-2: #545b66; --ink-3: #8a919c; --line: #e3e6ea; --soft: #f4f6f8; --cci: #e02f44;
+        --pv: #e0b400; --gen: #f07d1a; --grid: #3274d9; --load: #464c54; --ok: #2f9e44; --bad: #d6263b; --warn: #e5730b; }
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: #0f1115; font: 12.5px/1.45 "Inter", "Segoe UI", system-ui, sans-serif; color: var(--ink); -webkit-font-smoothing: antialiased; }
+.mono, .num { font-family: "JetBrains Mono", Consolas, monospace; font-variant-numeric: tabular-nums; }
+.tools { position: sticky; top: 0; z-index: 5; display: flex; gap: 8px; align-items: center; justify-content: center; flex-wrap: wrap; padding: 10px 16px; background: rgba(24,27,31,.92); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(204,204,220,.12); color: #ccccdc; font-size: 13px; }
+.tools button, .tools input, .tools a, .tools select { height: 32px; padding: 0 12px; border-radius: 2px; border: 1px solid rgba(204,204,220,.22); background: #1f2228; color: #ccccdc; font: inherit; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+.tools button:hover, .tools a:hover { background: #2a2e35; }
+.tools .primary { background: #e02f44; border-color: #e02f44; color: #fff; font-weight: 500; }
+.tools input { color-scheme: dark; }
+.tools .sp { flex: 0 0 20px; }
+.loading { color: #ccccdc; text-align: center; padding: 40px; font-size: 13px; }
+.paper { width: 210mm; min-height: 297mm; margin: 24px auto 40px; background: #fff; padding: 13mm 13mm 14mm; box-shadow: 0 20px 60px rgba(0,0,0,.5); }
+
+.head { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; border-bottom: 2px solid var(--ink); }
+.head img { width: 50px; height: 50px; border-radius: 12px; }
+.head h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: .2px; }
+.head .sub { color: var(--ink-2); font-size: 12.5px; }
+.head .right { margin-left: auto; text-align: right; }
+.head .day { font-size: 18px; font-weight: 600; }
+.head .gen { color: var(--ink-3); font-size: 11px; }
+.mode { margin: 12px 0 4px; padding: 10px 14px; border-radius: 4px; background: var(--soft); border-left: 4px solid var(--cci); font-size: 12.5px; }
+.mode b { font-weight: 600; }
+h2 { font-size: 11.5px; text-transform: uppercase; letter-spacing: 1px; color: var(--ink-2); margin: 16px 0 8px; font-weight: 600; display: flex; align-items: center; gap: 8px; break-after: avoid; }
+h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+h2 small { order: 2; font-size: 10.5px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink-3); }
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.kpi { border: 1px solid var(--line); border-radius: 4px; padding: 8px 11px; position: relative; overflow: hidden; }
+.kpi::before { content: ""; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--c, var(--ink-3)); }
+.kpi small { display: block; color: var(--ink-3); font-size: 9.5px; text-transform: uppercase; letter-spacing: .6px; font-weight: 600; }
+.kpi b { display: block; font-size: 20px; font-weight: 600; margin-top: 1px; }
+.kpi b span { font-size: 11px; color: var(--ink-2); font-weight: 500; margin-left: 3px; }
+.kpi em { font-style: normal; color: var(--ink-3); font-size: 10px; }
+.row { display: grid; grid-template-columns: 1.75fr 1fr; gap: 14px; align-items: start; }
+.chart { position: relative; height: 200px; }
+.chart.sm { height: 150px; }
+.mix { display: flex; align-items: center; gap: 12px; }
+.mix svg { width: 116px; height: 116px; flex: none; }
+.mix ul { list-style: none; margin: 0; padding: 0; flex: 1; font-size: 12px; }
+.mix li { display: grid; grid-template-columns: 10px 1fr auto auto; gap: 6px; align-items: center; padding: 3px 0; }
+.mix li i { width: 10px; height: 10px; border-radius: 2px; }
+.mix li em { font-style: normal; color: var(--ink-3); min-width: 34px; text-align: right; }
+table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+thead { display: table-header-group; }
+tr { break-inside: avoid; }
+th { text-align: left; color: var(--ink-3); font-weight: 600; font-size: 9.5px; text-transform: uppercase; letter-spacing: .5px; padding: 5px 6px; border-bottom: 1px solid var(--ink-3); }
+td { padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.num, th.num { text-align: right; }
+th.num { font-family: inherit; }
+.bar { height: 7px; border-radius: 4px; background: var(--soft); overflow: hidden; min-width: 70px; margin-top: 4px; } .bar i { display: block; height: 100%; border-radius: 4px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.sev { display: inline-block; font-size: 9px; font-weight: 600; text-transform: uppercase; padding: 1px 6px; border-radius: 2px; color: #fff; white-space: nowrap; }
+.sev.error { background: var(--bad); } .sev.warning { background: var(--warn); }
+.empty { color: var(--ink-3); padding: 6px 0; }
+.sub { color: var(--ink-3); font-size: 10.5px; }
+/* timeline strips */
+.tl { display: grid; grid-template-columns: 112px 1fr; gap: 3px 10px; align-items: center; }
+.tl .lab { font-size: 11px; color: var(--ink-2); text-align: right; white-space: nowrap; }
+.tl .lane { position: relative; height: 13px; border-radius: 3px; background: var(--soft); overflow: hidden; }
+.tl .lane i { position: absolute; top: 0; bottom: 0; }
+.tl .lane .fut { background: repeating-linear-gradient(45deg, #fff, #fff 3px, var(--soft) 3px, var(--soft) 6px); }
+.tl .axis { grid-column: 2; display: flex; justify-content: space-between; font-size: 9px; color: var(--ink-3); font-family: "JetBrains Mono", monospace; padding-top: 2px; }
+.tl .key { grid-column: 2; display: flex; gap: 14px; flex-wrap: wrap; font-size: 10px; color: var(--ink-2); margin-top: 4px; }
+.tl .key span::before { content: ""; display: inline-block; width: 10px; height: 8px; border-radius: 2px; margin-right: 5px; background: var(--k); vertical-align: 0; }
+/* device cards */
+.devc { border: 1px solid var(--line); border-left: 4px solid var(--warn); border-radius: 4px; padding: 8px 12px; margin-bottom: 8px; break-inside: avoid; }
+.devc.error { border-left-color: var(--bad); }
+.dh { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.dh b { font-size: 13.5px; } .dh small { color: var(--ink-3); font-size: 11px; }
+.dh .av { margin-left: auto; color: var(--ink-2); font-size: 11px; } .dh .av b { font-size: 11.5px; }
+.devc ul { list-style: none; margin: 6px 0 0; padding: 0; }
+.devc li { display: grid; grid-template-columns: 92px 62px 1fr; gap: 8px; font-size: 11.5px; padding: 3px 0; border-top: 1px dashed var(--line); }
+.devc li .t { color: var(--ink-2); } .devc li .d { color: var(--ink-3); text-align: right; }
+.devc li.error span:last-child { color: #a3122a; } .devc li.warning span:last-child { color: #a84a12; }
+.devc .via { margin-top: 4px; color: var(--ink-3); font-size: 10.5px; font-style: italic; }
+.allok { margin-top: 10px; padding: 9px 14px; border-radius: 4px; background: #ebf7ee; border-left: 4px solid var(--ok); color: #1f5f2d; font-size: 12px; break-inside: avoid; }
+.endnote { margin-top: 14px; padding-top: 6px; border-top: 1px solid var(--line); color: var(--ink-3); font-size: 10px; }
+.avoid { break-inside: avoid; }
+body { font-family: "Inter", "Noto Sans Arabic", "Segoe UI", system-ui, sans-serif; }
+html[lang="ar"] body, html[lang="ckb"] body { font-family: "Noto Sans Arabic", "Inter", sans-serif; line-height: 1.6; }
+html[lang="ar"] h2, html[lang="ckb"] h2, html[lang="ar"] .kpi small, html[lang="ckb"] .kpi small, html[lang="ar"] th, html[lang="ckb"] th { letter-spacing: 0; }
+[dir="rtl"] .devc { border-left: 1px solid var(--line); border-right: 4px solid var(--warn); } [dir="rtl"] .devc.error { border-right-color: var(--bad); }
+[dir="rtl"] .mode, [dir="rtl"] .allok { border-left: 0; border-right: 4px solid; } [dir="rtl"] .mode { border-right-color: var(--cci); } [dir="rtl"] .allok { border-right-color: var(--ok); }
+[dir="rtl"] .dh .av { margin-left: 0; margin-right: auto; }
+.tl .lane, .tl .axis { direction: ltr; }
+svg { direction: ltr; }
+[dir="rtl"] th, [dir="rtl"] td { text-align: start; } [dir="rtl"] td.num, [dir="rtl"] th.num { text-align: left; }
+[dir="rtl"] .head .right { margin-left: 0; margin-right: auto; text-align: left; }
+@page { size: A4; margin: 13mm 13mm 15mm 13mm; }
+@media print {
+  body { background: #fff; }
+  .tools { display: none; }
+  .paper { margin: 0; padding: 0; box-shadow: none; width: auto; min-height: 0; }
+}
+@media screen and (max-width: 860px) { .paper { width: auto; margin: 10px; padding: 16px; } .kpis { grid-template-columns: repeat(2, 1fr); } .row, .two { grid-template-columns: 1fr; } }
+@media screen {
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(29,33,39,.22); border: 2px solid transparent; background-clip: padding-box; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background-color: rgba(29,33,39,.4); }
+  ::-webkit-scrollbar-thumb:active { background-color: rgba(224,47,68,.7); }
+}
+</style>
+<style id="pagebox"></style>
+</head>
+<body>
+<div class="tools">
+  <a href="/" title="Back to the dashboard">← Dashboard</a>
+  <span class="sp"></span>
+  <button type="button" id="prev" title="Day before">‹</button>
+  <input type="date" id="day" aria-label="Report day">
+  <button type="button" id="next" title="Day after">›</button>
+  <button type="button" id="today">Today</button>
+  <span class="sp"></span>
+  <button type="button" class="primary" id="print">Print / Save as PDF</button>
+  <select id="lang" aria-label="Language" data-no-i18n style="height:32px;background:#1f2228;color:#ccccdc;border:1px solid rgba(204,204,220,.22);border-radius:2px;padding:0 8px"><option value="en">English</option><option value="ar">العربية</option><option value="ckb">کوردی</option><option value="tr">Türkçe</option></select>
+</div>
+<div id="out"><div class="loading">Preparing the report…</div></div>
+
+<script src="/static/i18n.js"></script>
+<script src="/static/chart.umd.js"></script>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s);
+  const isNum = (v) => typeof v === "number" && !Number.isNaN(v);
+  const fmt = (v, d = 0) => !isNum(v) ? "—" : v.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d });
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const p2 = (n) => String(n).padStart(2, "0");
+  const hm = (ms) => { const d = new Date(ms); return `${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+  const ymdOf = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  const dur = (ms) => { const m = Math.round(ms / 60000); return m >= 60 ? `${Math.floor(m / 60)} h ${p2(m % 60)}` : `${m} min`; };
+  const getJSON = async (u) => { const r = await fetch(u); if (!r.ok) throw new Error(`${u}: ${r.status}`); return r.json(); };
+  const STEP = 900, L_PER_KWH = 0.30, CO2_PER_L = 2.68;
+  const qs = new URLSearchParams(location.search);
+  const ymd = (d) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
+  let day = qs.get("date") || ymd(new Date());
+  const dayInput = $("#day");
+  const go = (d) => { day = d; history.replaceState(null, "", `?date=${d}`); dayInput.value = d; build(); };
+  const shift = (n) => { const [y, m, d] = day.split("-").map(Number); go(ymd(new Date(y, m - 1, d + n))); };
+  $("#prev").onclick = () => shift(-1); $("#next").onclick = () => shift(1); $("#today").onclick = () => go(ymd(new Date()));
+  dayInput.onchange = () => dayInput.value && go(dayInput.value);
+  $("#print").onclick = () => window.print();
+  const langSel = $("#lang"); if (window.CCI_I18N) { langSel.value = CCI_I18N.lang; langSel.onchange = () => { CCI_I18N.apply(langSel.value); build(); }; } else langSel.hidden = true;
+  let chart = null;
+
+  async function build() {
+    dayInput.value = day;
+    const [y, m, d] = day.split("-").map(Number);
+    const t0 = new Date(y, m - 1, d).getTime(), t1 = new Date(y, m - 1, d + 1).getTime(), now = Date.now();
+    const to = Math.min(t1, now);
+    if (to <= t0) { $("#out").innerHTML = `<div class="loading">That day has not started yet.</div>`; return; }
+    $("#out").innerHTML = `<div class="loading">Preparing the report…</div>`;
+    let sum, ser, al;
+    try {
+      [sum, ser, al] = await Promise.all([
+        getJSON("/api/v1/local/summary"),
+        getJSON(`/api/v1/local/series?from=${encodeURIComponent(new Date(t0).toISOString())}&to=${encodeURIComponent(new Date(to).toISOString())}&step=${STEP}`),
+        getJSON(`/api/v1/local/alarms?from=${encodeURIComponent(new Date(t0).toISOString())}&to=${encodeURIComponent(new Date(t1).toISOString())}&limit=2000`)]);
+    } catch (e) { $("#out").innerHTML = `<div class="loading">The collector did not answer (${esc(e.message)}).</div>`; return; }
+    const S = ser.series, T = ser.t, h = STEP / 3600, s = (k) => S[k] || [];
+    const kwh = (k, f = (v) => Math.max(0, v)) => s(k).reduce((a, v) => a + (isNum(v) ? f(v) * h : 0), 0);
+    const has = (k) => s(k).some(isNum);
+    const load = kwh("load_kw"), pv = kwh("pv_kw"), gen = kwh("genset_kw"), grid = kwh("mains_kw"), exp = -kwh("mains_kw", (v) => Math.min(0, v));
+    const avail = has("pv_available_kw") ? s("pv_available_kw").reduce((a, v, i) => a + (isNum(v) && isNum(s("pv_kw")[i]) ? Math.max(0, v - s("pv_kw")[i]) * h : 0), 0) : null;
+    const share = load ? 100 * pv / load : null, dieselL = pv * L_PER_KWH, price = sum.kpi.fuel_price_per_l;
+    const peak = (k, cmp) => { let b = null; s(k).forEach((v, i) => { if (isNum(v) && (!b || cmp(v, b.v))) b = { v, t: T[i] }; }); return b; };
+    const pLoad = peak("load_kw", (a, b) => a > b), pPv = peak("pv_kw", (a, b) => a > b);
+    // grid outages
+    const outages = []; let cur = null, gridH = 0;
+    s("grid_available").forEach((v, i) => {
+      if (!isNum(v)) return;
+      if (v >= 0.5) { gridH += h; if (cur) { cur.end = T[i]; outages.push(cur); cur = null; } }
+      else if (!cur) cur = { start: T[i] };
+    });
+    if (cur) { cur.end = null; outages.push(cur); }
+    // gensets: master bits or per-unit power
+    const devs = sum.devices, master = devs.find((x) => x.kind === "genset" && x.points.g1_running);
+    let gens = [];
+    if (master) gens = Object.keys(S).filter((k) => k.startsWith(master.id + "/g") && /_running$/.test(k)).sort((a, b) => parseInt(a.split("/g")[1]) - parseInt(b.split("/g")[1]))
+      .map((k) => ({ name: `Gen ${parseInt(k.split("/g")[1])}`, on: s(k).map((v) => isNum(v) ? v >= 0.5 : null) }));
+    else gens = devs.filter((x) => x.kind === "genset" && S[`${x.id}/power_kw`]).map((x) => ({ name: x.id, on: s(`${x.id}/power_kw`).map((v) => isNum(v) ? v > 1 : null) }));
+    gens.forEach((g) => { let prev = null; g.hours = 0; g.starts = 0; g.on.forEach((o) => { if (o) g.hours += h; if (o && prev === false) g.starts++; if (o !== null) prev = o; }); });
+    // inverters: energy of the day = the day's maximum of their "energy today" counter
+    const invs = devs.filter((x) => x.kind === "pv" && x.points.ac_power_kw && !x.points.inverters_total)
+      .map((x) => ({ id: x.id, e: Math.max(0, ...s(`${x.id}/energy_today_kwh`).filter(isNum)) })).filter((x) => x.e > 0).sort((a, b) => b.e - a.e);
+    const invAvg = invs.length ? invs.reduce((a, x) => a + x.e, 0) / invs.length : 0;
+    // power quality
+    const fq = s("frequency_hz").filter(isNum), fIn = fq.length ? 100 * fq.filter((v) => v >= 49.8 && v <= 50.2).length / fq.length : null;
+    const vv = s("voltage_v").filter(isNum), vnom = vv.length && vv.reduce((a, b) => a + b, 0) / vv.length > 300 ? 400 : 230;
+    const vIn = vv.length ? 100 * vv.filter((v) => v >= vnom * .95 && v <= vnom * 1.05).length / vv.length : null;
+    // Alarms and warnings as incidents: what went wrong, from when to when. One SAU stall is one incident (not one
+    // line per inverter), one grid outage is one incident (not one line per incomer). Information-only events and
+    // events already covered by an incident are left out.
+    const evAll = al.events.slice().reverse(), tms = (e) => Date.parse(e.ts), inc = [];
+    const nextOf = (code, dev, after) => { const e = evAll.find((x) => x.code === code && x.device_id === dev && tms(x) >= after); return e ? tms(e) : null; };
+    const clusters = [];
+    evAll.filter((e) => e.code === "COMMS_LOST").forEach((e) => {
+      const c = clusters[clusters.length - 1], t = tms(e);
+      if (c && t - c.last <= 180000) { c.devs.add(e.device_id); c.last = t; } else clusters.push({ start: t, last: t, devs: new Set([e.device_id]), notes: [] });
+    });
+    const near = (t, c) => t >= c.start - 180000 && t <= (c.end || c.last) + 180000;
+    clusters.forEach((c) => {
+      let end = 0; c.devs.forEach((d) => { const ok = nextOf("COMMS_OK", d, c.start); end = ok === null || end === null ? null : Math.max(end, ok); }); c.end = end;
+      const devs = [...c.devs], arrs = devs.filter((d) => /array|sau/i.test(d)), invs = devs.filter((d) => /^inv-/i.test(d)), other = devs.filter((d) => !arrs.includes(d) && !invs.includes(d));
+      const who = [arrs.length ? `SAU gateway (${arrs.join(", ")})` : "", invs.length ? `${invs.length} inverter${invs.length > 1 ? "s" : ""} behind it` : "", ...other].filter(Boolean).join(" + ");
+      inc.push({ sev: "error", start: c.start, end: c.end, what: arrs.length ? "Solar data lost — the SAU gateway stopped answering" : "Communication lost", who, notes: c.notes, c });
+    });
+    evAll.filter((e) => e.code === "PV_LOGGER").forEach((e) => { const i = inc.find((x) => x.c && near(tms(e), x.c)); if (i) i.notes.push(`NEO: ${e.message.replace(/^[^:]+: /, "")}`); });
+    evAll.filter((e) => e.code === "ALARM").forEach((e) => {
+      const t = tms(e), i = inc.find((x) => x.c && near(t, x.c));
+      if (i) { i.notes.push(`${e.device_id}: controller alarm set`); return; }
+      inc.push({ sev: "error", start: t, end: nextOf("ALARM_OK", e.device_id, t), what: "Controller alarm active", who: e.device_id, notes: [] });
+    });
+    evAll.filter((e) => e.code === "INV_TRIP").forEach((e) => inc.push({ sev: "warning", start: tms(e), end: nextOf("INV_OK", e.device_id, tms(e)), what: e.message.replace(/^[^:]+: /, "Inverter "), who: e.device_id, notes: [] }));
+    outages.forEach((o) => inc.push({ sev: "warning", start: o.start, end: o.end, what: gens.some((g) => g.hours > 0) ? "Government grid lost — the gensets took the plant" : "Government grid lost", who: "government grid", notes: [] }));
+    const covered = new Set(["COMMS_LOST", "COMMS_OK", "PV_LOGGER", "ALARM", "ALARM_OK", "INV_TRIP", "INV_OK", "GRID_OFF", "GRID_OK", "MAINS_FAIL", "MAINS_RET", "GEN_START", "GEN_STOP"]);
+    evAll.filter((e) => (e.severity === "error" || e.severity === "warning") && !covered.has(e.code)).forEach((e) => inc.push({ sev: e.severity, start: tms(e), end: null, what: e.message, who: e.device_id || "—", notes: [], single: true }));
+    inc.sort((a, b) => a.start - b.start);
+    const nErr = inc.filter((x) => x.sev === "error").length, nWarn = inc.length - nErr;
+
+    // ---- every device: what went wrong with it today (nothing is said about a device that worked normally)
+    const pairsOf = (dev, onC, offC) => { const out = []; let open = null;
+      evAll.forEach((e) => { if (e.device_id !== dev) return;
+        if (e.code === onC && !open) open = { s: tms(e), e: null }; else if (e.code === offC && open) { open.e = tms(e); out.push(open); open = null; } });
+      if (open) out.push(open); return out; };
+    const sauIds = devs.filter((x) => x.kind === "pv" && x.points.inverters_total).map((x) => x.id);
+    const sauDown = sauIds.flatMap((d) => pairsOf(d, "COMMS_LOST", "COMMS_OK"));
+    const duringSau = (iv) => sauDown.some((x) => iv.s >= x.s - 180000 && iv.s <= (x.e || to) + 180000);
+    const ivMs = (iv) => (iv.e || to) - iv.s, daySpan = to - t0;
+    const isMaster = (d) => d.kind === "genset" && !!d.points.g1_running;
+    const isInv = (d) => d.kind === "pv" && !sauIds.includes(d.id) && !!d.points.ac_power_kw;
+    const nameOf = (d) => isMaster(d) ? "NEO" : sauIds.includes(d.id) ? "SAU" : /^main-?0*(\d+)$/i.test(d.id) ? "MAIN " + d.id.match(/(\d+)$/)[1].replace(/^0+/, "") : d.id.toUpperCase();
+    const roleOf = (d) => isMaster(d) ? "InteliNeo master controller" : sauIds.includes(d.id) ? "SAU logger · Sineng gateway" : d.kind === "grid" ? "InteliMains 210 incomer" : isInv(d) ? "Sineng inverter" : `${d.vendor} ${d.model}`;
+    const rank = (d) => isMaster(d) ? 0 : sauIds.includes(d.id) ? 1 : d.kind === "grid" ? 2 : isInv(d) ? 4 : 3;
+    const genRe = /\bGen\s*(\d+)\b/i;
+    const health = [];
+    devs.slice().sort((a, b) => rank(a) - rank(b) || a.id.localeCompare(b.id)).forEach((d) => {
+      let down = pairsOf(d.id, "COMMS_LOST", "COMMS_OK"), viaSau = 0;
+      if (isInv(d)) { viaSau = down.filter(duringSau).length; down = down.filter((iv) => !duringSau(iv)); }   // the SAU's fault, said once at the SAU
+      const lines = [];
+      down.forEach((iv) => lines.push({ s: iv.s, e: iv.e, sev: "error", txt: "not answering — no data" }));
+      pairsOf(d.id, "ALARM", "ALARM_OK").forEach((iv) => lines.push({ s: iv.s, e: iv.e, sev: "error", txt: "controller alarm active" + (duringSau(iv) ? " (while the SAU was silent)" : "") }));
+      const seen = {};
+      evAll.filter((e) => e.device_id === d.id && (e.severity === "error" || e.severity === "warning") && !["COMMS_LOST", "ALARM", "GRID_OFF", "MAINS_FAIL"].includes(e.code) && !(isMaster(d) && genRe.test(e.message)))
+        .forEach((e) => { const k = e.message; if (seen[k] && tms(e) - seen[k] < 300000) return; seen[k] = tms(e); lines.push({ s: tms(e), e: undefined, sev: e.severity, txt: e.message.replace(/^[^:]+:\s*/, "") }); });
+      if (isInv(d)) { const x = invs.find((v) => v.id === d.id); if (x && invAvg > 50 && x.e < invAvg * 0.85) lines.push({ s: null, sev: "warning", txt: `produced ${fmt(100 * (1 - x.e / invAvg))} % less than the fleet average (${fmt(x.e)} of ${fmt(invAvg)} kWh)` }); }
+      lines.sort((a, b) => (a.s ?? 9e15) - (b.s ?? 9e15));
+      const downMs = down.reduce((a, iv) => a + ivMs(iv), 0);
+      health.push({ name: nameOf(d), role: roleOf(d), lines, viaSau, inv: isInv(d), avail: 100 * Math.max(0, 1 - downMs / daySpan),
+        sev: lines.some((l) => l.sev === "error") ? "error" : lines.length ? "warning" : "ok", group: isInv(d) ? "inv" : null });
+    });
+    // gensets: seen through the NEO; one is flagged when the NEO logged a warning or alarm naming it
+    gens.forEach((g) => {
+      const n = (g.name.match(/(\d+)/) || [])[1];
+      const lines = evAll.filter((e) => (e.severity === "error" || e.severity === "warning") && n && (e.message.match(genRe) || [])[1] === n)
+        .map((e) => ({ s: tms(e), e: undefined, sev: e.severity, txt: e.message.replace(/^[^:]+:\s*/, "") }));
+      health.splice(health.filter((h) => !h.inv && !/^MAIN|^NEO|^SAU/.test(h.name)).length + health.filter((h) => /^NEO|^SAU|^MAIN/.test(h.name)).length, 0,
+        { name: g.name.toUpperCase().replace("GEN ", "Gen "), role: `genset · ${fmt(g.hours, 1)} h, ${g.starts} start${g.starts === 1 ? "" : "s"}`, lines, gen: true, avail: null,
+          sev: lines.some((l) => l.sev === "error") ? "error" : lines.length ? "warning" : "ok" });
+    });
+    const sick = health.filter((h) => h.sev !== "ok"), fine = health.filter((h) => h.sev === "ok");
+    const fineText = (() => {
+      const invOk = fine.filter((h) => h.inv), genOk = fine.filter((h) => h.gen), rest = fine.filter((h) => !h.inv && !h.gen).map((h) => h.name);
+      const nInv = health.filter((h) => h.inv).length, nGen = health.filter((h) => h.gen).length;
+      if (genOk.length) rest.push(genOk.length === nGen && nGen > 1 ? `Gen 1–${nGen}` : genOk.map((h) => h.name).join(", "));
+      if (invOk.length) rest.push(invOk.length === nInv ? `all ${nInv} inverters` : `${invOk.length} of ${nInv} inverters`);
+      return rest.join(" · ");
+    })();
+    const lineTime = (l) => l.s === null ? "" : l.e === undefined ? hm(l.s) : `${hm(l.s)}–${l.e ? hm(l.e) : partial ? "now" : "24:00"}`;
+    const lineDur = (l) => l.s === null || l.e === undefined ? "" : dur((l.e || to) - l.s);
+    const partial = to < t1;
+
+    const tot = pv + gen + grid, gh = gens.reduce((a, g) => a + g.hours, 0);
+    const LANG = window.CCI_I18N ? CCI_I18N.lang : "en", LOC = { ar: "ar-IQ-u-nu-latn", ckb: "ckb-IQ-u-nu-latn", tr: "tr-TR" }[LANG];
+    const dayText = window.CCI_I18N ? CCI_I18N.date(t0, "long") : new Date(t0).toLocaleDateString(LOC, { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const kpi = (label, val, unit, sub, c) => `<div class="kpi" style="--c:${c}"><small>${label}</small><b>${val}<span>${unit}</span></b><em>${sub}</em></div>`;
+    const ring = (() => { const C = 2 * Math.PI * 42; let off = 0;
+      return [[pv, "var(--pv)"], [gen, "var(--gen)"], [grid, "var(--grid)"]].map(([v, c]) => { if (!(v > 0) || !tot) return ""; const l = v / tot * C, x = `<circle cx="60" cy="60" r="42" fill="none" stroke="${c}" stroke-width="18" stroke-dasharray="${l} ${C - l}" stroke-dashoffset="${-off}" transform="rotate(-90 60 60)"/>`; off += l; return x; }).join(""); })();
+    // running header and footer on every printed page (page 1 has the report head instead of the running header)
+    const T_ = (x) => window.CCI_I18N ? CCI_I18N.t(x) : x, q = (x) => JSON.stringify(String(x));
+    $("#pagebox").textContent = `@page { @top-left { content: ${q(sum.site + " · " + T_("Daily plant report"))}; font: 8pt ${LANG === "ar" || LANG === "ckb" ? '"Noto Sans Arabic", Inter' : "Inter"}, sans-serif; color: #8a919c; vertical-align: bottom; padding-bottom: 3mm; }
+      @top-right { content: ${q(dayText)}; font: 8pt ${LANG === "ar" || LANG === "ckb" ? '"Noto Sans Arabic", Inter' : "Inter"}, sans-serif; color: #8a919c; vertical-align: bottom; padding-bottom: 3mm; }
+      @bottom-left { content: ${q("CCI Plant Monitoring")}; font: 8pt ${LANG === "ar" || LANG === "ckb" ? '"Noto Sans Arabic", Inter' : "Inter"}, sans-serif; color: #8a919c; vertical-align: top; padding-top: 4mm; }
+      @bottom-right { content: ${q(T_("Page") + " ")} counter(page) ${q(" " + T_("of") + " ")} counter(pages); font: 8pt ${LANG === "ar" || LANG === "ckb" ? '"Noto Sans Arabic", Inter' : "Inter"}, sans-serif; color: #8a919c; vertical-align: top; padding-top: 4mm; } }
+      @page :first { @top-left { content: none; } @top-right { content: none; } }`;
+    // ---- timeline of the day: strips over 00:00 - 24:00
+    const STEPMS = STEP * 1000, W = (a, b) => `left:${(100 * (a - t0) / (t1 - t0)).toFixed(3)}%;width:${Math.max(0.25, 100 * (b - a) / (t1 - t0)).toFixed(3)}%`;
+    const runsOf = (vals, test) => { const out = []; let cur = null;
+      vals.forEach((v, i) => { const on1 = isNum(v) && test(v); if (on1 && !cur) cur = { a: T[i] }; if (!on1 && cur) { cur.b = T[i]; out.push(cur); cur = null; } });
+      if (cur) { cur.b = Math.min(T[T.length - 1] + STEPMS, to); out.push(cur); } return out; };
+    const lane = (segs, c) => `<div class="lane">${segs.map((x) => `<i style="${W(x.a, x.b || to)};background:${x.c || c}"></i>`).join("")}${to < t1 ? `<i class="fut" style="${W(to, t1)}"></i>` : ""}</div>`;
+    const tlRows = [];
+    if (has("grid_available")) tlRows.push(["Government grid", [...runsOf(s("grid_available"), (v) => v >= 0.5).map((x) => ({ ...x, c: "var(--grid)" })), ...outages.map((o) => ({ a: o.start, b: o.end || to, c: "var(--bad)" }))]]);
+    gens.forEach((g, gi) => { const key = master ? `${master.id}/g${(g.name.match(/(\d+)/) || [])[1]}_running` : null;
+      const vals = key && S[key] ? s(key) : null; if (vals) tlRows.push([g.name, runsOf(vals, (v) => v >= 0.5).map((x) => ({ ...x, c: "var(--gen)" }))]); });
+    if (!master) devs.filter((x) => x.kind === "genset" && S[`${x.id}/power_kw`]).forEach((x) => tlRows.push([x.id, runsOf(s(`${x.id}/power_kw`), (v) => v > 1).map((r) => ({ ...r, c: "var(--gen)" }))]));
+    if (has("pv_kw")) tlRows.push(["Solar producing", runsOf(s("pv_kw"), (v) => v > 5).map((x) => ({ ...x, c: "var(--pv)" }))]);
+    if (sauIds.length) tlRows.push(["SAU link", [{ a: t0, b: to, c: "#a6d8b0" }, ...sauDown.map((x) => ({ a: x.s, b: x.e || to, c: "var(--bad)" }))]]);
+    const neoAl = master ? pairsOf(master.id, "ALARM", "ALARM_OK") : [];
+    if (neoAl.length) tlRows.push(["NEO alarm", neoAl.map((x) => ({ a: x.s, b: x.e || to, c: "var(--bad)" }))]);
+    const timeline = `<div class="tl">${tlRows.map(([l, segs]) => `<span class="lab">${esc(l)}</span>${lane(segs, "var(--ink-3)")}`).join("")}
+      <div class="axis">${[0, 3, 6, 9, 12, 15, 18, 21, 24].map((h) => `<span>${p2(h)}</span>`).join("")}</div>
+      <div class="key"><span style="--k:var(--grid)">grid on</span><span style="--k:var(--bad)">grid off / fault</span><span style="--k:var(--gen)">genset running</span><span style="--k:var(--pv)">solar producing</span><span style="--k:#a6d8b0">SAU answering</span></div></div>`;
+    // ---- peaks of the day
+    const pMin = (k) => peak(k, (a, b) => a < b), pGen = peak("genset_kw", (a, b) => a > b), pGrid = peak("mains_kw", (a, b) => a > b);
+    const peakRow = (l, x, u, d = 0) => `<tr><td>${l}</td><td class="num">${x ? fmt(x.v, d) + " " + u : "—"}</td><td class="num">${x ? hm(x.t) : ""}</td></tr>`;
+    $("#out").innerHTML = `<div class="paper">
+      <div class="head"><img src="/static/app-icon.png" alt=""><div><h1>Daily plant report</h1><div class="sub">${esc(sum.site)}</div></div>
+        <div class="right"><div class="day">${dayText}</div>
+        <div class="gen">${partial ? `day in progress · up to ${hm(to)} · ` : ""}generated ${window.CCI_I18N ? CCI_I18N.date(Date.now(), "dateTime") : new Date().toLocaleString(LOC)}</div></div></div>
+      <div class="mode">Solar covered <b>${fmt(share)} %</b> of the site's energy. The government grid was available <b>${fmt(gridH, 1)} h</b>${outages.length ? ` with <b>${outages.length} outage${outages.length > 1 ? "s" : ""}</b>` : ""}; the gensets ran <b>${fmt(gh, 1)} genset-hours</b>. ${inc.length ? `There ${inc.length === 1 ? "was" : "were"} <b>${nErr} fault${nErr === 1 ? "" : "s"}</b> and <b>${nWarn} warning${nWarn === 1 ? "" : "s"}</b>${sick.length ? ` (${sick.map((h) => h.name).join(", ")})` : ""}.` : "<b>No faults and no warnings.</b>"}</div>
+
+      <div class="avoid"><h2>The day in numbers</h2>
+      <div class="kpis">
+        ${kpi("Site energy", fmt(load), "kWh", pLoad ? `peak ${fmt(pLoad.v)} kW at ${hm(pLoad.t)}` : "", "var(--load)")}
+        ${kpi("Solar", fmt(pv), "kWh", pPv ? `peak ${fmt(pPv.v)} kW at ${hm(pPv.t)}` : "", "var(--pv)")}
+        ${kpi("Gensets", fmt(gen), "kWh", `≈ ${fmt(gen * L_PER_KWH)} L of diesel`, "var(--gen)")}
+        ${kpi("Grid import", fmt(grid), "kWh", exp > 1 ? `${fmt(exp)} kWh exported` : `available ${fmt(gridH, 1)} h`, "var(--grid)")}
+        ${kpi("Solar share", fmt(share), "%", "of the site energy", "var(--pv)")}
+        ${kpi("Diesel avoided", fmt(dieselL), "L", `at ${L_PER_KWH} L per kWh of solar`, "var(--ok)")}
+        ${kpi("Fuel cost avoided", fmt(dieselL * price), "", `at ${fmt(price, 2)} per litre`, "var(--ok)")}
+        ${kpi("CO₂ avoided", fmt(dieselL * CO2_PER_L / 1000, 2), "t", `${CO2_PER_L} kg per litre`, "#2b8a3e")}
+      </div></div>
+
+      <div class="row avoid"><div><h2>Power through the day</h2><div class="chart"><canvas id="c"></canvas></div></div>
+        <div><h2>Energy by source</h2><div class="mix"><svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="42" fill="none" stroke="#eef0f2" stroke-width="18"/>${ring}
+          <text x="60" y="58" text-anchor="middle" font-size="15" font-weight="600" fill="#1d2127">${fmt(tot >= 10000 ? tot / 1000 : tot, tot >= 10000 ? 1 : 0)}</text><text x="60" y="73" text-anchor="middle" font-size="9" fill="#8a919c">${tot >= 10000 ? "MWh" : "kWh"}</text></svg>
+          <ul>${[["Solar", pv, "var(--pv)"], ["Gensets", gen, "var(--gen)"], ["Grid", grid, "var(--grid)"]].map(([l, v, c]) => `<li><i style="background:${c}"></i><span>${l}</span><b class="num">${fmt(v)}</b><em class="num">${tot ? fmt(100 * v / tot) + "%" : "—"}</em></li>`).join("")}</ul></div>
+          ${avail !== null ? `<div style="margin-top:8px;color:var(--ink-2);font-size:11px">Solar held back (curtailment, trips): <b class="num">${fmt(avail)} kWh</b></div>` : ""}</div></div>
+
+      <div class="avoid"><h2>Hour by hour <small>energy per hour, kWh</small></h2><div class="chart sm"><canvas id="c2"></canvas></div></div>
+
+      ${tlRows.length ? `<div class="avoid"><h2>Timeline of the day</h2>${timeline}</div>` : ""}
+
+      <div class="two avoid">
+        <div><h2>Government grid</h2>${outages.length ? `<table><thead><tr><th>Outage</th><th class="num">From</th><th class="num">To</th><th class="num">Duration</th></tr></thead><tbody>${outages.map((o, i) => `<tr><td>#${i + 1}</td><td class="num">${hm(o.start)}</td><td class="num">${o.end ? hm(o.end) : partial ? "still off" : "24:00"}</td><td class="num">${dur((o.end || to) - o.start)}</td></tr>`).join("")}</tbody></table>
+          <div class="sub" style="margin-top:6px">Grid available ${fmt(gridH, 1)} h · off ${fmt(outages.reduce((a, o) => a + ((o.end || to) - o.start), 0) / 3600e3, 1)} h</div>` : `<div class="empty">${has("grid_available") ? "No outage: the grid was available all day." : "No grid readings."}</div>`}</div>
+        <div><h2>Gensets</h2>${gens.length ? `<table><thead><tr><th>Genset</th><th>Run time</th><th class="num">Hours</th><th class="num">Starts</th></tr></thead><tbody>${gens.map((g) => `<tr><td>${esc(g.name)}</td><td><div class="bar"><i style="width:${Math.min(100, g.hours / 24 * 100)}%;background:var(--gen)"></i></div></td><td class="num">${fmt(g.hours, 1)}</td><td class="num">${g.starts}</td></tr>`).join("")}</tbody></table>
+          <div class="sub" style="margin-top:6px">${fmt(gh, 1)} genset-hours · ${gens.reduce((a, g) => a + g.starts, 0)} starts · ≈ ${fmt(gen * L_PER_KWH)} L of diesel</div>` : `<div class="empty">No genset readings.</div>`}</div>
+      </div>
+
+      <div class="two avoid">
+        <div><h2>Peaks of the day</h2><table><thead><tr><th>Quantity</th><th class="num">Value</th><th class="num">At</th></tr></thead><tbody>
+          ${peakRow("Highest site load", pLoad, "kW")}${peakRow("Highest solar", pPv, "kW")}${peakRow("Highest gensets", pGen, "kW")}${peakRow("Highest grid import", pGrid, "kW")}
+          ${peakRow("Lowest frequency", pMin("frequency_hz"), "Hz", 2)}${peakRow("Highest frequency", peak("frequency_hz", (a, b) => a > b), "Hz", 2)}${peakRow("Lowest voltage", pMin("voltage_v"), "V")}
+        </tbody></table></div>
+        <div><h2>Power quality</h2><table><tbody>
+          <tr><td>Frequency min / avg / max</td><td class="num">${fq.length ? `${fmt(Math.min(...fq), 2)} / ${fmt(fq.reduce((a, b) => a + b, 0) / fq.length, 2)} / ${fmt(Math.max(...fq), 2)} Hz` : "—"}</td></tr>
+          <tr><td>Time within 49.8 – 50.2 Hz</td><td class="num" style="color:${fIn !== null && fIn < 99 ? "var(--warn)" : "inherit"}">${fmt(fIn, 1)} %</td></tr>
+          <tr><td>Voltage min / avg / max</td><td class="num">${vv.length ? `${fmt(Math.min(...vv))} / ${fmt(vv.reduce((a, b) => a + b, 0) / vv.length)} / ${fmt(Math.max(...vv))} V` : "—"}</td></tr>
+          <tr><td>Time within ${vnom} V ± 5 %</td><td class="num" style="color:${vIn !== null && vIn < 99 ? "var(--warn)" : "inherit"}">${fmt(vIn, 1)} %</td></tr>
+          <tr><td>Devices answering now</td><td class="num">${devs.filter((x) => x.comms === "ok").length} of ${devs.length}</td></tr>
+        </tbody></table></div>
+      </div>
+
+      ${inc.length ? `<h2>Alarms and warnings <small>${nErr} fault${nErr === 1 ? "" : "s"} · ${nWarn} warning${nWarn === 1 ? "" : "s"}</small></h2><table><thead><tr><th class="num" style="width:50px">From</th><th class="num" style="width:50px">To</th><th class="num" style="width:66px">Duration</th><th style="width:72px">Severity</th><th>What happened</th></tr></thead><tbody>${inc.slice(0, 40).map((x) => `<tr><td class="num">${hm(x.start)}</td><td class="num">${x.single ? "" : x.end ? hm(x.end) : partial ? "ongoing" : "—"}</td><td class="num">${x.single ? "" : dur((x.end || to) - x.start)}</td><td><span class="sev ${x.sev}">${x.sev === "error" ? "fault" : "warning"}</span></td><td><b style="font-weight:500">${esc(x.what)}</b><div class="sub">${esc(x.who)}${x.notes.length ? " · " + esc([...new Set(x.notes)].join(" · ")) : ""}</div></td></tr>`).join("")}</tbody></table>${inc.length > 40 ? `<div class="empty">… and ${inc.length - 40} more in the dashboard's event log.</div>` : ""}`
+        : `<h2>Alarms and warnings</h2><div class="allok"><b>✓ No alarms and no warnings.</b> Every device answered and no controller alarm was set on this day.</div>`}
+
+      <h2>Devices <small>${health.filter((h) => !h.gen).length} devices · ${health.filter((h) => h.gen).length} gensets</small></h2>
+      ${sick.map((h) => `<div class="devc ${h.sev}"><div class="dh"><b>${esc(h.name)}</b><small>${esc(h.role)}</small><span class="sev ${h.sev}">${h.sev === "error" ? "fault" : "warning"}</span>${h.avail !== null ? `<span class="av">answered <b>${fmt(h.avail, 1)} %</b> of the day</span>` : ""}</div>
+        <ul>${h.lines.map((l) => `<li class="${l.sev}"><span class="mono t">${lineTime(l)}</span><span class="mono d">${lineDur(l)}</span><span>${esc(l.txt)}</span></li>`).join("")}</ul>
+        ${h.name === "SAU" && health.some((x) => x.viaSau) ? `<div class="via">The inverters behind it could not be read during these stalls; that is the SAU's fault, not theirs.</div>` : ""}</div>`).join("")}
+      <div class="allok">${sick.length ? `<b>✓ Worked normally all day:</b> ${esc(fineText)}` : `<b>✓ All devices worked normally.</b> Every one answered all day and none reported an alarm.`}</div>
+      <div class="endnote">Diesel figures are estimates (${L_PER_KWH} L per kWh, ${CO2_PER_L} kg CO₂ per litre). Times are plant time. Energy from 15-minute averages of the readings.</div>
+    </div>`;
+    // power profile
+    const pts = (k, f = (v) => v) => s(k).map((v, i) => ({ x: T[i], y: isNum(v) ? f(v) : null }));
+    const ds = [];
+    const L_ = (x) => window.CCI_I18N ? CCI_I18N.t(x) : x;
+    const area = (label, k, color) => ds.push({ label: L_(label), data: pts(k, (v) => Math.max(0, v)), borderColor: color, backgroundColor: color + "88", fill: ds.length ? "-1" : "origin", stack: "s", borderWidth: 1, pointRadius: 0, tension: .25 });
+    if (has("pv_kw")) area("Solar", "pv_kw", "#e0b400");
+    if (has("genset_kw")) area("Gensets", "genset_kw", "#f07d1a");
+    if (has("mains_kw")) area("Grid", "mains_kw", "#3274d9");
+    if (has("load_kw")) ds.push({ label: L_("Site load"), data: pts("load_kw"), borderColor: "#16191d", borderDash: [4, 3], borderWidth: 1.2, pointRadius: 0, fill: false, stack: "l", tension: .25 });
+    if (chart) chart.destroy();
+    chart = new Chart($("#c"), { type: "line", data: { datasets: ds }, options: {
+      responsive: true, maintainAspectRatio: false, animation: false, devicePixelRatio: 3,
+      plugins: { legend: { position: "bottom", labels: { boxWidth: 12, boxHeight: 3, font: { size: 10 } } }, tooltip: { mode: "index", intersect: false } },
+      scales: { x: { type: "linear", min: t0, max: t1, ticks: { stepSize: 3 * 3600e3, callback: (v) => hm(v), font: { size: 9.5 }, maxRotation: 0 }, grid: { color: "#eef0f2" } },
+                y: { stacked: true, beginAtZero: true, ticks: { font: { size: 9.5 }, callback: (v) => fmt(v) + " kW" }, grid: { color: "#eef0f2" } } } } });
+    // hour by hour: energy of each plant-local hour, by source
+    const hb = Array.from({ length: 24 }, () => ({ pv: 0, gen: 0, grid: 0, load: 0, n: 0 }));
+    T.forEach((x, i) => { const hh = new Date(x).getHours(), b = hb[hh], f = STEP / 3600; b.n++;
+      b.pv += Math.max(0, s("pv_kw")[i] || 0) * f; b.gen += Math.max(0, s("genset_kw")[i] || 0) * f; b.grid += Math.max(0, s("mains_kw")[i] || 0) * f; b.load += Math.max(0, s("load_kw")[i] || 0) * f; });
+    const bar = (label, k, color) => ({ label: L_(label), data: hb.map((b) => b.n ? b[k] : null), backgroundColor: color, stack: "e", borderRadius: 1.5, barPercentage: .9, categoryPercentage: .9 });
+    if (window._c2) window._c2.destroy();
+    window._c2 = new Chart($("#c2"), { type: "bar", data: { labels: hb.map((_, h) => p2(h)), datasets: [bar("Solar", "pv", "#e0b400"), bar("Gensets", "gen", "#f07d1a"), bar("Grid", "grid", "#3274d9"),
+        { type: "line", label: L_("Site energy"), data: hb.map((b) => b.n ? b.load : null), borderColor: "#1d2127", borderDash: [4, 3], borderWidth: 1.2, pointRadius: 0, stack: "l", tension: .3 }] },
+      options: { responsive: true, maintainAspectRatio: false, animation: false, devicePixelRatio: 3,
+        plugins: { legend: { position: "bottom", labels: { boxWidth: 10, boxHeight: 3, font: { size: 10 } } }, tooltip: { mode: "index", intersect: false } },
+        scales: { x: { stacked: true, grid: { display: false }, ticks: { font: { size: 9 }, color: "#8a919c" } },
+                  y: { stacked: true, beginAtZero: true, ticks: { font: { size: 9 }, color: "#8a919c", callback: (v) => fmt(v) }, grid: { color: "#eef0f2" } } } } });
+    document.title = `Daily plant report ${day} — ${sum.site}`;
+  }
+  build();
+})();
+</script>
+</body>
+</html>

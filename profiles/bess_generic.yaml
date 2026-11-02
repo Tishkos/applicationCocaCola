@@ -1,0 +1,25 @@
+# Device profile: battery energy storage (PCS + BMS), read-only. Generic placeholder map;
+# used by the demo simulator. Replace with the vendor's Modbus map if a BESS is installed.
+
+kind: bess
+vendor: "TBC"
+model: "PCS/BMS (TBC)"
+profile_revision: 2
+profile_status: draft
+source_document: "PCS/BMS Modbus map — TO BE ATTACHED"
+
+limits:
+  capacity_kwh: 1000       # demo simulator only
+  charge_kw_max: 300
+  discharge_kw_max: 300
+
+points:
+  - {id: soc_pct,           unit: "%",  raw: {address: 0,  kind: uint16, scale: 0.1}}   # TODO
+  - {id: power_kw,          unit: kW,   raw: {address: 1,  kind: int32,  scale: 0.1}}   # +discharge / -charge  TODO
+  - {id: soh_pct,           unit: "%",  raw: {address: 3,  kind: uint16, scale: 0.1}}   # TODO
+  - {id: max_charge_kw,     unit: kW,   raw: {address: 4,  kind: uint16}}               # TODO
+  - {id: max_discharge_kw,  unit: kW,   raw: {address: 5,  kind: uint16}}               # TODO
+  - {id: cell_temp_max_c,   unit: "°C", raw: {address: 6,  kind: int16}}                # TODO
+  - {id: status,            type: enum, raw: {address: 7,  kind: uint16}}               # TODO
+  - {id: alarm_active,      type: boolean, raw: {address: 8, kind: uint16}}             # TODO
+  - {id: power_target_kw,   unit: kW,   raw: {address: 10, kind: int32,  scale: 0.1}}   # TODO (read back only)

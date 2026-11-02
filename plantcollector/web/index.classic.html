@@ -1,0 +1,1185 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plant data collector</title>
+<meta name="description" content="Read-only live view, history and exports for the hybrid plant.">
+<link rel="icon" id="favicon" href="/static/favicon.png">
+<link rel="apple-touch-icon" href="/static/app-icon.png">
+<!--
+  Plant data collector dashboard — one file, no build step.
+
+  How it is organised (for customising):
+    1. :root tokens      colours, fonts, radius for the dark theme; :root[data-theme="light"] overrides for light.
+                         Series colours: --c-load, --c-pv, --c-gen, --c-grid, --c-bess, --c-g1..5 (gensets per unit).
+                         Glass look: --glass* fill/edge/shadow for the rail and panels, --wall-1..3 the colour backdrop behind them.
+    2. CSS by section    rail, topbar, content grid (12 columns, .span-4/.span-8 ...), hero, stats, devices,
+                         lists, export form, points table, responsive breakpoints at 1100px and 760px.
+    3. HTML              <nav class="rail">, .topwrap > .topbar, then one <section class="block"> per page section:
+                         #overview, #trends, #devices, #alarms, #export, #points, #settings.
+    4. JS                helpers -> time (this computer's clock: parts, stamp, parseStamp) -> freshness (mark: the
+                         "updated" stamps and amber edges) -> theme/size/nav -> power flow (buildFlow) -> summary
+                         (loadSummary, renderDevices) -> tab title + icon -> charts (timeTicks, baseOptions, legend
+                         switches, loadSeries) -> alarms -> points -> device detail (the <dialog>) -> downloads
+                         -> export -> read-now -> timers.
+
+  Data comes only from these endpoints (all served by plantcollector/api.py):
+    GET  /api/v1/local/summary          live values, KPIs (kpi.*), devices[], active_faults[], collector.*
+    GET  /api/v1/local/series?hours=    {t: [ms...], series: {load_kw, pv_kw, genset_kw, mains_kw, bess_kw,
+                                          soc_pct, frequency_hz, grid_available, "<genset>/power_kw", ...}}
+    GET  /api/v1/local/alarms?hours=    {active[], events[]}
+    GET  /api/v1/local/tags             every point with value/quality/age
+    GET  /api/v1/local/export.xlsx|csv  ?from=&to=&step=        GET /api/v1/local/report.xlsx?date=
+                                        (export.csv?hours=&step= is also the history behind the device detail)
+    GET  /api/v1/tags(.xlsx|.csv)       the DT Turkey tag list
+    POST /api/v1/local/poll             read every device now
+    GET/POST /api/v1/local/settings     polling rate: {poll_interval_s, options[], min_s, source, publish{}}
+    GET  /api/v1/tags/registers         the Modbus register map served to the Turkey platform
+  Chart.js 4 and the fonts are local files under /static (no internet needed).
+-->
+<style>
+  @font-face { font-family: "Inter"; font-weight: 400; src: url(/static/fonts/inter-latin-400-normal.woff2) format("woff2"); font-display: swap; }
+  @font-face { font-family: "Inter"; font-weight: 500; src: url(/static/fonts/inter-latin-500-normal.woff2) format("woff2"); font-display: swap; }
+  @font-face { font-family: "Inter"; font-weight: 600; src: url(/static/fonts/inter-latin-600-normal.woff2) format("woff2"); font-display: swap; }
+  @font-face { font-family: "JetBrains Mono"; font-weight: 400; src: url(/static/fonts/jetbrains-mono-latin-400-normal.woff2) format("woff2"); font-display: swap; }
+  @font-face { font-family: "JetBrains Mono"; font-weight: 500; src: url(/static/fonts/jetbrains-mono-latin-500-normal.woff2) format("woff2"); font-display: swap; }
+
+  :root {
+    --canvas: #010102; --surface-1: #0f1011; --surface-2: #141516; --surface-3: #18191a; --surface-4: #1d1e20;
+    --hairline: rgba(255,255,255,.085); --hairline-strong: rgba(255,255,255,.15);
+    /* glass (iOS-style) for the rail and panels: translucent fill, lit top edge, soft shadow, over the --wall colour backdrop */
+    --glass: rgba(255,255,255,.055); --glass-strong: rgba(255,255,255,.09); --glass-press: rgba(255,255,255,.09);
+    --glass-edge: rgba(255,255,255,.13); --glass-hi: rgba(255,255,255,.22); --gloss: rgba(255,255,255,.075);
+    --glass-solid: rgba(20,21,25,.8); --glass-bar: rgba(16,17,21,.6); --glass-shadow: 0 12px 32px rgba(0,0,0,.38);
+    --wall-1: rgba(57,135,229,.34); --wall-2: rgba(144,133,233,.28); --wall-3: rgba(217,89,38,.18);
+    --ink: #f7f8f8; --ink-muted: #d0d6e0; --ink-subtle: #8a8f98; --ink-tertiary: #62666d;
+    --accent: #5e6ad2; --accent-hover: #828fff;
+    --good: #27a644; --warn: #fab219; --critical: #e66767;
+    --c-load: #3987e5; --c-pv: #d95926; --c-gen: #199e70; --c-bess: #9085e9; --c-grid: #c98500;
+    --c-g1: #199e70; --c-g2: #3987e5; --c-g3: #c98500; --c-g4: #9085e9; --c-g5: #d95926;
+    --grid-line: rgba(255,255,255,.06); --tick: #8a8f98;
+    --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+    --radius: 10px; --rail: 196px;   /* room for the 128 px logo and the menu */
+    color-scheme: dark; --scroll: rgba(255,255,255,.24); --zoom: 1;
+  }
+  :root[data-theme="light"] {
+    --canvas: #eceef4; --surface-1: #f5f6f6; --surface-2: #ffffff; --surface-3: #f0f1f2; --surface-4: #e9eaec;
+    --hairline: rgba(10,20,40,.09); --hairline-strong: rgba(10,20,40,.17);
+    --glass: rgba(255,255,255,.58); --glass-strong: rgba(255,255,255,.72); --glass-press: rgba(10,20,40,.07);
+    --glass-edge: rgba(255,255,255,.9); --glass-hi: #fff; --gloss: rgba(255,255,255,.85);
+    --glass-solid: rgba(244,245,249,.86); --glass-bar: rgba(255,255,255,.66); --glass-shadow: 0 10px 28px rgba(40,50,90,.11);
+    --wall-1: rgba(57,135,229,.26); --wall-2: rgba(144,133,233,.26); --wall-3: rgba(240,130,70,.22);
+    color-scheme: light; --scroll: rgba(10,20,40,.28);
+    --ink: #08090a; --ink-muted: #2b2d31; --ink-subtle: #5f646d; --ink-tertiary: #8a8f98;
+    --accent: #5e6ad2; --accent-hover: #4a55c7;
+    --good: #0f8a35; --warn: #b07a00; --critical: #c83c3c;
+    --c-load: #2b6fc4; --c-pv: #c24a1d; --c-gen: #15835c; --c-bess: #6f63d8; --c-grid: #a16d00;
+    --c-g1: #15835c; --c-g2: #2b6fc4; --c-g3: #a16d00; --c-g4: #6f63d8; --c-g5: #c24a1d;
+    --grid-line: rgba(0,0,0,.07); --tick: #5f646d;
+  }
+  /* large mode (the Aa button), for wall displays: everything 25% bigger and the grey text brighter */
+  :root[data-size="large"] { --zoom: 1.25; --ink-subtle: #a9aeb8; --ink-tertiary: #878c95; --tick: #a9aeb8; }
+  :root[data-theme="light"][data-size="large"] { --ink-subtle: #474c55; --ink-tertiary: #666b74; --tick: #474c55; }
+
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  html { scrollbar-color: var(--scroll) transparent; }   /* scrollbars in the theme's colours, here and in the lists and table */
+  body { background: var(--canvas); color: var(--ink); font-family: var(--sans); font-size: 13px; line-height: 1.45;
+         -webkit-font-smoothing: antialiased; zoom: var(--zoom); }
+  /* soft colour backdrop behind everything; it is what shows through the glass */
+  body::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+                 background: radial-gradient(54vw 62vh at 6% 0, var(--wall-1), transparent 70%),
+                             radial-gradient(48vw 56vh at 100% 6%, var(--wall-2), transparent 70%),
+                             radial-gradient(52vw 58vh at 60% 110%, var(--wall-3), transparent 70%); }
+  a { color: inherit; text-decoration: none; }
+  button, select, input { font: inherit; color: inherit; }
+  ::selection { background: rgba(94,106,210,.35); }
+
+  .app { display: grid; grid-template-columns: var(--rail) 1fr; min-height: calc(100vh / var(--zoom)); }
+
+  /* ---- rail ------------------------------------------------------------------ */
+  /* a floating glass card, like the panels */
+  .rail { position: sticky; top: 10px; height: calc(100vh / var(--zoom) - 20px); margin: 10px 0 10px 10px;
+          border: 1px solid var(--glass-edge); border-radius: 18px;
+          background: linear-gradient(180deg, var(--gloss), transparent 120px), var(--glass);
+          box-shadow: inset 0 1px 0 var(--glass-hi), var(--glass-shadow);
+          padding: 14px 10px; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; scrollbar-width: none; }
+  .rail::-webkit-scrollbar { display: none; }
+  /* the logo (static/app-icon.png, 512 px for sharp screens) at 128 px, smaller only when the window is short */
+  .brand { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 6px 4px 16px; }
+  .brand .mark { width: min(128px, 100%, 22vh); height: auto; aspect-ratio: 1; display: block;
+                 filter: drop-shadow(0 8px 20px rgba(214, 24, 36, .32)); }
+  :root[data-theme="light"] .brand .mark { filter: drop-shadow(0 12px 24px rgba(40, 50, 90, .22)); }
+  .brand b { font-weight: 600; font-size: 14px; letter-spacing: .01em; }
+  .brand small { display: block; color: var(--ink-subtle); font-weight: 400; font-size: 11px; margin-top: 2px; }
+  .rail a { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 10px; color: var(--ink-muted); font-weight: 500; }
+  .rail a svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; opacity: .8; }
+  .rail a:hover { background: var(--glass-press); color: var(--ink); }
+  .rail a.active { background: linear-gradient(180deg, var(--gloss), transparent 70%), var(--glass-press); color: var(--ink); box-shadow: inset 0 1px 0 var(--gloss); }
+  .rail .spacer { flex: 1; }
+  .rail .foot { color: var(--ink-tertiary); font-size: 11px; padding: 8px; line-height: 1.5; }
+  .rail .foot code { font-family: var(--mono); font-size: 10.5px; color: var(--ink-subtle); }
+
+  /* ---- top bar: a floating glass bar level with the rail; what scrolls under it blurs out behind .topwrap ---- */
+  .main { min-width: 0; }
+  .topwrap { position: sticky; top: 0; z-index: 5; padding: 10px 22px 0; }
+  .topwrap::before { content: ""; position: absolute; inset: 0 0 -16px; z-index: -1; pointer-events: none;
+                     -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+                     -webkit-mask-image: linear-gradient(#000 calc(100% - 22px), transparent); mask-image: linear-gradient(#000 calc(100% - 22px), transparent); }
+  .topbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 54px; padding: 8px 11px 8px 16px;
+            border: 1px solid var(--glass-edge); border-radius: 18px;
+            background: linear-gradient(180deg, var(--gloss), transparent), var(--glass-bar);
+            box-shadow: inset 0 1px 0 var(--glass-hi), var(--glass-shadow); }
+  .topbar h1 { font-size: 14px; font-weight: 600; margin: 0; letter-spacing: -.01em; line-height: 1.3; }
+  .topbar .sub { color: var(--ink-subtle); display: flex; align-items: center; gap: 8px; font-size: 12px; }
+  .topbar .sub #clock { font-family: var(--mono); font-size: 11px; color: var(--ink-tertiary); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); display: inline-block; box-shadow: 0 0 0 3px color-mix(in srgb, var(--good) 22%, transparent); }
+  .dot.off { background: var(--critical); box-shadow: 0 0 0 3px color-mix(in srgb, var(--critical) 22%, transparent); }
+  .badge { font-size: 11px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--hairline-strong); color: var(--ink-subtle); }
+  .badge.sim { border-color: color-mix(in srgb, var(--warn) 50%, transparent); color: var(--warn); }
+  .topbar .grow { flex: 1; }
+  /* segmented control: a track with the chosen range as a raised pill */
+  .seg { display: inline-flex; gap: 2px; height: 32px; padding: 2px; border: 1px solid var(--hairline); border-radius: 10px; background: var(--glass-press); }
+  .seg button { background: transparent; border: 0; border-radius: 7px; padding: 0 10px; color: var(--ink-subtle); cursor: pointer; font-weight: 500; }
+  .seg button:hover { color: var(--ink); }
+  .seg button[aria-pressed="true"] { background: var(--glass-hi); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.18); }
+  .iconbtn { background: var(--glass-strong); border: 1px solid var(--hairline-strong); border-radius: 10px; width: 32px; height: 32px; display: inline-grid; place-items: center; cursor: pointer; color: var(--ink-subtle); }
+  .iconbtn:hover, .iconbtn[aria-pressed="true"] { color: var(--ink); background: var(--glass-hi); }
+  .iconbtn b { font-size: 12px; font-weight: 600; letter-spacing: -.02em; }
+  .iconbtn svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; }
+  :focus-visible { outline: 2px solid var(--accent-hover); outline-offset: 2px; }
+
+  /* ---- content grid ------------------------------------------------------------ */
+  .content { padding: 14px 22px 60px; display: grid; gap: 14px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  section.block { grid-column: 1 / -1; display: grid; gap: 14px; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-flow: dense; scroll-margin-top: 80px; }
+  .block > h2 { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px; margin: 10px 0 -4px; font-size: 12px; font-weight: 500; color: var(--ink-subtle); letter-spacing: .01em; }
+  .block > h2 .unit { color: var(--ink-tertiary); font-size: 11px; font-weight: 400; }
+  .panel { background: linear-gradient(180deg, var(--gloss), transparent 110px), var(--glass); border: 1px solid var(--glass-edge); border-radius: 16px;
+           box-shadow: inset 0 1px 0 var(--glass-hi), var(--glass-shadow); min-width: 0; display: flex; flex-direction: column; }
+  .panel > header { display: flex; align-items: baseline; gap: 10px; padding: 11px 14px 0; }
+  .panel > header h3 { margin: 0; font-size: 12.5px; font-weight: 500; color: var(--ink-muted); }
+  .panel > header .unit { color: var(--ink-tertiary); font-size: 11px; }
+  .panel > header .right { margin-left: auto; color: var(--ink-subtle); font-size: 11px; font-family: var(--mono); white-space: nowrap; }
+  /* "updated 16:28" stamps; a box whose last refresh failed gets an amber edge and its stamp says since when */
+  .upd { margin-left: auto; color: var(--ink-tertiary); font-family: var(--mono); font-size: 11px; font-weight: 400; }
+  .panel > header .right[data-upd] { color: var(--ink-tertiary); }
+  .panel > header .right.bad, .upd.bad, .trendhead .right.bad { color: var(--warn); }
+  .panel.stale { border-color: color-mix(in srgb, var(--warn) 65%, transparent); }
+  .panel .body { padding: 8px 10px 10px; flex: 1; min-height: 0; }
+  /* a chart stays out of the large-mode zoom (its canvas needs unscaled pixels for hover to land right);
+     its height and, in baseOptions, its fonts are scaled instead */
+  .chart { position: relative; height: calc(230px * var(--zoom)); zoom: calc(1 / var(--zoom)); }
+  .chart.short { height: calc(190px * var(--zoom)); }
+  .chart .nodata { position: absolute; inset: 0; display: grid; place-items: center; color: var(--ink-tertiary); font-size: calc(12px * var(--zoom)); pointer-events: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; padding: 0 14px 10px; color: var(--ink-subtle); font-size: 11.5px; }
+  .legend i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; vertical-align: middle; margin-right: 6px; }
+  .legend button { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; }   /* click to hide / show a series */
+  .legend button:hover { color: var(--ink); }
+  .legend button[aria-pressed="false"] { opacity: .45; text-decoration: line-through; }
+  .span-4 { grid-column: span 4; } .span-3 { grid-column: span 3; } .span-6 { grid-column: span 6; } .span-8 { grid-column: span 8; } .span-12 { grid-column: 1 / -1; }
+
+  /* ---- hero: power flow ------------------------------------------------------- */
+  .hero { grid-column: span 8; padding: 6px 8px 4px; }
+  .flow { width: 100%; height: auto; display: block; }
+  .flow text { font-family: var(--sans); fill: var(--ink-muted); font-size: 11px; }
+  .flow .val { font-family: var(--mono); font-size: 15px; font-weight: 500; fill: var(--ink); }
+  .flow .cap { fill: var(--ink-subtle); font-size: 10.5px; }
+  .flow .node { fill: var(--glass-strong); stroke: var(--hairline-strong); }
+  .flow .bus { fill: var(--glass-strong); stroke: var(--hairline-strong); }
+  .flow .link { fill: none; stroke: var(--hairline-strong); stroke-linecap: round; }
+  .flow .pulse { fill: none; stroke-linecap: round; stroke-dasharray: 6 12; animation: flow 1.1s linear infinite; }
+  .flow .pulse.rev { animation-direction: reverse; }
+  .flow .pulse.idle { animation: none; opacity: .18; }
+  @keyframes flow { to { stroke-dashoffset: -18; } }
+  @media (prefers-reduced-motion: reduce) { .flow .pulse { animation: none; } }
+  .flow .ic { stroke: var(--ink-subtle); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* ---- stat tiles --------------------------------------------------------------- */
+  .stats { grid-column: span 4; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .stat { padding: 13px 14px 12px; }
+  .stat .lbl { color: var(--ink-subtle); font-size: 12px; }
+  .stat .num { font-family: var(--mono); font-size: 26px; font-weight: 500; letter-spacing: -.02em; margin: 6px 0 2px; line-height: 1.1; }
+  .stat .num small { font-size: 13px; color: var(--ink-subtle); font-weight: 400; margin-left: 3px; }
+  .stat .sub { color: var(--ink-tertiary); font-size: 11.5px; min-height: 1.4em; }
+  .stat.alert .num { color: var(--critical); }
+  .stat .bar { height: 4px; background: var(--glass-press); border-radius: 2px; margin-top: 10px; overflow: hidden; }
+  .stat .bar i { display: block; height: 100%; background: var(--c-pv); width: 0; transition: width .6s ease; }
+
+  /* ---- devices ---------------------------------------------------------------- */
+  .devices { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .dev { padding: 11px 13px 10px; cursor: pointer; transition: transform .12s, border-color .12s; }   /* opens the device detail */
+  .dev:hover { border-color: color-mix(in srgb, var(--accent) 60%, transparent); transform: translateY(-1px); }
+  .dev .head { display: flex; align-items: center; gap: 8px; }
+  .dev .head b { font-weight: 600; font-size: 13px; }
+  .dev .head .kind { color: var(--ink-tertiary); font-size: 11px; }
+  .pill { margin-left: auto; font-size: 10.5px; padding: 1px 7px; border-radius: 999px; font-weight: 500; }
+  .pill.ok { background: color-mix(in srgb, var(--good) 16%, transparent); color: var(--good); }
+  .pill.stale { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .pill.lost { background: color-mix(in srgb, var(--critical) 18%, transparent); color: var(--critical); }
+  .pill.unmapped { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+  .pill.reading { background: var(--surface-4); color: var(--ink-subtle); }
+  .dev .model { color: var(--ink-subtle); font-size: 11.5px; margin: 2px 0 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .dev dl { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; margin: 0; }
+  .dev dt { color: var(--ink-subtle); font-size: 12px; }
+  .dev dd { margin: 0; font-family: var(--mono); font-size: 12px; text-align: right; }
+  .dev dd.bad { color: var(--critical); } .dev dd.stale { color: var(--warn); }
+
+  /* ---- lists ---------------------------------------------------------------- */
+  .list { list-style: none; margin: 0; padding: 0 4px; max-height: 300px; overflow: auto; scrollbar-width: thin; }
+  .list li { display: grid; grid-template-columns: 10px 1fr 112px; gap: 10px; align-items: baseline; padding: 6px 8px; border-top: 1px solid var(--hairline); }
+  .list li:first-child { border-top: 0; }
+  .list .sev { width: 7px; height: 7px; border-radius: 50%; background: var(--ink-tertiary); align-self: center; }
+  .list .sev.error { background: var(--critical); } .list .sev.warning { background: var(--warn); } .list .sev.info { background: var(--good); }
+  .list time { font-family: var(--mono); color: var(--ink-tertiary); font-size: 11px; white-space: nowrap; text-align: right; font-variant-numeric: tabular-nums; }
+  .list li.empty { display: block; color: var(--ink-tertiary); padding: 14px 8px; }
+
+  /* ---- export form ---------------------------------------------------------- */
+  .form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; padding: 12px 14px 14px; }
+  .form label, label.field { display: grid; gap: 5px; color: var(--ink-subtle); font-size: 12px; }
+  .form input, .form select, .field input { height: 32px; background: var(--surface-2); border: 1px solid var(--hairline-strong); border-radius: var(--radius); padding: 0 9px; color: var(--ink); }
+  /* date fields: text in one fixed format; the button opens the browser's own calendar (the hidden date input) */
+  .dt { position: relative; display: block; }
+  .dt input[type="text"] { width: 100%; padding-right: 32px; font-family: var(--mono); font-size: 12px; }
+  .dt input[type="text"][aria-invalid="true"] { border-color: var(--critical); }
+  .dt input[type="date"] { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; opacity: 0; pointer-events: none; }
+  .dt button { position: absolute; top: 1px; right: 1px; bottom: 1px; width: 28px; display: grid; place-items: center; padding: 0; background: transparent; border: 0; border-radius: 0 9px 9px 0; color: var(--ink-subtle); cursor: pointer; }
+  .dt button:hover { color: var(--ink); background: var(--surface-3); }
+  .dt button svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .actions { display: flex; flex-wrap: wrap; gap: 10px; padding: 0 14px 14px; align-items: center; }
+  .actions .note { margin-left: auto; color: var(--ink-subtle); font-family: var(--mono); font-size: 11px; }
+  .actions .note.bad { color: var(--critical); }
+  /* buttons: glass like the panels; the primary one is a glossy accent pill, a chosen quick range is tinted */
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 32px; padding: 0 13px;
+         border: 1px solid var(--hairline-strong); border-radius: var(--radius);
+         background: linear-gradient(180deg, var(--gloss), transparent), var(--glass-strong); box-shadow: inset 0 1px 0 var(--gloss);
+         cursor: pointer; font-weight: 500; color: var(--ink); transition: transform .08s; }
+  .btn:hover { background: var(--glass-hi); }
+  .btn:active { transform: scale(.98); }
+  .btn.primary { background: linear-gradient(180deg, rgba(255,255,255,.26), rgba(255,255,255,0) 62%), var(--accent); border-color: color-mix(in srgb, var(--accent) 72%, #fff);
+                 box-shadow: inset 0 1px 0 rgba(255,255,255,.42), 0 6px 16px color-mix(in srgb, var(--accent) 36%, transparent); color: #fff; }
+  .btn.primary:hover { background: linear-gradient(180deg, rgba(255,255,255,.26), rgba(255,255,255,0) 62%), var(--accent-hover); }
+  .btn.quiet { background: transparent; box-shadow: none; }
+  .btn.quiet:hover { background: var(--glass-press); }
+  .btn.quiet[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 24%, transparent); border-color: color-mix(in srgb, var(--accent) 62%, transparent); }
+  .btn.busy { opacity: .6; pointer-events: none; }
+  .btn.busy svg { animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hint { color: var(--ink-tertiary); font-size: 11.5px; padding: 0 14px 12px; }
+  .about { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0; padding: 12px 14px 14px; font-size: 12px; }
+  .about dt { color: var(--ink-subtle); } .about dd { margin: 0; font-family: var(--mono); overflow-wrap: anywhere; }
+  .hint code { font-family: var(--mono); font-size: 11px; color: var(--ink-subtle); }
+
+  /* ---- points table ----------------------------------------------------------- */
+  .tablewrap { overflow: auto; max-height: 520px; scrollbar-width: thin; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { text-align: left; padding: 6px 12px; border-top: 1px solid var(--hairline); white-space: nowrap; }
+  th { position: sticky; top: 0; background: var(--glass-solid); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); color: var(--ink-subtle); font-weight: 500; border-top: 0; }
+  td.num { font-family: var(--mono); text-align: right; }
+  td.q-good { color: var(--good); } td.q-stale { color: var(--warn); } td.q-bad { color: var(--critical); }
+  td.note { color: var(--ink-tertiary); }
+  #ptBody tr, #dtBody tr { cursor: pointer; }   /* rows open the device detail / pick the point to plot */
+  #ptBody tr:hover td, #dtBody tr:hover td { background: var(--glass-press); }
+  #dtBody tr.sel td { background: color-mix(in srgb, var(--accent) 20%, transparent); }
+  .ptlink { background: none; border: 0; padding: 0; font: inherit; color: inherit; cursor: pointer; text-align: left; }
+  .filter { padding: 10px 14px 6px; display: flex; gap: 10px; align-items: center; }
+  .filter input { flex: 1; max-width: 380px; height: 32px; background: var(--surface-2); border: 1px solid var(--hairline-strong); border-radius: var(--radius); padding: 0 10px; }
+  .filter span { color: var(--ink-tertiary); font-size: 11.5px; }
+
+  .toast { position: fixed; right: 18px; bottom: 18px; z-index: 6; background: var(--glass-solid); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+           border: 1px solid var(--glass-edge); box-shadow: inset 0 1px 0 var(--glass-hi), var(--glass-shadow); padding: 10px 14px; border-radius: 12px; display: none; }
+  .toast.show { display: block; }
+  .toast.bad { border-color: color-mix(in srgb, var(--critical) 70%, transparent); }
+
+  /* ---- device detail: a glass sheet over the page -------------------------------- */
+  dialog.sheet { width: min(880px, calc(100vw / var(--zoom) - 32px)); max-height: calc(100vh / var(--zoom) - 48px); padding: 0; color: var(--ink);
+                 border: 1px solid var(--glass-edge); border-radius: 20px; overflow: hidden;
+                 background: linear-gradient(180deg, var(--gloss), transparent 110px), var(--glass-solid);
+                 -webkit-backdrop-filter: blur(26px) saturate(160%); backdrop-filter: blur(26px) saturate(160%);
+                 box-shadow: inset 0 1px 0 var(--glass-hi), 0 24px 70px rgba(0,0,0,.5); }
+  dialog.sheet[open] { display: flex; flex-direction: column; }
+  dialog.sheet::backdrop { background: rgba(0,0,0,.42); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .sheet > header { display: flex; align-items: center; gap: 12px; padding: 14px 14px 10px 18px; }
+  .sheet > header h3 { margin: 0; font-size: 15px; font-weight: 600; }
+  .sheet > header .model { color: var(--ink-subtle); font-size: 12px; }
+  .sheet .trend { padding: 0 14px 8px; }
+  .trendhead { display: flex; align-items: baseline; gap: 8px; padding: 0 4px 6px; }
+  .trendhead b { font-family: var(--mono); font-weight: 500; font-size: 12.5px; }
+  .trendhead .unit { color: var(--ink-tertiary); font-size: 11px; }
+  .trendhead .right { margin-left: auto; color: var(--ink-tertiary); font-family: var(--mono); font-size: 11px; }
+  .sheet .tablewrap { flex: 1; min-height: 0; max-height: none; border-top: 1px solid var(--hairline); }
+
+  @media (max-width: 1100px) {
+    .hero, .stats { grid-column: 1 / -1; }
+    .span-4, .span-3, .span-6, .span-8 { grid-column: span 6; }
+  }
+  @media (max-width: 760px) {
+    .app { grid-template-columns: 1fr; }
+    .rail { position: static; height: auto; margin: 10px 16px 0; flex-direction: row; flex-wrap: wrap; padding: 8px; }
+    .rail .brand { width: 100%; padding-bottom: 6px; } .rail .brand .mark { width: 96px; } .rail .foot, .rail .spacer { display: none; }
+    .content { padding: 14px 16px 50px; }
+    .span-4, .span-3, .span-6, .span-8, .stats { grid-column: 1 / -1; }
+    .topwrap { padding: 10px 16px 0; } .topbar { padding: 10px 12px; flex-wrap: wrap; } .topbar .sub .hide-sm { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <nav class="rail" aria-label="Sections">
+    <div class="brand"><img class="mark" src="/static/app-icon.png" alt="Plant Collector" width="128" height="128"><div><b>Plant Collector</b><small id="brandSite">collector</small></div></div>
+    <a href="#overview" class="active"><svg viewBox="0 0 24 24"><path d="M3 12l9-8 9 8M5 10v10h14V10"/></svg>Overview</a>
+    <a href="#trends"><svg viewBox="0 0 24 24"><path d="M3 17l6-7 4 4 8-9M3 21h18"/></svg>Trends</a>
+    <a href="#devices"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>Devices</a>
+    <a href="#alarms"><svg viewBox="0 0 24 24"><path d="M12 3l9 16H3zM12 10v4M12 17v.5"/></svg>Alarms</a>
+    <a href="#export"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"/></svg>Export</a>
+    <a href="#points"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg>All points</a>
+    <a href="#settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Settings</a>
+    <div class="spacer"></div>
+    <div class="foot">Read-only. This program only reads; it never writes to any device.<br><code id="footInfo"></code></div>
+  </nav>
+
+  <div class="main">
+    <div class="topwrap"><div class="topbar">
+      <div>
+        <h1 id="siteName">Plant</h1>
+        <div class="sub"><span class="dot" id="liveDot"></span><span id="liveText">connecting</span><span class="hide-sm" id="clock"></span></div>
+      </div>
+      <span class="badge">read-only</span>
+      <span class="badge sim" id="simBadge" hidden>demo data</span>
+      <div class="grow"></div>
+      <button class="btn" id="pollBtn" title="Read every device now">
+        <svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;vertical-align:-2px;margin-right:6px"><path d="M20 12a8 8 0 1 1-2.3-5.7M20 4v5h-5"/></svg>Read devices now
+      </button>
+      <div class="seg" role="group" aria-label="Time range">
+        <button data-h="6">6h</button><button data-h="24" aria-pressed="true">24h</button><button data-h="72">3d</button><button data-h="168">7d</button><button data-h="720">30d</button>
+      </div>
+      <button class="iconbtn" id="sizeBtn" title="Larger text, for wall displays" aria-label="Larger text" aria-pressed="false"><b>Aa</b></button>
+      <button class="iconbtn" id="themeBtn" title="Switch light / dark" aria-label="Switch theme">
+        <svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c-4 0-8-3-9-9z"/></svg>
+      </button>
+    </div></div>
+
+    <div class="content">
+      <!-- ============ overview ============ -->
+      <section class="block" id="overview">
+        <div class="panel hero" data-src="summary">
+          <header><h3>Live power flow</h3><span class="unit" id="flowNote">kW</span><span class="right" id="flowTime"></span></header>
+          <svg class="flow" viewBox="0 0 760 290" role="img" aria-label="Power flow diagram">
+            <defs></defs>
+            <!-- links from sources to bus -->
+            <g id="links"></g>
+            <!-- bus -->
+            <rect class="bus" x="372" y="40" width="14" height="210" rx="4"/>
+            <text x="379" y="30" text-anchor="middle" class="cap">LV bus</text>
+            <text x="379" y="272" text-anchor="middle" class="val" id="busFreq" style="font-size:12px">— Hz</text>
+            <!-- nodes -->
+            <g id="nodes"></g>
+          </svg>
+        </div>
+
+        <div class="stats">
+          <div class="panel stat" data-src="summary"><div class="lbl">Solar share today</div><div class="num" id="kSolar">—<small>%</small></div><div class="sub" id="kSolarSub"></div><div class="bar"><i id="kSolarBar"></i></div></div>
+          <div class="panel stat" data-src="summary"><div class="lbl">Fuel today</div><div class="num" id="kFuel">—<small>L</small></div><div class="sub" id="kFuelSub"></div></div>
+          <div class="panel stat" data-src="summary"><div class="lbl">Grid today</div><div class="num" id="kGrid">—<small>kWh</small></div><div class="sub" id="kGridSub"></div></div>
+          <div class="panel stat" data-src="summary" id="kFaultPanel"><div class="lbl">Active faults</div><div class="num" id="kFault">—</div><div class="sub" id="kFaultSub"></div></div>
+        </div>
+      </section>
+
+      <!-- ============ trends ============ -->
+      <section class="block" id="trends">
+        <h2>Trends</h2>
+        <div class="panel span-8" data-src="series">
+          <header><h3>Power</h3><span class="unit">kW · sources stacked, load as a line</span><span class="right" data-upd="series"></span></header>
+          <div class="body"><div class="chart"><canvas id="c-power"></canvas></div></div>
+          <div class="legend" id="lg-power"></div>
+        </div>
+        <div class="panel span-4" id="p-soc" data-src="series">
+          <header><h3>Battery state of charge</h3><span class="unit">%</span><span class="right" data-upd="series"></span></header>
+          <div class="body"><div class="chart"><canvas id="c-soc"></canvas></div></div>
+        </div>
+        <div class="panel span-4" id="p-pv" data-src="series">
+          <header><h3>Solar produced vs available</h3><span class="unit">kW</span><span class="right" data-upd="series"></span></header>
+          <div class="body"><div class="chart short"><canvas id="c-pv"></canvas></div></div>
+          <div class="legend" id="lg-pv"></div>
+        </div>
+        <div class="panel span-4" id="p-irr" data-src="series">
+          <header><h3>Irradiance</h3><span class="unit">W/m²</span><span class="right" data-upd="series"></span></header>
+          <div class="body"><div class="chart short"><canvas id="c-irr"></canvas></div></div>
+        </div>
+        <div class="panel span-4" id="p-gens" data-src="series">
+          <header><h3>Gensets, per unit</h3><span class="unit">kW</span><span class="right" data-upd="series"></span></header>
+          <div class="body"><div class="chart short"><canvas id="c-gens"></canvas></div></div>
+          <div class="legend" id="lg-gens"></div>
+        </div>
+        <div class="panel span-4" id="p-fuel" data-src="series">
+          <header><h3>Fuel level</h3><span class="unit">%</span><span class="right" data-upd="series"></span></header>
+          <div class="body"><div class="chart short"><canvas id="c-fuel"></canvas></div></div>
+          <div class="legend" id="lg-fuel"></div>
+        </div>
+        <div class="panel span-4" id="p-grid" data-src="series">
+          <header><h3>Government grid</h3><span class="unit">available / not available</span><span class="right" data-upd="series"></span></header>
+          <div class="body"><div class="chart short"><canvas id="c-grid"></canvas></div></div>
+        </div>
+        <div class="panel span-4" id="p-freq" data-src="series">
+          <header><h3>Bus frequency</h3><span class="unit">Hz</span><span class="right" data-upd="series"></span></header>
+          <div class="body"><div class="chart short"><canvas id="c-freq"></canvas></div></div>
+        </div>
+        <div class="panel span-4" id="p-load" data-src="series">
+          <header><h3>Site load</h3><span class="unit">kW</span><span class="right" data-upd="series"></span></header>
+          <div class="body"><div class="chart short"><canvas id="c-load"></canvas></div></div>
+        </div>
+      </section>
+
+      <!-- ============ devices ============ -->
+      <section class="block" id="devices">
+        <h2>Devices<span class="unit">click one for all its values and a trend</span><span class="upd" data-upd="summary"></span></h2>
+        <div class="devices" id="devGrid"></div>
+      </section>
+
+      <!-- ============ alarms ============ -->
+      <section class="block" id="alarms">
+        <h2>Alarms and events</h2>
+        <div class="panel span-4" data-src="summary">
+          <header><h3>Active now</h3><span class="right" data-upd="summary"></span></header>
+          <ul class="list" id="activeList"></ul>
+        </div>
+        <div class="panel span-8" data-src="alarms">
+          <header><h3>Event log</h3><span class="unit" id="evRange"></span><span class="right" data-upd="alarms"></span></header>
+          <ul class="list" id="eventList"></ul>
+        </div>
+      </section>
+
+      <!-- ============ export ============ -->
+      <section class="block" id="export">
+        <h2>Export</h2>
+        <div class="panel span-8">
+          <header><h3>Download a time window</h3><span class="unit">one column per device point, averaged per step</span></header>
+          <div class="form">
+            <label>From <span class="dt" data-time><input type="text" id="exFrom" placeholder="YYYY-MM-DD HH:MM" autocomplete="off" spellcheck="false"><button type="button" title="Pick a date" aria-label="Pick the From date"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></button><input type="date" tabindex="-1" aria-hidden="true"></span></label>
+            <label>To <span class="dt" data-time><input type="text" id="exTo" placeholder="YYYY-MM-DD HH:MM" autocomplete="off" spellcheck="false"><button type="button" title="Pick a date" aria-label="Pick the To date"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></button><input type="date" tabindex="-1" aria-hidden="true"></span></label>
+            <label>Step <select id="exStep"><option value="60">1 minute</option><option value="300" selected>5 minutes</option><option value="900">15 minutes</option><option value="3600">1 hour</option></select></label>
+            <label>Format <select id="exFmt"><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV</option></select></label>
+          </div>
+          <div class="actions">
+            <button class="btn primary" id="exGo">Download data</button>
+            <button class="btn quiet" data-quick="24">Last 24 h</button>
+            <button class="btn quiet" data-quick="168">Last 7 days</button>
+            <button class="btn quiet" data-quick="720">Last 30 days</button>
+            <span class="note" id="exInfo" role="status"></span>
+          </div>
+          <div class="hint">Times are 24-hour, in <span id="exZone">this computer's local time</span>. The file has both UTC and plant-local time columns. Up to 62 days per file.</div>
+        </div>
+        <div class="panel span-4">
+          <header><h3>Reports and tag lists</h3></header>
+          <div class="actions" style="padding-top:12px; flex-direction:column; align-items:stretch">
+            <label class="field">Report day (UTC) <span class="dt"><input type="text" id="repDate" placeholder="YYYY-MM-DD" autocomplete="off" spellcheck="false"><button type="button" title="Pick a date" aria-label="Pick the report day"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></button><input type="date" tabindex="-1" aria-hidden="true"></span></label>
+            <button class="btn" id="repGo">Download daily report (.xlsx)</button>
+            <a class="btn" href="/api/v1/tags.xlsx" data-dl>Tag list with live values (.xlsx)</a>
+            <a class="btn quiet" href="/api/v1/tags.csv" data-dl>Tag list (.csv)</a>
+          </div>
+          <div class="hint">The tag list is the DT Turkey list (Rev. 1.2). The same values are served live at <code>/api/v1/tags</code>.</div>
+        </div>
+      </section>
+
+      <!-- ============ points ============ -->
+      <section class="block" id="points">
+        <h2>All points<span class="unit">click a point for its trend</span></h2>
+        <div class="panel span-12" data-src="points">
+          <div class="filter"><input id="ptFilter" placeholder="Filter by device or point…" aria-label="Filter points"><span id="ptCount"></span><span class="upd" data-upd="points"></span></div>
+          <div class="tablewrap"><table>
+            <thead><tr><th>Device</th><th>Point</th><th style="text-align:right">Value</th><th>Unit</th><th>Quality</th><th>Age</th><th>Register</th><th>Note</th></tr></thead>
+            <tbody id="ptBody"></tbody>
+          </table></div>
+        </div>
+      </section>
+
+      <!-- ============ settings ============ -->
+      <section class="block" id="settings">
+        <h2>Settings</h2>
+        <div class="panel span-6">
+          <header><h3>Polling</h3><span class="unit">how often every device is read</span></header>
+          <div class="form">
+            <label>Read the devices every <select id="setInterval"></select></label>
+          </div>
+          <div class="actions">
+            <button class="btn primary" id="setSave">Save</button>
+            <span class="note" id="setNote" role="status"></span>
+          </div>
+          <div class="hint" id="setHint">Not more often than every 30 minutes, to keep the load on the SAU gateway small. For a one-off read at any time use "Read devices now" at the top. The setting is kept in <code>data\settings.json</code> and survives restarts.</div>
+        </div>
+        <div class="panel span-6">
+          <header><h3>About this collector</h3></header>
+          <dl class="about" id="aboutList"></dl>
+          <div class="hint">Read-only: this program has no code path that writes to a device. API documentation at <code>/api/docs</code>.</div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<dialog class="sheet" id="detail" aria-labelledby="dtTitle">
+  <header>
+    <div><h3 id="dtTitle"></h3><div class="model" id="dtModel"></div></div>
+    <span class="pill" id="dtPill"></span>
+    <button class="iconbtn" id="dtClose" title="Close" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </header>
+  <div class="trend">
+    <div class="trendhead"><b id="dtPoint"></b><span class="unit" id="dtUnit"></span><span class="right" id="dtNote"></span></div>
+    <div class="chart short"><canvas id="c-detail"></canvas></div>
+  </div>
+  <div class="tablewrap"><table>
+    <thead><tr><th>Point</th><th style="text-align:right">Value</th><th>Unit</th><th>Quality</th><th>Age</th><th>Note</th></tr></thead>
+    <tbody id="dtBody"></tbody>
+  </table></div>
+</dialog>
+<div class="toast" id="toast" role="status"></div>
+
+<script src="/static/chart.umd.js"></script>
+<script>
+(() => {
+  // ------------------------------------------------------------------ helpers
+  const $ = (s) => document.querySelector(s);
+  const $$ = (s) => [...document.querySelectorAll(s)];
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const fmt = (v, d = 0) => (v === null || v === undefined || Number.isNaN(v)) ? "—"
+      : typeof v === "boolean" ? (v ? "on" : "off")
+      : typeof v === "number" ? v.toLocaleString(undefined, { minimumFractionDigits: d, maximumFractionDigits: d }) : String(v);
+  const ago = (s) => s === null || s === undefined ? "—" : s < 90 ? `${s} s` : s < 5400 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`;
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const p2 = (n) => String(n).padStart(2, "0");
+  const saved = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  let toastTimer;
+  const toast = (m, bad = false) => {
+    const t = $("#toast"); t.textContent = m; t.classList.toggle("bad", bad); t.classList.add("show");
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove("show"), bad ? 8000 : 3500);
+  };
+  // what the server said went wrong, in one line
+  async function failText(r) {
+    let m = ""; try { const j = await r.json(); m = j.detail || j.error || ""; } catch (e) {}
+    return typeof m === "string" && m ? m : `the collector answered with error ${r.status}`;
+  }
+  const why = (e) => e instanceof TypeError ? "the collector is not reachable" : e.message;
+  async function getJSON(url, opts) { const r = await fetch(url, opts); if (!r.ok) throw new Error(await failText(r)); return r.json(); }
+  // swap a list's HTML without losing the keyboard focus that was on one of its items (items carry `attr`)
+  function redraw(el, html, attr) {
+    const a = document.activeElement, item = a && el.contains(a) ? a.closest(`[${attr}]`) : null, key = item && item.getAttribute(attr);
+    el.innerHTML = html;
+    if (key === null) return;
+    const again = [...el.querySelectorAll(`[${attr}]`)].find((x) => x.getAttribute(attr) === key);
+    const f = again && (again.matches("button, [tabindex]") ? again : again.querySelector("button"));
+    if (f) f.focus({ preventScroll: true });
+  }
+
+  let hours = 24, summary = null, charts = {}, stepSet = false;
+  { const h = Number(saved("pc.hours")); if (h) hours = h; }
+  { const t = saved("pc.theme"); if (t) document.documentElement.dataset.theme = t; }
+  if (saved("pc.size") === "large") document.documentElement.dataset.size = "large";
+  const rangeBtns = $$(".seg button[data-h]");
+  rangeBtns.forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.h) === hours)));
+  const rangeText = () => `last ${hours >= 48 ? hours / 24 + " days" : hours + " h"}`;
+  const zoomNow = () => Number(css("--zoom")) || 1;
+
+  // ------------------------------------------------------------------ time
+  // Every time on the page (clock, charts, events, export fields) is this computer's local time: the
+  // collector runs on the plant PC, so that is plant time. `parts` is the wall clock of an instant.
+  const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  function parts(ms) {
+    const d = new Date(ms); return { y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate(), h: d.getHours(), mi: d.getMinutes(), s: d.getSeconds() };
+  }
+  const wallMs = (p) => Date.UTC(p.y, p.mo - 1, p.d, p.h, p.mi, p.s || 0);
+  const offsetAt = (ms) => wallMs(parts(ms)) - Math.floor(ms / 1000) * 1000;   // this computer's UTC offset at that instant
+  const ymd = (ms) => { const p = parts(ms); return `${p.y}-${p2(p.mo)}-${p2(p.d)}`; };
+  const hm = (ms) => { const p = parts(ms); return `${p2(p.h)}:${p2(p.mi)}`; };
+  const stamp = (ms) => `${ymd(ms)} ${hm(ms)}`;
+  const dayLabel = (ms) => { const p = parts(ms); return `${p.d} ${MON[p.mo - 1]}`; };
+  const utcText = (off) => { const a = Math.abs(off) / 60000; return `UTC${off < 0 ? "−" : "+"}${p2(Math.floor(a / 60))}:${p2(a % 60)}`; };
+  // "2026-10-13 16:05" (the time is optional) -> its numbers, or null
+  function parseWall(s) {
+    const m = /^\s*(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[ T]+(\d{1,2})(?::(\d{0,2}))?)?\s*$/.exec(s);
+    if (!m) return null;
+    const [y, mo, d, h, mi] = m.slice(1).map((x) => Number(x || 0));
+    return { y, mo, d, h, mi };
+  }
+  // a typed time, read in this computer's zone -> epoch ms, or null if it is not a real time
+  function parseStamp(s) {
+    const w = parseWall(s); if (!w) return null;
+    const g = wallMs(w); let t = g - offsetAt(g); t = g - offsetAt(t);
+    const p = parts(t);
+    return p.y === w.y && p.mo === w.mo && p.d === w.d && p.h === w.h && p.mi === w.mi ? t : null;
+  }
+  // a typed calendar day -> "YYYY-MM-DD", or null
+  function parseDay(s) {
+    const w = parseWall(s); if (!w) return null;
+    const d = new Date(Date.UTC(w.y, w.mo - 1, w.d));
+    return d.getUTCFullYear() === w.y && d.getUTCMonth() === w.mo - 1 && d.getUTCDate() === w.d ? d.toISOString().slice(0, 10) : null;
+  }
+  const paintZone = () => { $("#exZone").textContent = `this computer's time (${utcText(offsetAt(Date.now()))})`; };
+
+  // ------------------------------------------------------------------ freshness
+  // Each fetch is a "source" (summary, series, alarms, points). Boxes carry data-src; when a refresh of their
+  // source fails they get an amber edge, and the [data-upd] stamps say since when the data on screen is unchanged.
+  const fresh = {};
+  function mark(src, ok) {
+    const f = fresh[src] || (fresh[src] = { at: null, ok });
+    f.ok = ok; if (ok) f.at = Date.now();
+    paintFresh(src);
+  }
+  function paintFresh(src) {
+    const f = fresh[src];
+    const text = f.ok ? `updated ${hm(f.at)}` : f.at ? `no update since ${hm(f.at)}` : "no data yet";
+    $$(`[data-src="${src}"]`).forEach((el) => el.classList.toggle("stale", !f.ok));
+    $$(`[data-upd="${src}"]`).forEach((el) => { el.textContent = text; el.classList.toggle("bad", !f.ok); });
+  }
+
+  // ------------------------------------------------------------------ theme, size, range, nav
+  function redrawCharts() { Object.values(charts).forEach((c) => c.destroy()); charts = {}; loadSeries(); }
+  $("#themeBtn").addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "light" ? "dark" : "light";
+    document.documentElement.dataset.theme = next; save("pc.theme", next);
+    redrawCharts();
+  });
+  const sizeBtn = $("#sizeBtn");
+  sizeBtn.setAttribute("aria-pressed", String(document.documentElement.dataset.size === "large"));
+  sizeBtn.addEventListener("click", () => {
+    const large = document.documentElement.dataset.size !== "large";
+    if (large) document.documentElement.dataset.size = "large"; else delete document.documentElement.dataset.size;
+    save("pc.size", large ? "large" : "normal"); sizeBtn.setAttribute("aria-pressed", String(large));
+    redrawCharts();
+  });
+  rangeBtns.forEach((b) => b.addEventListener("click", () => {
+    hours = Number(b.dataset.h); save("pc.hours", hours);
+    rangeBtns.forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+    loadSeries(); loadAlarms();
+  }));
+  const links = $$(".rail a");
+  const obs = new IntersectionObserver((es) => {
+    es.forEach((e) => { if (e.isIntersecting) links.forEach((l) => l.classList.toggle("active", l.getAttribute("href") === "#" + e.target.id)); });
+  }, { rootMargin: "-40% 0px -55% 0px" });
+  $$("section.block").forEach((s) => obs.observe(s));
+
+  // ------------------------------------------------------------------ power flow
+  const NODES = [
+    { id: "grid", label: "Grid (government)", key: "mains_kw", color: "--c-grid", y: 60, signed: true,
+      icon: "M12 3v18M6 8l6-3 6 3M6 14l6-3 6 3" },
+    { id: "pv",   label: "Solar",    key: "pv_kw",     color: "--c-pv",   y: 60,
+      icon: "M12 4v2M12 18v2M4 12h2M18 12h2M6.3 6.3l1.4 1.4M16.3 16.3l1.4 1.4M6.3 17.7l1.4-1.4M16.3 7.7l1.4-1.4M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" },
+    { id: "gen",  label: "Gensets",  key: "genset_kw", color: "--c-gen",  y: 125,
+      icon: "M4 8h13v9H4zM17 11h3v4h-3M7 17v2M14 17v2M8 12.5h5" },
+    { id: "bess", label: "Battery",  key: "bess_kw",   color: "--c-bess", y: 190, signed: true,
+      icon: "M4 8h14v8H4zM18 10h2v4h-2M7 11v2M10 11v2M13 11v2" },
+  ];
+  function buildFlow(kpi) {
+    const have = NODES.filter((n) => kpi[n.key] !== null && kpi[n.key] !== undefined || n.id === "pv" || n.id === "gen" || (n.id === "grid" && kpi.grid_available !== null));
+    const n = have.length, top = 48, bottom = 242, gap = n > 1 ? (bottom - top) / (n - 1) : 0;
+    let nodes = "", linksHtml = "";
+    have.forEach((nd, i) => {
+      const y = n > 1 ? top + i * gap : 145;
+      const v = kpi[nd.key];
+      const kw = Math.abs(v || 0);
+      const w = v === null || v === undefined ? 1.5 : 1.5 + Math.min(9, kw / 70);
+      const rev = nd.signed && v < 0;
+      const idle = !v || kw < 1;
+      const off = nd.id === "grid" && kpi.grid_available === false;
+      nodes += `<g transform="translate(60 ${y - 24})">
+        <rect class="node" width="150" height="48" rx="7"${off ? ' style="stroke:var(--critical)"' : ""}/>
+        <svg x="12" y="12" width="24" height="24" viewBox="0 0 24 24"><path class="ic" d="${nd.icon}"/></svg>
+        <text x="46" y="19" class="cap">${nd.label}</text>
+        <text x="46" y="37" class="val">${off ? "off" : fmt(v === null ? null : Math.abs(v))} <tspan class="cap">${off ? "no supply" : "kW" + (rev ? (nd.id === "bess" ? " charging" : " export") : "")}</tspan></text>
+      </g>`;
+      const path = `M210 ${y} C 300 ${y}, 290 145, 372 145`;
+      linksHtml += `<path class="link" d="${path}" stroke-width="${w}"/>` +
+        `<path class="pulse ${rev ? "rev" : ""} ${idle ? "idle" : ""}" d="${path}" stroke="${css(nd.color)}" stroke-width="${Math.max(2, w - 1)}"/>`;
+    });
+    // load
+    const lv = kpi.load_kw, lw = lv ? 1.5 + Math.min(9, Math.abs(lv) / 70) : 1.5;
+    const lpath = "M386 145 C 450 145, 460 145, 520 145";
+    linksHtml += `<path class="link" d="${lpath}" stroke-width="${lw}"/><path class="pulse ${!lv ? "idle" : ""}" d="${lpath}" stroke="${css("--c-load")}" stroke-width="${Math.max(2, lw - 1)}"/>`;
+    nodes += `<g transform="translate(520 115)"><rect class="node" width="180" height="60" rx="7"/>
+      <svg x="14" y="18" width="24" height="24" viewBox="0 0 24 24"><path class="ic" d="M4 20V9l8-5 8 5v11zM9 20v-6h6v6"/></svg>
+      <text x="48" y="22" class="cap">Plant load</text>
+      <text x="48" y="44" class="val" style="font-size:18px">${fmt(lv)} <tspan class="cap">kW</tspan></text>
+      <text x="48" y="56" class="cap">${kpi.pv_share_now_pct === null ? "" : `${fmt(kpi.pv_share_now_pct)}% from solar right now`}</text></g>`;
+    $("#links").innerHTML = linksHtml; $("#nodes").innerHTML = nodes;
+    $("#busFreq").textContent = kpi.frequency_hz === null ? "— Hz" : `${fmt(kpi.frequency_hz, 2)} Hz`;
+  }
+
+  // ------------------------------------------------------------------ summary
+  async function loadSummary() {
+    try { summary = await getJSON("/api/v1/local/summary"); }
+    catch (e) {
+      $("#liveDot").classList.add("off"); $("#liveText").textContent = e instanceof TypeError ? "collector not reachable" : "collector error";
+      mark("summary", false); tabState(); return;
+    }
+    $("#liveDot").classList.remove("off"); $("#liveText").textContent = "live"; mark("summary", true);
+    const s = summary, k = s.kpi;
+    $("#siteName").textContent = s.site; $("#brandSite").textContent = s.site_id;
+    $("#simBadge").hidden = !s.simulated;
+    renderClock();
+    const pi = s.poll_interval_s;
+    const every = pi >= 3600 ? (pi / 3600) + " h" : pi >= 60 ? (pi / 60) + " min" : pi + " s";
+    const nx = s.collector.next_poll ? Math.max(0, Math.round((new Date(s.collector.next_poll) - new Date(s.time)) / 60000)) : null;
+    $("#flowNote").textContent = `kW · devices read every ${every}` + (nx !== null && pi >= 120 ? ` · next read in ${nx < 1 ? "under a minute" : nx + " min"}` : "");
+    if (!stepSet) { stepSet = true; const sel = $("#exStep"); const want = pi >= 3600 ? "3600" : pi >= 900 ? "900" : pi >= 300 ? "300" : "60"; if ([...sel.options].some((o) => o.value === want)) { sel.value = want; sel.dispatchEvent(new Event("change")); } }
+    $("#footInfo").textContent = `${s.collector.polls} polls · ${s.collector.rows.toLocaleString()} rows · ${s.collector.config}`;
+    buildFlow(k);
+    $("#kSolar").innerHTML = `${fmt(k.pv_share_pct_today)}<small>%</small>`;
+    $("#kSolarSub").textContent = `${fmt(k.pv_kwh_today)} of ${fmt(k.load_kwh_today)} kWh` + (k.pv_curtailed_kwh_today ? ` · ${fmt(k.pv_curtailed_kwh_today)} kWh curtailed` : "") + (k.fuel_saved_l_today ? ` · ≈${fmt(k.fuel_saved_l_today)} L fuel avoided` : "");
+    $("#kSolarBar").style.width = `${Math.min(100, k.pv_share_pct_today || 0)}%`;
+    $("#kFuel").innerHTML = `${fmt(k.fuel_l_today)}<small>L</small>`;
+    $("#kFuelSub").textContent = `${fmt(k.genset_kwh_today)} kWh from gensets · ${k.gensets_running} of ${k.gensets_total} running · cost ${fmt(k.fuel_cost_today)}`;
+    $("#kGrid").innerHTML = `${fmt(k.grid_kwh_today)}<small>kWh</small>`;
+    $("#kGridSub").textContent = k.grid_hours_today === null || k.grid_hours_today === undefined ? "" : `government supply ${fmt(k.grid_hours_today, 1)} h today` + (k.grid_available === false ? " · off right now" : "");
+    const lost = s.devices.filter((d) => d.comms !== "ok" && d.comms !== "unmapped").length;
+    const faults = s.active_faults.filter((f) => !f.startsWith("GRID_OFF"));
+    const firstRead = s.collector.polls === 0;
+    $("#kFault").textContent = firstRead ? "…" : fmt(faults.length);
+    $("#kFaultPanel").classList.toggle("alert", !firstRead && faults.length > 0);
+    $("#kFaultSub").textContent = firstRead ? "first read of the devices in progress" : lost ? `${lost} device${lost > 1 ? "s" : ""} not answering` : `all ${s.devices.length} devices answering`;
+    if (firstRead) s.devices.forEach((d) => { d.comms = "reading"; });
+    renderDevices(s.devices);
+    renderActive(s.active_faults);
+    tabState();
+    if (detail.open) renderDetail();
+  }
+  function renderClock() {
+    if (!summary) return;
+    const lr = Date.parse(summary.collector.last_poll || summary.time);
+    $("#clock").textContent = stamp(Date.parse(summary.time));
+    $("#flowTime").textContent = `last read ${hm(lr)}:${p2(parts(lr).s)}`;
+  }
+
+  const KEYS = {
+    genset: [["power_kw", "Power"], ["running", "Running"], ["fuel_level_pct", "Fuel level"], ["fuel_rate_lph", "Fuel rate"], ["load_kw", "Site load"], ["pv_prod_kw", "PV production"], ["bus_frequency_hz", "Bus frequency"], ["alarm_active", "Alarm"]],
+    pv: [["power_kw", "Power"], ["ac_power_kw", "AC power"], ["available_kw", "Available"], ["energy_today_kwh", "Energy today"], ["irradiance_wm2", "Irradiance"], ["inverters_online", "Inverters online"], ["comm_error", "Comm error"]],
+    bess: [["soc_pct", "State of charge"], ["power_kw", "Power"], ["cell_temp_max_c", "Cell temp max"], ["alarm_active", "Alarm"]],
+    meter: [["load_kw", "Load"], ["frequency_hz", "Frequency"], ["voltage_v", "Voltage"]],
+    grid: [["available", "Available"], ["power_kw", "Import"], ["voltage_v", "Voltage"], ["frequency_hz", "Frequency"], ["energy_import_kwh", "Imported total"]],
+  };
+  const comms = (c) => c === "ok" ? "online" : c === "stale" ? "stale" : c === "reading" ? "reading…" : c === "unmapped" ? "registers pending" : "no data";
+  function renderDevices(devs) {
+    redraw($("#devGrid"), devs.map((d) => {
+      const rows = (KEYS[d.kind] || []).filter(([k]) => d.points[k]).slice(0, 5).map(([k, l]) => {
+        const p = d.points[k];
+        return `<dt>${l}</dt><dd class="${p.q === "good" ? "" : p.q}">${p.q === "bad" ? "n/a" : fmt(p.v, typeof p.v === "number" && !Number.isInteger(p.v) ? 1 : 0)}${p.q === "bad" || !p.unit ? "" : " " + p.unit}</dd>`;
+      }).join("");
+      return `<div class="panel dev" data-src="summary" data-dev="${esc(d.id)}" tabindex="0" role="button" aria-label="${esc(d.id)}: all values and trend"><div class="head"><b>${esc(d.id)}</b><span class="kind">${d.kind}</span><span class="pill ${d.comms}">${comms(d.comms)}</span></div>
+        <div class="model" title="${esc(d.vendor + " " + d.model)}">${esc(d.vendor)} ${esc(d.model)}</div><dl>${rows}</dl></div>`;
+    }).join(""), "data-dev");
+  }
+  function renderActive(list) {
+    const el = $("#activeList");
+    if (!list.length) { el.innerHTML = `<li class="empty">No active faults.</li>`; return; }
+    el.innerHTML = list.map((f) => { const [code, dev] = f.split(":"); return `<li><span class="sev ${code === "GRID_OFF" ? "warning" : "error"}"></span><span><b>${esc(dev)}</b> — ${code === "COMMS_LOST" ? "not answering" : code === "ALARM" ? "controller alarm active" : code === "GRID_OFF" ? "grid not available" : esc(code)}</span><time>now</time></li>`; }).join("");
+  }
+
+  // ------------------------------------------------------------------ tab title + icon
+  // The state is visible from any other browser tab: "(2) Site" and a red dot while faults are active, "(!)" and
+  // an amber dot if the collector stops answering. The count is the same one as the "Active faults" tile.
+  let tabKey = null;
+  const favImg = new Image(); favImg.src = "/static/favicon.png";
+  function tabState() {
+    const offline = !!fresh.summary && !fresh.summary.ok;
+    const n = summary && summary.collector.polls ? summary.active_faults.filter((f) => !f.startsWith("GRID_OFF")).length : 0;
+    document.title = (offline ? "(!) " : n ? `(${n}) ` : "") + (summary ? summary.site : "Plant") + " — data collector";
+    const dot = offline ? "#fab219" : n ? "#1c1c1e" : "";   // amber: collector offline; dark: active alarms (red would vanish on the red icon)
+    if (dot === tabKey) return;
+    tabKey = dot;
+    // the logo with a dot in the corner when something is wrong (drawn on a canvas; the plain file otherwise)
+    if (!dot) { $("#favicon").href = "/static/favicon.png"; return; }
+    if (!favImg.complete || !favImg.naturalWidth) { tabKey = null; return; }       // not loaded yet: next refresh
+    const c = document.createElement("canvas"); c.width = c.height = 64;
+    const g = c.getContext("2d"); g.drawImage(favImg, 0, 0, 64, 64);
+    g.beginPath(); g.arc(48, 16, 13, 0, Math.PI * 2); g.fillStyle = dot; g.fill();
+    g.lineWidth = 5; g.strokeStyle = "#fff"; g.stroke();
+    try { $("#favicon").href = c.toDataURL("image/png"); } catch (e) { $("#favicon").href = "/static/favicon.png"; }
+  }
+
+  // ------------------------------------------------------------------ charts
+  function theme() {
+    return { grid: css("--grid-line"), gridDay: css("--hairline-strong"), tick: css("--tick"), day: css("--ink-muted"),
+             ink: css("--ink"), surface: css("--surface-4"), hair: css("--hairline-strong") };
+  }
+  // The x axis is real time. Ticks sit on round hours of this computer's clock, as many as fit; a tick at midnight
+  // is "major": it shows the date instead of 00:00 and gets a stronger grid line.
+  const TICK_STEPS = [0.25, 0.5, 1, 2, 3, 6, 12, 24, 48, 72, 168, 336].map((h) => h * 3600e3);
+  function timeTicks(min, max, width) {
+    const room = Math.max(2, Math.floor(width / (70 * zoomNow())));
+    const step = TICK_STEPS.find((s) => (max - min) / s <= room) || TICK_STEPS[TICK_STEPS.length - 1];
+    const out = [];
+    for (let w = Math.ceil((min + offsetAt(min)) / step) * step; out.length < 60; w += step) {
+      let t = w - offsetAt(min); t = w - offsetAt(t);
+      if (t > max) break;
+      if (t >= min) { const p = parts(t); out.push({ value: t, major: p.h === 0 && p.mi === 0 }); }
+    }
+    return out;
+  }
+  function baseOptions(unit, range, extra = {}) {
+    const t = theme(), z = zoomNow();   // z: large mode, where the canvas itself is not zoomed
+    return {
+      responsive: true, maintainAspectRatio: false, animation: false, normalized: true,
+      interaction: { mode: "index", intersect: false },
+      elements: { line: { borderWidth: 1.6 * z, tension: 0.15 }, point: { radius: 0, hitRadius: 8 * z, hoverRadius: 3 * z } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: t.surface, titleColor: t.ink, bodyColor: t.ink, borderColor: t.hair, borderWidth: 1, padding: 8 * z,
+                   titleFont: { family: css("--sans"), size: 11 * z }, bodyFont: { family: css("--mono"), size: 11 * z },
+                   callbacks: { title: (items) => items.length ? stamp(items[0].parsed.x) : "", label: (c) => ` ${c.dataset.label}: ${fmt(c.parsed.y, unit === "Hz" ? 2 : 1)} ${unit}` } },
+      },
+      scales: {
+        x: { type: "linear", min: range[0], max: range[1], border: { color: t.grid },
+             grid: { color: (c) => c.tick && c.tick.major ? t.gridDay : t.grid, drawTicks: false },
+             afterBuildTicks: (s) => { s.ticks = timeTicks(s.min, s.max, s.maxWidth || s.width || 600); },
+             ticks: { autoSkip: false, maxRotation: 0, font: { family: css("--mono"), size: 10 * z }, color: (c) => c.tick && c.tick.major ? t.day : t.tick,
+                      callback: (v, i, ticks) => ticks[i].major ? dayLabel(v) : hm(v) } },
+        y: { grid: { color: t.grid, drawTicks: false }, border: { display: false }, ...extra.y,
+             ticks: { color: t.tick, maxTicksLimit: 5, font: { family: css("--mono"), size: 10 * z }, callback: (v) => fmt(v, unit === "Hz" ? 1 : 0), ...((extra.y || {}).ticks || {}) } },
+      },
+      spanGaps: false,
+    };
+  }
+  // Legend entries are switches: click one to hide or show its series. What is switched off is remembered per
+  // chart, so it survives the minute-by-minute refresh. A dataset's `group` is its legend name (default: its label).
+  const hiddenSeries = {}, legendHtml = {};
+  const groupOf = (d) => d.group || d.label;
+  function upsert(id, datasets, options) {
+    const off = hiddenSeries[id];
+    datasets.forEach((d) => { d.hidden = !!off && off.has(groupOf(d)); });
+    const c = charts[id];
+    if (c) { c.data.datasets = datasets; c.options = options; c.update("none"); return; }
+    charts[id] = new Chart($("#" + id), { type: "line", data: { datasets }, options });
+  }
+  function legend(lgId, chartId, datasets) {
+    const off = hiddenSeries[chartId] || (hiddenSeries[chartId] = new Set()), seen = new Set();
+    const html = datasets.filter((d) => !seen.has(groupOf(d)) && seen.add(groupOf(d))).map((d) =>
+      `<button type="button" data-chart="${chartId}" data-group="${esc(groupOf(d))}" aria-pressed="${!off.has(groupOf(d))}" title="Show or hide ${esc(groupOf(d))}"><i style="background:${d.borderColor}"></i>${esc(groupOf(d))}</button>`).join("");
+    if (legendHtml[lgId] !== html) { legendHtml[lgId] = html; redraw($("#" + lgId), html, "data-group"); }
+  }
+  document.addEventListener("click", (e) => {
+    const b = e.target.closest(".legend button"); if (!b) return;
+    const off = hiddenSeries[b.dataset.chart], g = b.dataset.group, c = charts[b.dataset.chart];
+    if (off.has(g)) off.delete(g); else off.add(g);
+    b.setAttribute("aria-pressed", String(!off.has(g)));
+    if (c) { c.data.datasets.forEach((d) => { if (groupOf(d) === g) d.hidden = off.has(g); }); c.update("none"); }
+  });
+  const has = (a) => a && a.some((v) => v !== null);
+  const show = (panel, on) => { $("#" + panel).style.display = on ? "" : "none"; };
+  const ds = (label, data, color, more = {}) => ({ label, data, borderColor: color, backgroundColor: color, ...more });
+  const area = (label, data, color, stack, more = {}) => ({ label, data, borderColor: color, backgroundColor: color + "66", fill: "stack", stack, borderWidth: 1, ...more });
+
+  async function loadSeries() {
+    const asked = hours;
+    let r;
+    try { r = await getJSON(`/api/v1/local/series?hours=${asked}`); } catch (e) { mark("series", false); return; }
+    if (asked !== hours) return;   // the range was changed while this was on its way
+    mark("series", true);
+    const S = r.series, T = r.t, range = [T[0], T[T.length - 1]];
+    const P = (a) => a.map((v, i) => ({ x: T[i], y: v }));
+    const C = (n) => css(n);
+    // power: sources stacked on each other, charging/export below zero, load as a line
+    const pos = (a) => a.map((v) => v === null ? null : Math.max(0, v));
+    const neg = (a) => a.map((v) => v === null ? null : Math.min(0, v));
+    const pw = [], below = [];
+    const push = (label, a, color, group) => pw.push(area(label, P(a), color, "src", { fill: pw.length ? "-1" : "origin", group }));
+    if (has(S.pv_kw)) push("Solar", S.pv_kw, C("--c-pv"));
+    if (has(S.genset_kw)) push("Gensets", S.genset_kw, C("--c-gen"));
+    if (has(S.bess_kw)) { push("Battery discharge", pos(S.bess_kw), C("--c-bess"), "Battery"); below.push(area("Battery charge", P(neg(S.bess_kw)), C("--c-bess"), "chg", { fill: "origin", group: "Battery" })); }
+    if (has(S.mains_kw)) { push("Grid import", pos(S.mains_kw), C("--c-grid"), "Grid"); below.push(area("Grid export", P(neg(S.mains_kw)), C("--c-grid"), "exp", { fill: "origin", group: "Grid" })); }
+    pw.push(...below);
+    if (has(S.load_kw)) pw.push(ds("Load", P(S.load_kw), C("--c-load"), { stack: "load", borderWidth: 1.8 }));
+    upsert("c-power", pw, baseOptions("kW", range, { y: { stacked: true, suggestedMax: 10 } }));
+    const wrap = $("#c-power").parentElement; let nd = wrap.querySelector(".nodata");
+    if (!pw.length) { if (!nd) { nd = document.createElement("div"); nd.className = "nodata"; nd.textContent = "No readings in this window yet. Check Devices for what is not answering."; wrap.appendChild(nd); } }
+    else if (nd) nd.remove();
+    legend("lg-power", "c-power", pw);
+    // soc
+    show("p-soc", has(S.soc_pct));
+    if (has(S.soc_pct)) upsert("c-soc", [ds("SOC", P(S.soc_pct), C("--c-bess"), { fill: true, backgroundColor: C("--c-bess") + "33" })], baseOptions("%", range, { y: { min: 0, max: 100 } }));
+    // pv
+    show("p-pv", has(S.pv_kw));
+    if (has(S.pv_kw)) {
+      const d = [ds("Produced", P(S.pv_kw), C("--c-pv"), { fill: true, backgroundColor: C("--c-pv") + "33" })];
+      if (has(S.pv_available_kw)) d.push(ds("Available", P(S.pv_available_kw), C("--ink-subtle"), { borderDash: [4, 4], borderWidth: 1.2 }));
+      upsert("c-pv", d, baseOptions("kW", range, { y: { min: 0 } }));
+      legend("lg-pv", "c-pv", d);
+    }
+    show("p-irr", has(S.irradiance_wm2));
+    if (has(S.irradiance_wm2)) upsert("c-irr", [ds("Irradiance", P(S.irradiance_wm2), C("--warn"))], baseOptions("W/m²", range, { y: { min: 0 } }));
+    // gensets per unit
+    const gens = summary ? summary.devices.filter((d) => d.kind === "genset").map((d) => d.id) : [];
+    const gk = Object.keys(S).filter((k) => gens.includes(k.split("/")[0]) && /\/(g\d+_)?power_kw$/.test(k) && has(S[k]));
+    show("p-gens", gk.length > 0);
+    if (gk.length) {
+      const d = gk.map((k, i) => ds(k.replace("/power_kw", "").replace("/", " "), P(S[k]), C(`--c-g${(i % 5) + 1}`)));
+      upsert("c-gens", d, baseOptions("kW", range, { y: { min: 0 } })); legend("lg-gens", "c-gens", d);
+    }
+    const fk = Object.keys(S).filter((k) => k.endsWith("/fuel_level_pct") && has(S[k]));
+    show("p-fuel", fk.length > 0);
+    if (fk.length) {
+      const d = fk.map((k, i) => ds(k.split("/")[0], P(S[k]), C(`--c-g${(i % 5) + 1}`)));
+      upsert("c-fuel", d, baseOptions("%", range, { y: { min: 0, max: 100 } })); legend("lg-fuel", "c-fuel", d);
+    }
+    show("p-grid", has(S.grid_available));
+    if (has(S.grid_available)) upsert("c-grid", [ds("Grid", P(S.grid_available.map((v) => v === null ? null : (v >= 0.5 ? 1 : 0))), C("--c-grid"), { stepped: true, fill: true, backgroundColor: C("--c-grid") + "44" })],
+      baseOptions("", range, { y: { min: 0, max: 1, ticks: { stepSize: 1, callback: (v) => v === 1 ? "on" : v === 0 ? "off" : "" } } }));
+    show("p-freq", has(S.frequency_hz));
+    if (has(S.frequency_hz)) upsert("c-freq", [ds("Frequency", P(S.frequency_hz), C("--c-load")), ds("50 Hz", P(S.frequency_hz.map((v) => v === null ? null : 50)), C("--ink-tertiary"), { borderDash: [3, 5], borderWidth: 1 })], baseOptions("Hz", range, { y: { suggestedMin: 48, suggestedMax: 52 } }));
+    show("p-load", has(S.load_kw));
+    if (has(S.load_kw)) upsert("c-load", [ds("Load", P(S.load_kw), C("--c-load"), { fill: true, backgroundColor: C("--c-load") + "33" })], baseOptions("kW", range, { y: { min: 0 } }));
+  }
+
+  // ------------------------------------------------------------------ alarms
+  let events = null;
+  async function loadAlarms() {
+    const asked = hours;
+    let r; try { r = await getJSON(`/api/v1/local/alarms?hours=${asked}`); } catch (e) { mark("alarms", false); return; }
+    if (asked !== hours) return;
+    mark("alarms", true);
+    events = r.events; renderEvents();
+  }
+  function renderEvents() {
+    if (!events) return;
+    $("#evRange").textContent = rangeText();
+    const el = $("#eventList");
+    if (!events.length) { el.innerHTML = `<li class="empty">No events in this window.</li>`; return; }
+    el.innerHTML = events.map((e) => { const t = Date.parse(e.ts); return `<li><span class="sev ${e.severity}"></span><span>${esc(e.message)}</span><time>${dayLabel(t)} ${hm(t)}</time></li>`; }).join("");
+  }
+
+  // ------------------------------------------------------------------ points
+  let points = [];
+  const val = (p) => p.quality === "bad" ? "" : fmt(p.value, typeof p.value === "number" && !Number.isInteger(p.value) ? 2 : 0);
+  async function loadPoints() {
+    try { points = await getJSON("/api/v1/local/tags"); } catch (e) { mark("points", false); return; }
+    mark("points", true);
+    renderPoints();
+  }
+  function renderPoints() {
+    const q = $("#ptFilter").value.trim().toLowerCase();
+    const rows = points.filter((p) => !q || `${p.device} ${p.point} ${p.description}`.toLowerCase().includes(q));
+    $("#ptCount").textContent = `${rows.length} of ${points.length}`;
+    redraw($("#ptBody"), rows.map((p) => `<tr data-key="${esc(p.device + "." + p.point)}" data-dev="${esc(p.device)}" data-pt="${esc(p.point)}"><td>${esc(p.device)}</td><td><button type="button" class="ptlink" title="Trend of ${esc(p.point)}">${esc(p.point)}</button></td><td class="num">${val(p)}</td><td>${esc(p.unit || "")}</td><td class="q-${p.quality}">${p.quality}</td><td>${ago(p.age_s)}</td><td class="num">${p.address ?? ""}${p.register_kind ? " " + p.register_kind : ""}</td><td class="note">${esc(p.error || p.description || "")}</td></tr>`).join(""), "data-key");
+  }
+  $("#ptFilter").addEventListener("input", renderPoints);
+
+  // ------------------------------------------------------------------ device detail
+  // Click a device card, or a row in All points: every value of that device, and the trend of one of its points
+  // over the range chosen in the top bar. The history is read from the CSV export (one column per device point).
+  const detail = $("#detail");
+  let dt = { dev: null, pt: null }, hist = null, opener = null;   // opener: selector of what opened the sheet, to hand focus back
+  function csvRow(line) {
+    const out = []; let cur = "", q = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (q) { if (ch !== '"') cur += ch; else if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+      else if (ch === '"') q = true; else if (ch === ",") { out.push(cur); cur = ""; } else cur += ch;
+    }
+    out.push(cur); return out;
+  }
+  function loadHistory() {   // one request per range, shared by every point looked at within a minute
+    const raw = Math.max(summary ? summary.poll_interval_s : 60, hours * 12);   // about 300 points across the range
+    const step = [60, 120, 300, 600, 900, 1800, 3600, 7200, 21600].find((s) => s >= raw) || 86400, key = `${hours}/${step}`, at = Date.now();
+    if (hist && hist.key === key && at - hist.at < 60000) return hist.data;
+    const data = (async () => {
+      const r = await fetch(`/api/v1/local/export.csv?hours=${hours}&step=${step}`);
+      if (!r.ok) throw new Error(await failText(r));
+      const lines = (await r.text()).replace(/^﻿/, "").split("\n").filter(Boolean);
+      const names = csvRow(lines[0]).slice(2).map((h) => h.replace(/ \[[^\]]*\]$/, "")), cols = {}, t = [];
+      names.forEach((n) => { cols[n] = []; });
+      lines.slice(1).forEach((ln) => {
+        const c = csvRow(ln);
+        t.push(Date.parse(c[0].replace(" ", "T") + "Z"));
+        names.forEach((n, i) => cols[n].push(c[i + 2] === "" || c[i + 2] === undefined ? null : Number(c[i + 2])));
+      });
+      return { step, t, cols, range: [at - hours * 3600e3, at] };
+    })();
+    hist = { key, at, data };
+    data.catch(() => { if (hist && hist.data === data) hist = null; });   // a failed request is not kept
+    return data;
+  }
+  function openDetail(dev, pt) {
+    dt = { dev, pt: pt || null };
+    opener = pt ? `#ptBody tr[data-key="${CSS.escape(dev + "." + pt)}"] .ptlink` : `.dev[data-dev="${CSS.escape(dev)}"]`;
+    if (!renderDetail()) return;
+    if (!detail.open) detail.showModal();
+    drawTrend();
+  }
+  function renderDetail() {
+    const d = summary && summary.devices.find((x) => x.id === dt.dev);
+    if (!d) return false;
+    const now = Date.parse(summary.time), numeric = (p) => !!p && (typeof p.value === "number" || typeof p.value === "boolean");
+    let rows = points.filter((p) => p.device === d.id);
+    if (!rows.length) rows = Object.keys(d.points).map((point) => ({ point, description: "" }));
+    rows = rows.map((p) => { const live = d.points[p.point];   // the summary is the fresher of the two sources
+      return live ? { ...p, value: live.v, unit: live.unit, quality: live.q, error: live.err, age_s: Math.max(0, Math.round((now - Date.parse(live.ts)) / 1000)) } : p; });
+    if (!rows.some((p) => p.point === dt.pt)) {
+      const pref = (KEYS[d.kind] || []).map(([k]) => rows.find((p) => p.point === k)).find(numeric);
+      dt.pt = (pref || rows.find(numeric) || rows[0] || {}).point || null;
+    }
+    const sel = rows.find((p) => p.point === dt.pt);
+    $("#dtTitle").textContent = d.id; $("#dtModel").textContent = `${d.kind} · ${d.vendor} ${d.model}`;
+    const pill = $("#dtPill"); pill.className = `pill ${d.comms}`; pill.textContent = comms(d.comms);
+    $("#dtPoint").textContent = dt.pt || ""; $("#dtUnit").textContent = sel && sel.unit ? sel.unit : "";
+    redraw($("#dtBody"), rows.map((p) => `<tr data-pt="${esc(p.point)}"${p.point === dt.pt ? ' class="sel"' : ""}><td><button type="button" class="ptlink" title="Trend of ${esc(p.point)}">${esc(p.point)}</button></td><td class="num">${val(p)}</td><td>${esc(p.unit || "")}</td><td class="q-${p.quality}">${p.quality}</td><td>${ago(p.age_s)}</td><td class="note">${esc(p.error || p.description || "")}</td></tr>`).join(""), "data-pt");
+    return true;
+  }
+  async function drawTrend() {
+    const want = `${dt.dev}.${dt.pt}`, still = () => detail.open && want === `${dt.dev}.${dt.pt}`;
+    const note = $("#dtNote"), say = (m, bad) => { note.textContent = m; note.classList.toggle("bad", !!bad); };
+    say("loading…");
+    let h; try { h = await loadHistory(); } catch (e) { if (still()) { say(`no trend: ${why(e)}`, true); upsert("c-detail", [], baseOptions("", [0, 1])); } return; }
+    if (!still()) return;
+    const ys = h.cols[want] || [], any = ys.some((v) => v !== null), unit = $("#dtUnit").textContent;
+    const live = ((summary.devices.find((x) => x.id === dt.dev) || {}).points || {})[dt.pt];
+    const onOff = any && !!live && typeof live.v === "boolean";
+    say(any ? `${rangeText()} · average per ${h.step >= 3600 ? h.step / 3600 + " h" : h.step / 60 + " min"}` : `no numeric history in the ${rangeText()}`, !any);
+    upsert("c-detail", any ? [ds(dt.pt, h.t.map((x, i) => ({ x, y: ys[i] })), css("--c-load"), { fill: true, backgroundColor: css("--c-load") + "33", stepped: onOff })] : [],
+      baseOptions(unit, h.range, onOff ? { y: { min: 0, max: 1, ticks: { stepSize: 1, callback: (v) => v === 1 ? "on" : v === 0 ? "off" : "" } } } : {}));
+  }
+  $("#devGrid").addEventListener("click", (e) => { const c = e.target.closest(".dev"); if (c) openDetail(c.dataset.dev); });
+  $("#devGrid").addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && e.target.matches(".dev")) { e.preventDefault(); openDetail(e.target.dataset.dev); } });
+  $("#ptBody").addEventListener("click", (e) => { const r = e.target.closest("tr"); if (r) openDetail(r.dataset.dev, r.dataset.pt); });
+  $("#dtBody").addEventListener("click", (e) => { const r = e.target.closest("tr"); if (r && r.dataset.pt !== dt.pt) { dt.pt = r.dataset.pt; renderDetail(); drawTrend(); } });
+  $("#dtClose").addEventListener("click", () => detail.close());
+  detail.addEventListener("click", (e) => { if (e.target === detail) detail.close(); });   // a click on the dimmed backdrop
+  detail.addEventListener("close", () => {
+    if (charts["c-detail"]) { charts["c-detail"].destroy(); delete charts["c-detail"]; }
+    dt = { dev: null, pt: null };
+    const back = opener && $(opener);   // the card or row was re-rendered meanwhile, so the browser cannot return focus itself
+    if (back) back.focus({ preventScroll: true });
+  });
+
+  // ------------------------------------------------------------------ downloads
+  // Files are fetched in the background, so a server error is reported here instead of replacing the dashboard.
+  async function download(url, btn) {
+    const label = btn.textContent;
+    btn.classList.add("busy"); btn.textContent = "Preparing…";
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(await failText(r));
+      const name = (/filename="?([^";]+)/.exec(r.headers.get("Content-Disposition") || "") || [])[1] || url.split("?")[0].split("/").pop();
+      const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(await r.blob()), download: name });
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+      toast(`Downloaded ${name}`);
+    } catch (e) { toast(`Download failed: ${why(e)}.`, true); }
+    btn.classList.remove("busy"); btn.textContent = label;
+  }
+  $$("a[data-dl]").forEach((a) => a.addEventListener("click", (e) => { e.preventDefault(); download(a.href, a); }));
+
+  // ------------------------------------------------------------------ export
+  // Dates are typed and shown as YYYY-MM-DD HH:MM (24-hour, as in the exported file) whatever the browser's
+  // language is. The calendar button opens the browser's own date picker; the time stays as typed.
+  const MAX_DAYS = 62, exFrom = $("#exFrom"), exTo = $("#exTo"), repDate = $("#repDate");
+  let quick = 24, repToday = true;   // the "Last ..." range in use / report day still on today; both end when edited by hand
+  const stepMs = () => Number($("#exStep").value) * 1000;
+  const span = (ms) => { const m = Math.round(ms / 60000), d = Math.floor(m / 1440), h = Math.floor(m % 1440 / 60), r = m % 60;
+    return [d && `${d} day${d > 1 ? "s" : ""}`, h && `${h} h`, r && `${r} min`].filter(Boolean).join(" "); };
+  function exWindow() {
+    const from = parseStamp(exFrom.value), to = parseStamp(exTo.value);
+    const error = from === null || to === null ? "Enter both times as YYYY-MM-DD HH:MM." : from >= to ? "From must be before To."
+        : to - from > MAX_DAYS * 86400e3 ? `Up to ${MAX_DAYS} days per file.` : null;
+    exFrom.setAttribute("aria-invalid", String(from === null)); exTo.setAttribute("aria-invalid", String(to === null || (from !== null && !!error)));
+    return { from, to, error };
+  }
+  function showWindow() {
+    const w = exWindow(), s = stepMs(), el = $("#exInfo");
+    el.classList.toggle("bad", !!w.error);
+    el.textContent = w.error || `${span(w.to - w.from)} · up to ${fmt(Math.floor(w.to / s) - Math.floor(w.from / s) + 1)} rows`;
+    $$("[data-quick]").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.quick) === quick)));
+  }
+  function setQuick(h) {
+    const grid = Math.max(stepMs(), 300e3), to = Math.ceil(Date.now() / grid) * grid;   // rounded up, so the newest readings are in
+    quick = h; exFrom.value = stamp(to - h * 3600e3); exTo.value = stamp(to); showWindow();
+  }
+  const utcToday = () => new Date().toISOString().slice(0, 10);   // the daily report covers a UTC day
+  function refreshDefaults() {   // a page left open for days keeps its untouched defaults current
+    const at = document.activeElement;
+    if (quick && at !== exFrom && at !== exTo) setQuick(quick);
+    if (repToday && at !== repDate) repDate.value = utcToday();
+  }
+  [exFrom, exTo].forEach((el) => {
+    el.addEventListener("input", () => { quick = null; showWindow(); });
+    el.addEventListener("change", () => { const t = parseStamp(el.value); if (t !== null) el.value = stamp(t); });
+  });
+  repDate.addEventListener("input", () => { repToday = false; repDate.setAttribute("aria-invalid", String(!parseDay(repDate.value))); });
+  repDate.addEventListener("change", () => { const d = parseDay(repDate.value); if (d) repDate.value = d; });
+  $$(".dt").forEach((box) => {
+    const text = box.querySelector("input[type=text]"), cal = box.querySelector("input[type=date]"), btn = box.querySelector("button");
+    if (!cal.showPicker) { btn.remove(); return; }
+    btn.addEventListener("click", () => { cal.value = parseDay(text.value.trim().split(/[ T]/)[0]) || ""; try { cal.showPicker(); } catch (e) {} });
+    cal.addEventListener("change", () => {
+      if (!cal.value) return;
+      const w = parseWall(text.value);
+      text.value = "time" in box.dataset ? `${cal.value} ${w ? `${p2(w.h)}:${p2(w.mi)}` : "00:00"}` : cal.value;
+      text.dispatchEvent(new Event("input"));
+    });
+  });
+  $$("[data-quick]").forEach((b) => b.addEventListener("click", () => setQuick(Number(b.dataset.quick))));
+  $("#exStep").addEventListener("change", () => quick ? setQuick(quick) : showWindow());
+  $("#exGo").addEventListener("click", () => {
+    if (quick) setQuick(quick);
+    const w = exWindow();
+    if (w.error) { toast(w.error, true); return; }
+    download(`/api/v1/local/export.${$("#exFmt").value}?from=${encodeURIComponent(new Date(w.from).toISOString())}&to=${encodeURIComponent(new Date(w.to).toISOString())}&step=${$("#exStep").value}`, $("#exGo"));
+  });
+  $("#repGo").addEventListener("click", () => {
+    if (repToday) repDate.value = utcToday();
+    const d = parseDay(repDate.value);
+    repDate.setAttribute("aria-invalid", String(!d));
+    if (!d) { toast("Enter the report day as YYYY-MM-DD.", true); return; }
+    download(`/api/v1/local/report.xlsx?date=${d}`, $("#repGo"));
+  });
+  repDate.value = utcToday();
+
+  // ------------------------------------------------------------------ settings
+  const everyText = (s) => s >= 3600 ? (s / 3600) + " h" : s >= 60 ? (s / 60) + " min" : s + " s";
+  async function loadSettings() {
+    let st; try { st = await getJSON("/api/v1/local/settings"); } catch (e) { return; }
+    const sel = $("#setInterval");
+    sel.innerHTML = st.options.map((o) => `<option value="${o.value}">${o.label}</option>`).join("");
+    sel.value = String(st.poll_interval_s);
+    if (![...sel.options].some((o) => o.value === sel.value)) sel.add(new Option(everyText(st.poll_interval_s) + " (from config)", String(st.poll_interval_s), true, true));
+    sel.disabled = st.simulated; $("#setSave").disabled = st.simulated;
+    $("#setNote").textContent = st.simulated ? "demo: refreshes every 30 s regardless" : `now every ${everyText(st.poll_interval_s)} (${st.source === "settings.json" ? "saved from here" : "from " + st.config})`;
+    const pb = st.publish || {};
+    const pubText = !pb.enabled ? "off (publish.modbus_tcp.enabled in the config)" : !pb.running ? `enabled but not running — ${pb.error || "see data\\collector.log"} (retrying every minute)`
+      : `on · ${pb.bind}:${pb.port} unit ${pb.unit_id} · ${pb.tags} tags · ${pb.reads} reads` + (pb.rejected_writes ? ` · ${pb.rejected_writes} writes refused` : "");
+    $("#aboutList").innerHTML = [["Modbus server for Turkey", pubText], ["Config", st.config], ["Database", st.database], ["Settings file", st.settings_file], ["Version", st.version],
+      ["Polls since start", summary ? summary.collector.polls : "—"], ["Rows stored", summary ? summary.collector.rows.toLocaleString() : "—"],
+      ["Running since", summary ? stamp(Date.now() - summary.collector.uptime_s * 1000) : "—"]].map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
+  }
+  $("#setSave").addEventListener("click", async () => {
+    const b = $("#setSave"); b.classList.add("busy");
+    try {
+      const st = await getJSON("/api/v1/local/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ poll_interval_s: Number($("#setInterval").value) }) });
+      toast(`Saved: devices are read every ${everyText(st.poll_interval_s)}.`);
+      await loadSummary(); loadSettings();
+    } catch (e) { toast(`Not saved: ${why(e)}.`, true); }
+    b.classList.remove("busy");
+  });
+
+  // ------------------------------------------------------------------ read now
+  $("#pollBtn").addEventListener("click", async () => {
+    const b = $("#pollBtn"); b.classList.add("busy");
+    try {
+      const r = await getJSON("/api/v1/local/poll", { method: "POST" });
+      toast(`Read done in ${r.took_s} s: ${r.answering} of ${r.total} devices answering`);
+      await loadSummary(); loadPoints(); loadSeries(); loadAlarms();
+    } catch (e) { toast(`Could not read the devices: ${why(e)}.`, true); }
+    b.classList.remove("busy");
+  });
+
+  // ------------------------------------------------------------------ run
+  paintZone(); tabState();
+  loadSummary().then(() => { loadSeries(); loadSettings(); }); loadAlarms(); loadPoints();
+  setInterval(loadSummary, 10000);
+  setInterval(loadSettings, 60000);
+  setInterval(loadSeries, 60000);
+  setInterval(loadAlarms, 30000);
+  setInterval(loadPoints, 30000);
+  setInterval(refreshDefaults, 30000);
+})();
+</script>
+</body>
+</html>

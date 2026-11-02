@@ -1,0 +1,21 @@
+# Device profile: the government grid incomer (mains), read-only.
+# On the real site these values come from the ComAp side (InteliMains 210 / the InteliNeo
+# master: mains_power_kw, mains_available). This profile is what the demo simulator uses and
+# what a separate mains meter would map to.
+
+kind: grid
+vendor: "TBC"
+model: "mains incomer (government grid)"
+profile_revision: 1
+profile_status: draft
+source_document: "InteliMains / meter Modbus map — TO BE ATTACHED"
+
+limits:
+  import_limit_kw: 1000    # demo simulator only: contracted maximum
+
+points:
+  - {id: power_kw,           unit: kW,  raw: {address: 0, kind: int32,  scale: 0.1}, description: "import from the grid (+)"}  # TODO
+  - {id: available,          type: boolean, raw: {address: 2, kind: uint16}, description: "grid present and within limits"}   # TODO
+  - {id: voltage_v,          unit: V,   raw: {address: 3, kind: uint16, scale: 0.1}}   # TODO
+  - {id: frequency_hz,       unit: Hz,  raw: {address: 4, kind: uint16, scale: 0.01}}  # TODO
+  - {id: energy_import_kwh,  unit: kWh, raw: {address: 5, kind: uint32, scale: 0.1}}   # TODO

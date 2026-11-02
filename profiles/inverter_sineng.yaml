@@ -1,0 +1,81 @@
+# Device profile: one Sineng SP-320K-H string inverter, read THROUGH the SAU-100 gateway (read-only).
+#
+# Site facts (SAU device export 2026-10-14): 10 x SP-320K-H, 320 kW / 320 kVA each (3.2 MW),
+# AC side 800 V (line voltage ~834 V). Named on the SAU "winding 1 INV#1..5" and "winding 2 INV#1..5".
+#
+# Registers: Sineng's TCP protocol document for this plant ("QIMAH Iraq 5.58MW Coca Cola Plant
+# Photovoltaic Project TCP Protocol Document", sheet INV, received 2026-10-20). Addresses as in the
+# document = the protocol (0-based) address; a tool like Modscan shows them +1. Function 03 or 04.
+# TCP device ids (sheet Explain): winding 1 INV#1-5 = 3-7, winding 2 INV#1-5 = 8-12 (the SAU's own
+# device numbers); config/site.plant.yaml sets them. Only reads; the document's write registers
+# (1418-1487 settings, 1900/1903/1927 start/stop) are never touched.
+#
+# Point ids here are what profiles/tag_catalog.yaml maps the DT Turkey tag names onto.
+
+kind: pv
+vendor: Sineng
+model: "SP-320K-H string inverter, 320 kW, 12 strings"
+profile_revision: 4
+profile_status: mapped (Sineng TCP protocol document)
+source_document: "QIMAH Iraq 5.58MW Coca Cola Plant PV Project TCP Protocol Document (Sineng), sheet INV"
+
+limits: {rated_kw: 320}
+
+points:
+  - {id: ac_power_kw,       unit: kW,   raw: {address: 1002, kind: uint16, scale: 0.01},  description: "Output active power (1000 = 10.00 kW)"}
+  - {id: reactive_kvar,     unit: kVAr, raw: {address: 1003, kind: int16,  scale: 0.01},  description: "Output total reactive power"}
+  - {id: power_factor,      unit: "",   raw: {address: 1004, kind: int16,  scale: 0.001}, description: "Output power factor (1000 = 1.00)"}
+  - {id: voltage_l1_v,      unit: V,    raw: {address: 1005, kind: uint16, scale: 0.1},   description: "Grid line voltage AB (800 V side)"}
+  - {id: voltage_l2_v,      unit: V,    raw: {address: 1006, kind: uint16, scale: 0.1},   description: "Grid line voltage BC"}
+  - {id: voltage_l3_v,      unit: V,    raw: {address: 1007, kind: uint16, scale: 0.1},   description: "Grid line voltage CA"}
+  - {id: frequency_hz,      unit: Hz,   raw: {address: 1008, kind: uint32, scale: 0.001}, description: "Grid frequency (50000 = 50.000 Hz)"}
+  - {id: current_l1_a,      unit: A,    raw: {address: 1010, kind: uint16, scale: 0.01},  description: "Phase A output current"}
+  - {id: current_l2_a,      unit: A,    raw: {address: 1011, kind: uint16, scale: 0.01},  description: "Phase B output current"}
+  - {id: current_l3_a,      unit: A,    raw: {address: 1012, kind: uint16, scale: 0.01},  description: "Phase C output current"}
+  - {id: dc_power_kw,       unit: kW,   raw: {address: 1045, kind: uint16, scale: 0.01},  description: "PV total input power"}
+  - {id: efficiency_pct,    unit: "%",  raw: {address: 1094, kind: uint16, scale: 0.1},   description: "Inverter efficiency (1000 = 1, shown in %)"}
+  - {id: cabin_temp_c,      unit: "°C", raw: {address: 1095, kind: int16,  scale: 0.1},   description: "Cabin temperature (1000 = 100 C)"}
+  - {id: energy_today_kwh,  unit: kWh,  raw: {address: 1100, kind: uint16, scale: 0.1},   description: "Daily power generation (1000 = 100.0 kWh)"}
+  - {id: energy_total_kwh,  unit: kWh,  raw: {address: 1101, kind: uint32},               description: "Total power generation (1 = 1 kWh)"}
+  - {id: energy_month_kwh,  unit: kWh,  raw: {}, description: "not in the TCP protocol document"}
+  - {id: energy_year_kwh,   unit: kWh,  raw: {}, description: "not in the TCP protocol document"}
+  - {id: comm_error,        type: boolean, raw: {derived: comm_error}, description: "set by the collector: inverter not answering"}
+  # status word 1990
+  - {id: grid_connected,    type: boolean, raw: {address: 1990, kind: uint16, bit: 0}, description: "Connected to the grid, generating"}
+  - {id: running_with_alarm, type: boolean, raw: {address: 1990, kind: uint16, bit: 1}, description: "Running with an alarm"}
+  - {id: derated,           type: boolean, raw: {address: 1990, kind: uint16, bit: 2}, description: "Running derated"}
+  - {id: standby,           type: boolean, raw: {address: 1990, kind: uint16, bit: 4}}
+  - {id: dormant,           type: boolean, raw: {address: 1990, kind: uint16, bit: 5}, description: "Sleep (night / no DC)"}
+  - {id: fault,             type: boolean, raw: {}, description: "no single fault bit in the document; the alarm words 2010-2028 hold the causes"}
+  - {id: warning,           type: boolean, raw: {}, description: "see running_with_alarm"}
+  # string (PV input) currents: "PV n incoming current", 1000 = 100.0 A; the document has PV 1-24
+  - {id: string_current_1_a,  unit: A, raw: {address: 1013, kind: uint16, scale: 0.1}}
+  - {id: string_current_2_a,  unit: A, raw: {address: 1014, kind: uint16, scale: 0.1}}
+  - {id: string_current_3_a,  unit: A, raw: {address: 1015, kind: uint16, scale: 0.1}}
+  - {id: string_current_4_a,  unit: A, raw: {address: 1016, kind: uint16, scale: 0.1}}
+  - {id: string_current_5_a,  unit: A, raw: {address: 1017, kind: uint16, scale: 0.1}}
+  - {id: string_current_6_a,  unit: A, raw: {address: 1018, kind: uint16, scale: 0.1}}
+  - {id: string_current_7_a,  unit: A, raw: {address: 1019, kind: uint16, scale: 0.1}}
+  - {id: string_current_8_a,  unit: A, raw: {address: 1020, kind: uint16, scale: 0.1}}
+  - {id: string_current_9_a,  unit: A, raw: {address: 1021, kind: uint16, scale: 0.1}}
+  - {id: string_current_10_a, unit: A, raw: {address: 1022, kind: uint16, scale: 0.1}}
+  - {id: string_current_11_a, unit: A, raw: {address: 1023, kind: uint16, scale: 0.1}}
+  - {id: string_current_12_a, unit: A, raw: {address: 1024, kind: uint16, scale: 0.1}}
+  - {id: string_current_13_a, unit: A, raw: {address: 1025, kind: uint16, scale: 0.1}}
+  - {id: string_current_14_a, unit: A, raw: {address: 1026, kind: uint16, scale: 0.1}}
+  - {id: string_current_15_a, unit: A, raw: {address: 1027, kind: uint16, scale: 0.1}}
+  - {id: string_current_16_a, unit: A, raw: {address: 1028, kind: uint16, scale: 0.1}}
+  - {id: string_current_17_a, unit: A, raw: {address: 1029, kind: uint16, scale: 0.1}}
+  # MPPT input voltages, 1000 = 1000 Vdc; the document has MPPT 1-12 on this model
+  - {id: string_voltage_1_v,  unit: V, raw: {address: 1046, kind: uint16}}
+  - {id: string_voltage_2_v,  unit: V, raw: {address: 1047, kind: uint16}}
+  - {id: string_voltage_3_v,  unit: V, raw: {address: 1048, kind: uint16}}
+  - {id: string_voltage_4_v,  unit: V, raw: {address: 1049, kind: uint16}}
+  - {id: string_voltage_5_v,  unit: V, raw: {address: 1050, kind: uint16}}
+  - {id: string_voltage_6_v,  unit: V, raw: {address: 1051, kind: uint16}}
+  - {id: string_voltage_7_v,  unit: V, raw: {address: 1052, kind: uint16}}
+  - {id: string_voltage_8_v,  unit: V, raw: {address: 1053, kind: uint16}}
+  - {id: string_voltage_9_v,  unit: V, raw: {address: 1054, kind: uint16}}
+  - {id: string_voltage_10_v, unit: V, raw: {address: 1055, kind: uint16}}
+  - {id: string_voltage_11_v, unit: V, raw: {address: 1056, kind: uint16}}
+  - {id: string_voltage_12_v, unit: V, raw: {address: 1057, kind: uint16}}

@@ -1,0 +1,40 @@
+# DEMO of the REAL plant: the same devices and point ids as config/site.plant.yaml (InteliNeo master with
+# 5 gensets, the Sineng SAU with 10 inverters, 3 InteliMains incomers), fed by a built-in model of the plant
+# (plantcollector/sim_realplant.py) instead of Modbus. No network traffic at all. START.bat and
+# RUN-IN-WINDOW.bat use this file; config/site.yaml is the older, simpler demo plant (and the tests' plant).
+
+site:
+  site_id: erbil-cc-01
+  name: "Erbil Coca-Cola hybrid plant"
+  timezone: Asia/Baghdad
+  fuel_price_per_l: 0.85              # local diesel price, any currency — used for the fuel cost figures only
+  poll_interval_s: 30                 # the demo refreshes every 30 s; the plant config reads once an hour
+
+simulation:
+  model: real_plant                   # grid outages, genset rotation, PV curtailment, SAU stalls, inverter trips
+
+devices:
+  - {id: neo-01,   profile: intelineo_master.yaml, adapter: simulator, connection: {}}
+  - {id: inv-01,   profile: inverter_sineng.yaml,  adapter: simulator, connection: {}}
+  - {id: inv-02,   profile: inverter_sineng.yaml,  adapter: simulator, connection: {}}
+  - {id: inv-03,   profile: inverter_sineng.yaml,  adapter: simulator, connection: {}}
+  - {id: inv-04,   profile: inverter_sineng.yaml,  adapter: simulator, connection: {}}
+  - {id: inv-05,   profile: inverter_sineng.yaml,  adapter: simulator, connection: {}}
+  - {id: inv-06,   profile: inverter_sineng.yaml,  adapter: simulator, connection: {}}
+  - {id: inv-07,   profile: inverter_sineng.yaml,  adapter: simulator, connection: {}}
+  - {id: inv-08,   profile: inverter_sineng.yaml,  adapter: simulator, connection: {}}
+  - {id: inv-09,   profile: inverter_sineng.yaml,  adapter: simulator, connection: {}}
+  - {id: inv-10,   profile: inverter_sineng.yaml,  adapter: simulator, connection: {}}
+  - {id: pv-array, profile: pv_array_sau.yaml,     adapter: simulator, connection: {}}
+  - {id: main-01,  profile: im210_mains.yaml,      adapter: simulator, connection: {}}
+  - {id: main-02,  profile: im210_mains.yaml,      adapter: simulator, connection: {}}
+  - {id: main-03,  profile: im210_mains.yaml,      adapter: simulator, connection: {}}
+
+# Demo of the Modbus TCP server for the Turkey platform (read-only), on this PC only. Port 5020 so it needs no
+# administrator rights; the plant config uses 502. Test with any Modbus client, unit id 1.
+publish:
+  modbus_tcp:
+    enabled: true
+    bind: 127.0.0.1
+    port: 5020
+    unit_id: 1

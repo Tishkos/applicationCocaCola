@@ -1,0 +1,5638 @@
+{
+ "uid": "cci-plant-monitoring",
+ "title": "CCI Plant Monitoring",
+ "tags": [
+  "cci",
+  "plant",
+  "erbil"
+ ],
+ "timezone": "browser",
+ "editable": true,
+ "graphTooltip": 1,
+ "schemaVersion": 39,
+ "version": 1,
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "refresh": "30s",
+ "timepicker": {
+  "refresh_intervals": [
+   "30s",
+   "1m",
+   "5m",
+   "15m",
+   "1h"
+  ]
+ },
+ "fiscalYearStartMonth": 0,
+ "liveNow": false,
+ "weekStart": "",
+ "annotations": {
+  "list": [
+   {
+    "builtIn": 1,
+    "datasource": {
+     "type": "grafana",
+     "uid": "-- Grafana --"
+    },
+    "enable": true,
+    "hide": true,
+    "iconColor": "rgba(0, 211, 255, 1)",
+    "name": "Annotations & Alerts",
+    "type": "dashboard"
+   },
+   {
+    "datasource": {
+     "type": "frser-sqlite-datasource",
+     "uid": "plant-sqlite"
+    },
+    "enable": true,
+    "name": "Grid lost / back",
+    "iconColor": "#5794F2",
+    "target": {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, message AS text FROM events WHERE kind IN ('grid_lost','grid_restored') AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch')",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, message AS text FROM events WHERE kind IN ('grid_lost','grid_restored') AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch')",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   },
+   {
+    "datasource": {
+     "type": "frser-sqlite-datasource",
+     "uid": "plant-sqlite"
+    },
+    "enable": true,
+    "name": "SAU stalls",
+    "iconColor": "#F2495C",
+    "target": {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, message AS text FROM events WHERE kind='comms_lost' AND device_id='pv-array' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch')",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, message AS text FROM events WHERE kind='comms_lost' AND device_id='pv-array' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch')",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   }
+  ]
+ },
+ "templating": {
+  "list": [
+   {
+    "type": "custom",
+    "name": "inverter",
+    "label": "Inverter (string view)",
+    "query": "inv-01,inv-02,inv-03,inv-04,inv-05,inv-06,inv-07,inv-08,inv-09,inv-10",
+    "current": {
+     "text": "inv-01",
+     "value": "inv-01"
+    },
+    "multi": false,
+    "includeAll": false,
+    "hide": 0,
+    "options": [
+     {
+      "text": "inv-01",
+      "value": "inv-01",
+      "selected": true
+     },
+     {
+      "text": "inv-02",
+      "value": "inv-02",
+      "selected": false
+     },
+     {
+      "text": "inv-03",
+      "value": "inv-03",
+      "selected": false
+     },
+     {
+      "text": "inv-04",
+      "value": "inv-04",
+      "selected": false
+     },
+     {
+      "text": "inv-05",
+      "value": "inv-05",
+      "selected": false
+     },
+     {
+      "text": "inv-06",
+      "value": "inv-06",
+      "selected": false
+     },
+     {
+      "text": "inv-07",
+      "value": "inv-07",
+      "selected": false
+     },
+     {
+      "text": "inv-08",
+      "value": "inv-08",
+      "selected": false
+     },
+     {
+      "text": "inv-09",
+      "value": "inv-09",
+      "selected": false
+     },
+     {
+      "text": "inv-10",
+      "value": "inv-10",
+      "selected": false
+     }
+    ]
+   }
+  ]
+ },
+ "links": [],
+ "panels": [
+  {
+   "id": 1,
+   "type": "text",
+   "title": "",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 4
+   },
+   "targets": [],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": []
+    },
+    "overrides": []
+   },
+   "options": {
+    "mode": "html",
+    "content": "\n<div style=\"display:flex;align-items:center;gap:22px;height:100%;padding:0 6px;\">\n  <img src=\"/public/img/cci-logo.png\" alt=\"\" style=\"height:76px;width:76px;border-radius:18px;box-shadow:0 6px 22px rgba(224,47,68,.35);\">\n  <div style=\"flex:1;min-width:0;\">\n    <div style=\"font-size:30px;font-weight:700;letter-spacing:.3px;line-height:1.1;\">CCI Plant Monitoring</div>\n    <div style=\"font-size:14px;opacity:.72;margin-top:6px;\">Erbil Coca-Cola hybrid plant &nbsp;·&nbsp; 3.52 MWp solar (SAU + 10 Sineng) &nbsp;·&nbsp; 5 gensets on the InteliNeo master &nbsp;·&nbsp; 3 mains incomers (InteliMains 210)</div>\n  </div>\n  <div style=\"text-align:right;font-size:12px;opacity:.6;line-height:1.6;\">Read-only &nbsp;·&nbsp; Modbus TCP<br>Asia/Baghdad</div>\n</div>",
+    "code": {
+     "language": "html",
+     "showLineNumbers": false
+    }
+   },
+   "transparent": true
+  },
+  {
+   "id": 2,
+   "type": "stat",
+   "title": "Site load",
+   "description": "Gensets + mains import + PV, from the InteliNeo master.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='load_kw' THEN value END) AS \"Site load\" FROM readings WHERE device_id='neo-01' AND point_id IN ('load_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='load_kw' THEN value END) AS \"Site load\" FROM readings WHERE device_id='neo-01' AND point_id IN ('load_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#D8D9DA"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 3,
+   "type": "stat",
+   "title": "Solar PV",
+   "description": "PV actual P aggregated by the SAU, as the master sees it.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 4,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='pv_prod_kw' THEN value END) AS \"Solar PV\" FROM readings WHERE device_id='neo-01' AND point_id IN ('pv_prod_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='pv_prod_kw' THEN value END) AS \"Solar PV\" FROM readings WHERE device_id='neo-01' AND point_id IN ('pv_prod_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#F2CC0C"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 4,
+   "type": "stat",
+   "title": "Gensets",
+   "description": "All gensets together (InteliNeo 'Gensets P').",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 4,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='power_kw' THEN value END) AS \"Gensets\" FROM readings WHERE device_id='neo-01' AND point_id IN ('power_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='power_kw' THEN value END) AS \"Gensets\" FROM readings WHERE device_id='neo-01' AND point_id IN ('power_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#FF9830"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 5,
+   "type": "stat",
+   "title": "Mains import",
+   "description": "Government grid import; negative = export.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 4,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='mains_power_kw' THEN value END) AS \"Mains import\" FROM readings WHERE device_id='neo-01' AND point_id IN ('mains_power_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='mains_power_kw' THEN value END) AS \"Mains import\" FROM readings WHERE device_id='neo-01' AND point_id IN ('mains_power_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#5794F2"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 6,
+   "type": "stat",
+   "title": "Solar share of load",
+   "description": "Solar PV / site load, right now. The line shows it over the selected time range.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 4,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT l.t AS time, 100.0 * MAX(0, p.v) / l.v AS \"Solar share\" FROM (SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) t, value v FROM readings WHERE device_id='neo-01' AND point_id='load_kw' AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch')) l JOIN (SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) t, value v FROM readings WHERE device_id='neo-01' AND point_id='pv_prod_kw' AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch')) p ON p.t = l.t WHERE l.v > 0 ORDER BY time",
+     "queryText": "SELECT l.t AS time, 100.0 * MAX(0, p.v) / l.v AS \"Solar share\" FROM (SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) t, value v FROM readings WHERE device_id='neo-01' AND point_id='load_kw' AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch')) l JOIN (SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) t, value v FROM readings WHERE device_id='neo-01' AND point_id='pv_prod_kw' AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch')) p ON p.t = l.t WHERE l.v > 0 ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "percent",
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "#464C54"
+       },
+       {
+        "value": 15,
+        "color": "#FADE2A"
+       },
+       {
+        "value": 40,
+        "color": "#73BF69"
+       }
+      ]
+     },
+     "min": 0,
+     "max": 100
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 7,
+   "type": "stat",
+   "title": "Solar held back",
+   "description": "What the sun allows now (SAU 'Maximum Active Power Available') minus what the array delivers: curtailment by the master while on gensets, tripped inverters, SAU stalls.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 20,
+    "y": 4,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='available_kw' THEN value END) - MAX(CASE WHEN point_id='ac_power_kw' THEN value END) AS \"Solar held back\" FROM readings WHERE device_id='pv-array' AND point_id IN ('available_kw','ac_power_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time HAVING COUNT(*) = 2 ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='available_kw' THEN value END) - MAX(CASE WHEN point_id='ac_power_kw' THEN value END) AS \"Solar held back\" FROM readings WHERE device_id='pv-array' AND point_id IN ('available_kw','ac_power_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time HAVING COUNT(*) = 2 ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "#73BF69"
+       },
+       {
+        "value": 150,
+        "color": "#FADE2A"
+       },
+       {
+        "value": 600,
+        "color": "#FF9830"
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "area",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 8,
+   "type": "timeseries",
+   "title": "Power flow - where the load comes from",
+   "description": "Stacked sources (PV, gensets, mains) against the site load (dashed). Markers: grid lost / back and SAU stalls.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 9,
+    "w": 17,
+    "h": 10
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='pv_prod_kw' THEN value END) AS \"Solar PV\", MAX(CASE WHEN point_id='power_kw' THEN value END) AS \"Gensets\", MAX(CASE WHEN point_id='mains_power_kw' THEN value END) AS \"Mains import\", MAX(CASE WHEN point_id='load_kw' THEN value END) AS \"Site load\" FROM readings WHERE device_id='neo-01' AND point_id IN ('pv_prod_kw', 'power_kw', 'mains_power_kw', 'load_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='pv_prod_kw' THEN value END) AS \"Solar PV\", MAX(CASE WHEN point_id='power_kw' THEN value END) AS \"Gensets\", MAX(CASE WHEN point_id='mains_power_kw' THEN value END) AS \"Mains import\", MAX(CASE WHEN point_id='load_kw' THEN value END) AS \"Site load\" FROM readings WHERE device_id='neo-01' AND point_id IN ('pv_prod_kw', 'power_kw', 'mains_power_kw', 'load_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 35,
+      "gradientMode": "opacity",
+      "showPoints": "never",
+      "spanNulls": 3600000,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      },
+      "axisBorderShow": false,
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "barWidthFactor": 0.75
+     },
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Solar PV"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#F2CC0C"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Gensets"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#FF9830"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Mains import"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5794F2"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Site load"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#D8D9DA"
+        }
+       },
+       {
+        "id": "custom.stacking",
+        "value": {
+         "mode": "none",
+         "group": "A"
+        }
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 0
+       },
+       {
+        "id": "custom.lineWidth",
+        "value": 2
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          8,
+          6
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max",
+      "mean"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 9,
+   "type": "piechart",
+   "title": "Source mix now",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 17,
+    "y": 9,
+    "w": 7,
+    "h": 10
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='pv_prod_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Solar PV\", (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Gensets\", MAX(0, (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='mains_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1)) AS \"Mains import\"",
+     "queryText": "SELECT (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='pv_prod_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Solar PV\", (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Gensets\", MAX(0, (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='mains_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1)) AS \"Mains import\"",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Solar PV"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#F2CC0C"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Gensets"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#FF9830"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Mains import"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5794F2"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "pieType": "donut",
+    "displayLabels": [
+     "percent"
+    ],
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "legend": {
+     "showLegend": true,
+     "displayMode": "table",
+     "placement": "bottom",
+     "values": [
+      "value",
+      "percent"
+     ]
+    },
+    "tooltip": {
+     "mode": "single"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 10,
+   "type": "state-timeline",
+   "title": "Plant state",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 19,
+    "w": 24,
+    "h": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='mains_available' THEN value END) AS \"Government grid\", MAX(CASE WHEN point_id='running' THEN value END) AS \"Gensets on bus\", MAX(CASE WHEN point_id='pv_operable' THEN value END) AS \"PV operable (SAU)\", MAX(CASE WHEN point_id='system_ready' THEN value END) AS \"System ready\", MAX(CASE WHEN point_id='alarm_active' THEN value END) AS \"Alarm / warning\" FROM readings WHERE device_id='neo-01' AND point_id IN ('mains_available', 'running', 'pv_operable', 'system_ready', 'alarm_active') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='mains_available' THEN value END) AS \"Government grid\", MAX(CASE WHEN point_id='running' THEN value END) AS \"Gensets on bus\", MAX(CASE WHEN point_id='pv_operable' THEN value END) AS \"PV operable (SAU)\", MAX(CASE WHEN point_id='system_ready' THEN value END) AS \"System ready\", MAX(CASE WHEN point_id='alarm_active' THEN value END) AS \"Alarm / warning\" FROM readings WHERE device_id='neo-01' AND point_id IN ('mains_available', 'running', 'pv_operable', 'system_ready', 'alarm_active') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "fillOpacity": 85,
+      "lineWidth": 0
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "OFF",
+         "color": "#464C54",
+         "index": 0
+        },
+        "1": {
+         "text": "ON",
+         "color": "#73BF69",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#464C54"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Alarm / warning"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "0": {
+            "text": "clear",
+            "color": "#464C54",
+            "index": 0
+           },
+           "1": {
+            "text": "ACTIVE",
+            "color": "#F2495C",
+            "index": 1
+           }
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Government grid"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "0": {
+            "text": "OFF",
+            "color": "#F2495C",
+            "index": 0
+           },
+           "1": {
+            "text": "ON",
+            "color": "#5794F2",
+            "index": 1
+           }
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Gensets on bus"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "0": {
+            "text": "stopped",
+            "color": "#464C54",
+            "index": 0
+           },
+           "1": {
+            "text": "RUNNING",
+            "color": "#FF9830",
+            "index": 1
+           }
+          }
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showValue": "auto",
+    "mergeValues": true,
+    "alignValue": "center",
+    "rowHeight": 0.82,
+    "legend": {
+     "showLegend": false
+    },
+    "tooltip": {
+     "mode": "single"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 11,
+   "type": "row",
+   "title": "Gensets  ·  5 × ComAp, through the InteliNeo master",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 25,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 12,
+   "type": "stat",
+   "title": "Gen 1",
+   "description": "Gen 1: GCB closed (Neo 'Gen Loaded 16' bit 0) and whether its controller answers on the CAN bus (CAN16 bit 0).",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 26,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Breaker\" FROM readings WHERE device_id='neo-01' AND point_id='g1_running' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Breaker\" FROM readings WHERE device_id='neo-01' AND point_id='g1_running' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT (CAST(value AS INTEGER) >> 0) & 1 AS \"On CAN bus\" FROM readings WHERE device_id='neo-01' AND point_id='can_present_mask' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT (CAST(value AS INTEGER) >> 0) & 1 AS \"On CAN bus\" FROM readings WHERE device_id='neo-01' AND point_id='can_present_mask' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "LOADED",
+         "color": "#73BF69",
+         "index": 0
+        },
+        "0": {
+         "text": "STANDBY",
+         "color": "#464C54",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "On CAN bus"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "present",
+            "color": "#37872D",
+            "index": 0
+           },
+           "0": {
+            "text": "MISSING",
+            "color": "#F2495C",
+            "index": 1
+           }
+          }
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 13,
+   "type": "stat",
+   "title": "Gen 2",
+   "description": "Gen 2: GCB closed (Neo 'Gen Loaded 16' bit 1) and whether its controller answers on the CAN bus (CAN16 bit 1).",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 26,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Breaker\" FROM readings WHERE device_id='neo-01' AND point_id='g2_running' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Breaker\" FROM readings WHERE device_id='neo-01' AND point_id='g2_running' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT (CAST(value AS INTEGER) >> 1) & 1 AS \"On CAN bus\" FROM readings WHERE device_id='neo-01' AND point_id='can_present_mask' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT (CAST(value AS INTEGER) >> 1) & 1 AS \"On CAN bus\" FROM readings WHERE device_id='neo-01' AND point_id='can_present_mask' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "LOADED",
+         "color": "#73BF69",
+         "index": 0
+        },
+        "0": {
+         "text": "STANDBY",
+         "color": "#464C54",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "On CAN bus"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "present",
+            "color": "#37872D",
+            "index": 0
+           },
+           "0": {
+            "text": "MISSING",
+            "color": "#F2495C",
+            "index": 1
+           }
+          }
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 14,
+   "type": "stat",
+   "title": "Gen 3",
+   "description": "Gen 3: GCB closed (Neo 'Gen Loaded 16' bit 2) and whether its controller answers on the CAN bus (CAN16 bit 2).",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 26,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Breaker\" FROM readings WHERE device_id='neo-01' AND point_id='g3_running' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Breaker\" FROM readings WHERE device_id='neo-01' AND point_id='g3_running' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT (CAST(value AS INTEGER) >> 2) & 1 AS \"On CAN bus\" FROM readings WHERE device_id='neo-01' AND point_id='can_present_mask' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT (CAST(value AS INTEGER) >> 2) & 1 AS \"On CAN bus\" FROM readings WHERE device_id='neo-01' AND point_id='can_present_mask' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "LOADED",
+         "color": "#73BF69",
+         "index": 0
+        },
+        "0": {
+         "text": "STANDBY",
+         "color": "#464C54",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "On CAN bus"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "present",
+            "color": "#37872D",
+            "index": 0
+           },
+           "0": {
+            "text": "MISSING",
+            "color": "#F2495C",
+            "index": 1
+           }
+          }
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 15,
+   "type": "stat",
+   "title": "Gen 4",
+   "description": "Gen 4: GCB closed (Neo 'Gen Loaded 16' bit 3) and whether its controller answers on the CAN bus (CAN16 bit 3).",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 26,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Breaker\" FROM readings WHERE device_id='neo-01' AND point_id='g4_running' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Breaker\" FROM readings WHERE device_id='neo-01' AND point_id='g4_running' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT (CAST(value AS INTEGER) >> 3) & 1 AS \"On CAN bus\" FROM readings WHERE device_id='neo-01' AND point_id='can_present_mask' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT (CAST(value AS INTEGER) >> 3) & 1 AS \"On CAN bus\" FROM readings WHERE device_id='neo-01' AND point_id='can_present_mask' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "LOADED",
+         "color": "#73BF69",
+         "index": 0
+        },
+        "0": {
+         "text": "STANDBY",
+         "color": "#464C54",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "On CAN bus"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "present",
+            "color": "#37872D",
+            "index": 0
+           },
+           "0": {
+            "text": "MISSING",
+            "color": "#F2495C",
+            "index": 1
+           }
+          }
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 16,
+   "type": "stat",
+   "title": "Gen 5",
+   "description": "Gen 5: GCB closed (Neo 'Gen Loaded 16' bit 4) and whether its controller answers on the CAN bus (CAN16 bit 4).",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 26,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Breaker\" FROM readings WHERE device_id='neo-01' AND point_id='g5_running' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Breaker\" FROM readings WHERE device_id='neo-01' AND point_id='g5_running' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT (CAST(value AS INTEGER) >> 4) & 1 AS \"On CAN bus\" FROM readings WHERE device_id='neo-01' AND point_id='can_present_mask' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT (CAST(value AS INTEGER) >> 4) & 1 AS \"On CAN bus\" FROM readings WHERE device_id='neo-01' AND point_id='can_present_mask' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "LOADED",
+         "color": "#73BF69",
+         "index": 0
+        },
+        "0": {
+         "text": "STANDBY",
+         "color": "#464C54",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "On CAN bus"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "present",
+            "color": "#37872D",
+            "index": 0
+           },
+           "0": {
+            "text": "MISSING",
+            "color": "#F2495C",
+            "index": 1
+           }
+          }
+         }
+        ]
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 17,
+   "type": "stat",
+   "title": "Gensets running",
+   "description": "Gensets with the breaker closed, of 5.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 20,
+    "y": 26,
+    "w": 4,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='g1_running' AND quality='good' ORDER BY ts DESC LIMIT 1) + (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='g2_running' AND quality='good' ORDER BY ts DESC LIMIT 1) + (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='g3_running' AND quality='good' ORDER BY ts DESC LIMIT 1) + (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='g4_running' AND quality='good' ORDER BY ts DESC LIMIT 1) + (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='g5_running' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Running\"",
+     "queryText": "SELECT (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='g1_running' AND quality='good' ORDER BY ts DESC LIMIT 1) + (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='g2_running' AND quality='good' ORDER BY ts DESC LIMIT 1) + (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='g3_running' AND quality='good' ORDER BY ts DESC LIMIT 1) + (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='g4_running' AND quality='good' ORDER BY ts DESC LIMIT 1) + (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='g5_running' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Running\"",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "none",
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "#464C54"
+       },
+       {
+        "value": 1,
+        "color": "#FF9830"
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 18,
+   "type": "timeseries",
+   "title": "Gensets - power, capacity on line, reserve",
+   "description": "Running nominal = the capacity of the gensets on the bus. The master starts one more when the reserve falls under the start reserve and stops one above the stop reserve.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 31,
+    "w": 12,
+    "h": 9
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='running_power_kw' THEN value END) AS \"Gensets P\", MAX(CASE WHEN point_id='running_nominal_kw' THEN value END) AS \"Running nominal\", MAX(CASE WHEN point_id='actual_reserve_kw' THEN value END) AS \"Spinning reserve\" FROM readings WHERE device_id='neo-01' AND point_id IN ('running_power_kw', 'running_nominal_kw', 'actual_reserve_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='running_power_kw' THEN value END) AS \"Gensets P\", MAX(CASE WHEN point_id='running_nominal_kw' THEN value END) AS \"Running nominal\", MAX(CASE WHEN point_id='actual_reserve_kw' THEN value END) AS \"Spinning reserve\" FROM readings WHERE device_id='neo-01' AND point_id IN ('running_power_kw', 'running_nominal_kw', 'actual_reserve_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "stepAfter",
+      "lineWidth": 2,
+      "fillOpacity": 18,
+      "gradientMode": "opacity",
+      "showPoints": "never",
+      "spanNulls": 3600000,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      },
+      "axisBorderShow": false,
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "barWidthFactor": 0.75
+     },
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Gensets P"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#FF9830"
+        }
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 30
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Running nominal"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#B877D9"
+        }
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 0
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          8,
+          6
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Spinning reserve"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8AB8FF"
+        }
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 8
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "list",
+     "placement": "bottom",
+     "calcs": []
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 19,
+   "type": "gauge",
+   "title": "Genset loading",
+   "description": "Gensets P / running nominal. Under ~30 % for long is wet-stacking territory; the master curtails PV to keep it up.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 31,
+    "w": 4,
+    "h": 9
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT 100.0 * (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='running_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) / NULLIF((SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='running_nominal_kw' AND quality='good' ORDER BY ts DESC LIMIT 1), 0) AS \"Loading\"",
+     "queryText": "SELECT 100.0 * (SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='running_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) / NULLIF((SELECT value AS \"v\" FROM readings WHERE device_id='neo-01' AND point_id='running_nominal_kw' AND quality='good' ORDER BY ts DESC LIMIT 1), 0) AS \"Loading\"",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "percent",
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "#F2495C"
+       },
+       {
+        "value": 30,
+        "color": "#73BF69"
+       },
+       {
+        "value": 85,
+        "color": "#FF9830"
+       },
+       {
+        "value": 95,
+        "color": "#F2495C"
+       }
+      ]
+     },
+     "min": 0,
+     "max": 100
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "showThresholdLabels": false,
+    "showThresholdMarkers": true,
+    "minVizHeight": 75,
+    "minVizWidth": 75,
+    "sizing": "auto"
+   },
+   "transparent": false
+  },
+  {
+   "id": 20,
+   "type": "stat",
+   "title": "Reserves",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 31,
+    "w": 4,
+    "h": 9
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Actual\" FROM readings WHERE device_id='neo-01' AND point_id='actual_reserve_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Actual\" FROM readings WHERE device_id='neo-01' AND point_id='actual_reserve_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Start below\" FROM readings WHERE device_id='neo-01' AND point_id='start_reserve_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Start below\" FROM readings WHERE device_id='neo-01' AND point_id='start_reserve_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "C",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Stop above\" FROM readings WHERE device_id='neo-01' AND point_id='stop_reserve_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Stop above\" FROM readings WHERE device_id='neo-01' AND point_id='stop_reserve_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#8AB8FF"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "auto",
+    "orientation": "horizontal",
+    "wideLayout": true
+   },
+   "transparent": false
+  },
+  {
+   "id": 21,
+   "type": "stat",
+   "title": "Hours & starts (all gensets)",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 20,
+    "y": 31,
+    "w": 4,
+    "h": 9
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Running hours\" FROM readings WHERE device_id='neo-01' AND point_id='running_hours' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Running hours\" FROM readings WHERE device_id='neo-01' AND point_id='running_hours' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Starts\" FROM readings WHERE device_id='neo-01' AND point_id='num_starts' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Starts\" FROM readings WHERE device_id='neo-01' AND point_id='num_starts' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#FF9830"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Running hours"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "suffix: h"
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "auto",
+    "orientation": "horizontal",
+    "wideLayout": true
+   },
+   "transparent": false
+  },
+  {
+   "id": 22,
+   "type": "state-timeline",
+   "title": "Which genset ran when",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 40,
+    "w": 24,
+    "h": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='g1_running' THEN value END) AS \"Gen 1\", MAX(CASE WHEN point_id='g2_running' THEN value END) AS \"Gen 2\", MAX(CASE WHEN point_id='g3_running' THEN value END) AS \"Gen 3\", MAX(CASE WHEN point_id='g4_running' THEN value END) AS \"Gen 4\", MAX(CASE WHEN point_id='g5_running' THEN value END) AS \"Gen 5\" FROM readings WHERE device_id='neo-01' AND point_id IN ('g1_running', 'g2_running', 'g3_running', 'g4_running', 'g5_running') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='g1_running' THEN value END) AS \"Gen 1\", MAX(CASE WHEN point_id='g2_running' THEN value END) AS \"Gen 2\", MAX(CASE WHEN point_id='g3_running' THEN value END) AS \"Gen 3\", MAX(CASE WHEN point_id='g4_running' THEN value END) AS \"Gen 4\", MAX(CASE WHEN point_id='g5_running' THEN value END) AS \"Gen 5\" FROM readings WHERE device_id='neo-01' AND point_id IN ('g1_running', 'g2_running', 'g3_running', 'g4_running', 'g5_running') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "fillOpacity": 85,
+      "lineWidth": 0
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "",
+         "color": "transparent",
+         "index": 0
+        },
+        "1": {
+         "text": "running",
+         "color": "#FF9830",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#464C54"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "showValue": "auto",
+    "mergeValues": true,
+    "alignValue": "center",
+    "rowHeight": 0.82,
+    "legend": {
+     "showLegend": false
+    },
+    "tooltip": {
+     "mode": "single"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 23,
+   "type": "row",
+   "title": "InteliNeo master controller  ·  192.168.0.112",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 46,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 24,
+   "type": "stat",
+   "title": "Mode",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 47,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='controller_mode' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='controller_mode' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "OFF",
+         "color": "#F2495C",
+         "index": 0
+        },
+        "1": {
+         "text": "MAN",
+         "color": "#FF9830",
+         "index": 1
+        },
+        "2": {
+         "text": "AUTO",
+         "color": "#73BF69",
+         "index": 2
+        },
+        "3": {
+         "text": "TEST",
+         "color": "#FF9830",
+         "index": 3
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 25,
+   "type": "stat",
+   "title": "Breaker state",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 47,
+    "w": 5,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='breaker_state' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='breaker_state' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "Init",
+         "color": "#464C54",
+         "index": 0
+        },
+        "1": {
+         "text": "Breakers off",
+         "color": "#F2495C",
+         "index": 1
+        },
+        "2": {
+         "text": "Island (gensets)",
+         "color": "#FF9830",
+         "index": 2
+        },
+        "3": {
+         "text": "Mains operation",
+         "color": "#5794F2",
+         "index": 3
+        },
+        "4": {
+         "text": "Parallel to mains",
+         "color": "#B877D9",
+         "index": 4
+        },
+        "5": {
+         "text": "Reverse sync",
+         "color": "#FF9830",
+         "index": 5
+        },
+        "6": {
+         "text": "Synchronising",
+         "color": "#FF9830",
+         "index": 6
+        },
+        "7": {
+         "text": "Mains fault",
+         "color": "#F2495C",
+         "index": 7
+        },
+        "8": {
+         "text": "Valid fault",
+         "color": "#F2495C",
+         "index": 8
+        },
+        "9": {
+         "text": "Mains return",
+         "color": "#FF9830",
+         "index": 9
+        },
+        "10": {
+         "text": "Multi island",
+         "color": "#FF9830",
+         "index": 10
+        },
+        "11": {
+         "text": "Multi parallel",
+         "color": "#B877D9",
+         "index": 11
+        },
+        "12": {
+         "text": "Emergency manual",
+         "color": "#F2495C",
+         "index": 12
+        },
+        "13": {
+         "text": "Start-up sync",
+         "color": "#FF9830",
+         "index": 13
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 26,
+   "type": "stat",
+   "title": "Ethernet",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 9,
+    "y": 47,
+    "w": 3,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='eth_status' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='eth_status' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "Unknown",
+         "color": "#464C54",
+         "index": 0
+        },
+        "1": {
+         "text": "Disconnected",
+         "color": "#F2495C",
+         "index": 1
+        },
+        "2": {
+         "text": "Connecting",
+         "color": "#FF9830",
+         "index": 2
+        },
+        "3": {
+         "text": "Connected",
+         "color": "#73BF69",
+         "index": 3
+        },
+        "4": {
+         "text": "Failure",
+         "color": "#F2495C",
+         "index": 4
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 27,
+   "type": "gauge",
+   "title": "Bus frequency",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 47,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='bus_frequency_hz' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='bus_frequency_hz' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "hertz",
+     "decimals": 2,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "#F2495C"
+       },
+       {
+        "value": 49.5,
+        "color": "#FF9830"
+       },
+       {
+        "value": 49.8,
+        "color": "#73BF69"
+       },
+       {
+        "value": 50.2,
+        "color": "#FF9830"
+       },
+       {
+        "value": 50.5,
+        "color": "#F2495C"
+       }
+      ]
+     },
+     "min": 49,
+     "max": 51
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "showThresholdLabels": false,
+    "showThresholdMarkers": true,
+    "minVizHeight": 75,
+    "minVizWidth": 75,
+    "sizing": "auto"
+   },
+   "transparent": false
+  },
+  {
+   "id": 28,
+   "type": "gauge",
+   "title": "Bus voltage L-N",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 47,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='bus_voltage_v' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='bus_voltage_v' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "volt",
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "#F2495C"
+       },
+       {
+        "value": 215,
+        "color": "#FF9830"
+       },
+       {
+        "value": 220,
+        "color": "#73BF69"
+       },
+       {
+        "value": 243,
+        "color": "#FF9830"
+       },
+       {
+        "value": 250,
+        "color": "#F2495C"
+       }
+      ]
+     },
+     "min": 200,
+     "max": 260
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "showThresholdLabels": false,
+    "showThresholdMarkers": true,
+    "minVizHeight": 75,
+    "minVizWidth": 75,
+    "sizing": "auto"
+   },
+   "transparent": false
+  },
+  {
+   "id": 29,
+   "type": "stat",
+   "title": "Controller battery",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 20,
+    "y": 47,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='battery_v' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='battery_v' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "volt",
+     "decimals": 1,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "#F2495C"
+       },
+       {
+        "value": 23,
+        "color": "#FF9830"
+       },
+       {
+        "value": 24.5,
+        "color": "#73BF69"
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 30,
+   "type": "stat",
+   "title": "Healthy signals",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 51,
+    "w": 12,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"System ready\" FROM readings WHERE device_id='neo-01' AND point_id='system_ready' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"System ready\" FROM readings WHERE device_id='neo-01' AND point_id='system_ready' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Bus healthy\" FROM readings WHERE device_id='neo-01' AND point_id='bus_healthy' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Bus healthy\" FROM readings WHERE device_id='neo-01' AND point_id='bus_healthy' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "C",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Mains available\" FROM readings WHERE device_id='neo-01' AND point_id='mains_available' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Mains available\" FROM readings WHERE device_id='neo-01' AND point_id='mains_available' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "D",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"PV operable\" FROM readings WHERE device_id='neo-01' AND point_id='pv_operable' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"PV operable\" FROM readings WHERE device_id='neo-01' AND point_id='pv_operable' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "E",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"PV breaker\" FROM readings WHERE device_id='neo-01' AND point_id='pvcb_status' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"PV breaker\" FROM readings WHERE device_id='neo-01' AND point_id='pvcb_status' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "F",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"In AUTO\" FROM readings WHERE device_id='neo-01' AND point_id='mode_auto' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"In AUTO\" FROM readings WHERE device_id='neo-01' AND point_id='mode_auto' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "1": {
+         "text": "OK",
+         "color": "#73BF69",
+         "index": 0
+        },
+        "0": {
+         "text": "NOT OK",
+         "color": "#F2495C",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "vertical",
+    "wideLayout": true
+   },
+   "transparent": false
+  },
+  {
+   "id": 31,
+   "type": "stat",
+   "title": "Alarm signals",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 51,
+    "w": 12,
+    "h": 5
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Alarm / warning\" FROM readings WHERE device_id='neo-01' AND point_id='alarm_active' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Alarm / warning\" FROM readings WHERE device_id='neo-01' AND point_id='alarm_active' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Shutdown\" FROM readings WHERE device_id='neo-01' AND point_id='common_shutdown' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Shutdown\" FROM readings WHERE device_id='neo-01' AND point_id='common_shutdown' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "C",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Mains fail\" FROM readings WHERE device_id='neo-01' AND point_id='alarm_mains_fail' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Mains fail\" FROM readings WHERE device_id='neo-01' AND point_id='alarm_mains_fail' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "D",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"PV logger comm fail\" FROM readings WHERE device_id='neo-01' AND point_id='pv_logger_comm_fail' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"PV logger comm fail\" FROM readings WHERE device_id='neo-01' AND point_id='pv_logger_comm_fail' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "E",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Peripheral comm fail\" FROM readings WHERE device_id='neo-01' AND point_id='peripheral_comm_fail' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Peripheral comm fail\" FROM readings WHERE device_id='neo-01' AND point_id='peripheral_comm_fail' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "F",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Emergency stop\" FROM readings WHERE device_id='neo-01' AND point_id='estop' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Emergency stop\" FROM readings WHERE device_id='neo-01' AND point_id='estop' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "OK",
+         "color": "#73BF69",
+         "index": 0
+        },
+        "1": {
+         "text": "ACTIVE",
+         "color": "#F2495C",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "vertical",
+    "wideLayout": true
+   },
+   "transparent": false
+  },
+  {
+   "id": 32,
+   "type": "timeseries",
+   "title": "Bus frequency",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 56,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='bus_frequency_hz' THEN value END) AS \"Frequency\" FROM readings WHERE device_id='neo-01' AND point_id IN ('bus_frequency_hz') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='bus_frequency_hz' THEN value END) AS \"Frequency\" FROM readings WHERE device_id='neo-01' AND point_id IN ('bus_frequency_hz') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "hertz",
+     "decimals": 2,
+     "custom": {
+      "drawStyle": "line",
+      "lineWidth": 1,
+      "fillOpacity": 10,
+      "showPoints": "never",
+      "spanNulls": 3600000,
+      "thresholdsStyle": {
+       "mode": "line+area"
+      }
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "rgba(242,73,92,0.12)"
+       },
+       {
+        "value": 49.8,
+        "color": "transparent"
+       },
+       {
+        "value": 50.2,
+        "color": "rgba(242,73,92,0.12)"
+       }
+      ]
+     },
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#73BF69"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "list",
+     "placement": "bottom",
+     "calcs": []
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 33,
+   "type": "timeseries",
+   "title": "Bus voltage (L-N)",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 56,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='bus_voltage_l1_v' THEN value END) AS \"L1\", MAX(CASE WHEN point_id='bus_voltage_l2_v' THEN value END) AS \"L2\", MAX(CASE WHEN point_id='bus_voltage_l3_v' THEN value END) AS \"L3\" FROM readings WHERE device_id='neo-01' AND point_id IN ('bus_voltage_l1_v', 'bus_voltage_l2_v', 'bus_voltage_l3_v') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='bus_voltage_l1_v' THEN value END) AS \"L1\", MAX(CASE WHEN point_id='bus_voltage_l2_v' THEN value END) AS \"L2\", MAX(CASE WHEN point_id='bus_voltage_l3_v' THEN value END) AS \"L3\" FROM readings WHERE device_id='neo-01' AND point_id IN ('bus_voltage_l1_v', 'bus_voltage_l2_v', 'bus_voltage_l3_v') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "gradientMode": "opacity",
+      "showPoints": "never",
+      "spanNulls": 3600000,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      },
+      "axisBorderShow": false,
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "barWidthFactor": 0.75
+     },
+     "mappings": [],
+     "unit": "volt",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "list",
+     "placement": "bottom",
+     "calcs": []
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 34,
+   "type": "timeseries",
+   "title": "Power factor",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 56,
+    "w": 8,
+    "h": 7
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='gensets_pf' THEN value END) AS \"Gensets\", MAX(CASE WHEN point_id='mains_pf' THEN value END) AS \"Mains\", MAX(CASE WHEN point_id='pv_pf' THEN value END) AS \"PV\" FROM readings WHERE device_id='neo-01' AND point_id IN ('gensets_pf', 'mains_pf', 'pv_pf') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='gensets_pf' THEN value END) AS \"Gensets\", MAX(CASE WHEN point_id='mains_pf' THEN value END) AS \"Mains\", MAX(CASE WHEN point_id='pv_pf' THEN value END) AS \"PV\" FROM readings WHERE device_id='neo-01' AND point_id IN ('gensets_pf', 'mains_pf', 'pv_pf') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "gradientMode": "opacity",
+      "showPoints": "never",
+      "spanNulls": 3600000,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      },
+      "axisBorderShow": false,
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "barWidthFactor": 0.75
+     },
+     "mappings": [],
+     "unit": "none",
+     "decimals": 2,
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0,
+     "max": 1
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Gensets"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#FF9830"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Mains"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5794F2"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "PV"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#F2CC0C"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "list",
+     "placement": "bottom",
+     "calcs": []
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 35,
+   "type": "row",
+   "title": "Solar PV  ·  Sineng SAU-100 + 10 × SP-320K-H  ·  192.168.0.128",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 63,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 36,
+   "type": "stat",
+   "title": "SAU link",
+   "description": "Whether the SAU answered the last poll (the collector sets comm_error).",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 64,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"value\" FROM readings WHERE device_id='pv-array' AND point_id='comm_error' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"value\" FROM readings WHERE device_id='pv-array' AND point_id='comm_error' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "ONLINE",
+         "color": "#73BF69",
+         "index": 0
+        },
+        "1": {
+         "text": "NO DATA",
+         "color": "#F2495C",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 37,
+   "type": "stat",
+   "title": "Inverters working",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 64,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Working\" FROM readings WHERE device_id='pv-array' AND point_id='inverters_working' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Working\" FROM readings WHERE device_id='pv-array' AND point_id='inverters_working' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Faulty\" FROM readings WHERE device_id='pv-array' AND point_id='inverters_faulty' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Faulty\" FROM readings WHERE device_id='pv-array' AND point_id='inverters_faulty' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "#464C54"
+       },
+       {
+        "value": 1,
+        "color": "#73BF69"
+       }
+      ]
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Faulty"
+      },
+      "properties": [
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "value": null,
+           "color": "#73BF69"
+          },
+          {
+           "value": 1,
+           "color": "#F2495C"
+          }
+         ]
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "horizontal",
+    "wideLayout": true
+   },
+   "transparent": false
+  },
+  {
+   "id": 38,
+   "type": "stat",
+   "title": "Available from the sun",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 64,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"value\" FROM readings WHERE device_id='pv-array' AND point_id='available_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"value\" FROM readings WHERE device_id='pv-array' AND point_id='available_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#FFF899"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 39,
+   "type": "stat",
+   "title": "Array output",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 64,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"value\" FROM readings WHERE device_id='pv-array' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"value\" FROM readings WHERE device_id='pv-array' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#F2CC0C"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 40,
+   "type": "stat",
+   "title": "Solar energy today",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 16,
+    "y": 64,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"value\" FROM readings WHERE device_id='pv-array' AND point_id='energy_today_kwh' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"value\" FROM readings WHERE device_id='pv-array' AND point_id='energy_today_kwh' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "kwatth",
+     "decimals": 2,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#F2CC0C"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 41,
+   "type": "gauge",
+   "title": "PV allowed by master",
+   "description": "InteliNeo 'Curtailment Output': % of the PV rating the master allows.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 20,
+    "y": 64,
+    "w": 4,
+    "h": 4
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='pv_curtailment_pct' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"value\" FROM readings WHERE device_id='neo-01' AND point_id='pv_curtailment_pct' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "percent",
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "#FF9830"
+       },
+       {
+        "value": 60,
+        "color": "#FADE2A"
+       },
+       {
+        "value": 99,
+        "color": "#73BF69"
+       }
+      ]
+     },
+     "min": 0,
+     "max": 100
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "showThresholdLabels": false,
+    "showThresholdMarkers": true,
+    "minVizHeight": 75,
+    "minVizWidth": 75,
+    "sizing": "auto"
+   },
+   "transparent": false
+  },
+  {
+   "id": 42,
+   "type": "timeseries",
+   "title": "Solar - available vs delivered",
+   "description": "The gap is solar energy left on the table: curtailment while on gensets, trips, SAU stalls.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 68,
+    "w": 12,
+    "h": 9
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='available_kw' THEN value END) AS \"Available (sun)\", MAX(CASE WHEN point_id='ac_power_kw' THEN value END) AS \"Delivered\" FROM readings WHERE device_id='pv-array' AND point_id IN ('available_kw', 'ac_power_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='available_kw' THEN value END) AS \"Available (sun)\", MAX(CASE WHEN point_id='ac_power_kw' THEN value END) AS \"Delivered\" FROM readings WHERE device_id='pv-array' AND point_id IN ('available_kw', 'ac_power_kw') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 18,
+      "gradientMode": "opacity",
+      "showPoints": "never",
+      "spanNulls": 3600000,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      },
+      "axisBorderShow": false,
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "barWidthFactor": 0.75
+     },
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Available (sun)"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#FFF899"
+        }
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 6
+       },
+       {
+        "id": "custom.lineStyle",
+        "value": {
+         "fill": "dash",
+         "dash": [
+          8,
+          6
+         ]
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Delivered"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#F2CC0C"
+        }
+       },
+       {
+        "id": "custom.fillOpacity",
+        "value": 40
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "list",
+     "placement": "bottom",
+     "calcs": []
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 43,
+   "type": "bargauge",
+   "title": "Inverters now",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 68,
+    "w": 12,
+    "h": 9
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT 'INV-01' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-01' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-02' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-02' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-03' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-03' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-04' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-04' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-05' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-05' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-06' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-06' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-07' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-07' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-08' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-08' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-09' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-09' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-10' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-10' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW",
+     "queryText": "SELECT 'INV-01' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-01' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-02' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-02' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-03' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-03' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-04' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-04' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-05' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-05' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-06' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-06' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-07' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-07' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-08' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-08' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-09' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-09' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW UNION ALL SELECT 'INV-10' AS inverter, (SELECT value AS \"v\" FROM readings WHERE device_id='inv-10' AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS kW",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "#F2CC0C"
+       }
+      ]
+     },
+     "min": 0,
+     "max": 352
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": true
+    },
+    "orientation": "horizontal",
+    "displayMode": "lcd",
+    "valueMode": "color",
+    "namePlacement": "left",
+    "showUnfilled": true,
+    "sizing": "auto",
+    "minVizHeight": 16,
+    "minVizWidth": 8,
+    "maxVizHeight": 300
+   },
+   "transparent": false
+  },
+  {
+   "id": 44,
+   "type": "timeseries",
+   "title": "Inverter output",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 77,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) AS time, MAX(CASE WHEN device_id='inv-01' THEN value END) AS \"INV-01\", MAX(CASE WHEN device_id='inv-02' THEN value END) AS \"INV-02\", MAX(CASE WHEN device_id='inv-03' THEN value END) AS \"INV-03\", MAX(CASE WHEN device_id='inv-04' THEN value END) AS \"INV-04\", MAX(CASE WHEN device_id='inv-05' THEN value END) AS \"INV-05\", MAX(CASE WHEN device_id='inv-06' THEN value END) AS \"INV-06\", MAX(CASE WHEN device_id='inv-07' THEN value END) AS \"INV-07\", MAX(CASE WHEN device_id='inv-08' THEN value END) AS \"INV-08\", MAX(CASE WHEN device_id='inv-09' THEN value END) AS \"INV-09\", MAX(CASE WHEN device_id='inv-10' THEN value END) AS \"INV-10\" FROM readings WHERE point_id='ac_power_kw' AND device_id IN ('inv-01', 'inv-02', 'inv-03', 'inv-04', 'inv-05', 'inv-06', 'inv-07', 'inv-08', 'inv-09', 'inv-10') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) AS time, MAX(CASE WHEN device_id='inv-01' THEN value END) AS \"INV-01\", MAX(CASE WHEN device_id='inv-02' THEN value END) AS \"INV-02\", MAX(CASE WHEN device_id='inv-03' THEN value END) AS \"INV-03\", MAX(CASE WHEN device_id='inv-04' THEN value END) AS \"INV-04\", MAX(CASE WHEN device_id='inv-05' THEN value END) AS \"INV-05\", MAX(CASE WHEN device_id='inv-06' THEN value END) AS \"INV-06\", MAX(CASE WHEN device_id='inv-07' THEN value END) AS \"INV-07\", MAX(CASE WHEN device_id='inv-08' THEN value END) AS \"INV-08\", MAX(CASE WHEN device_id='inv-09' THEN value END) AS \"INV-09\", MAX(CASE WHEN device_id='inv-10' THEN value END) AS \"INV-10\" FROM readings WHERE point_id='ac_power_kw' AND device_id IN ('inv-01', 'inv-02', 'inv-03', 'inv-04', 'inv-05', 'inv-06', 'inv-07', 'inv-08', 'inv-09', 'inv-10') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "gradientMode": "opacity",
+      "showPoints": "never",
+      "spanNulls": 3600000,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      },
+      "axisBorderShow": false,
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "barWidthFactor": 0.75
+     },
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 45,
+   "type": "timeseries",
+   "title": "Inverter cabin temperature",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 77,
+    "w": 12,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) AS time, MAX(CASE WHEN device_id='inv-01' THEN value END) AS \"INV-01\", MAX(CASE WHEN device_id='inv-02' THEN value END) AS \"INV-02\", MAX(CASE WHEN device_id='inv-03' THEN value END) AS \"INV-03\", MAX(CASE WHEN device_id='inv-04' THEN value END) AS \"INV-04\", MAX(CASE WHEN device_id='inv-05' THEN value END) AS \"INV-05\", MAX(CASE WHEN device_id='inv-06' THEN value END) AS \"INV-06\", MAX(CASE WHEN device_id='inv-07' THEN value END) AS \"INV-07\", MAX(CASE WHEN device_id='inv-08' THEN value END) AS \"INV-08\", MAX(CASE WHEN device_id='inv-09' THEN value END) AS \"INV-09\", MAX(CASE WHEN device_id='inv-10' THEN value END) AS \"INV-10\" FROM readings WHERE point_id='cabin_temp_c' AND device_id IN ('inv-01', 'inv-02', 'inv-03', 'inv-04', 'inv-05', 'inv-06', 'inv-07', 'inv-08', 'inv-09', 'inv-10') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) AS time, MAX(CASE WHEN device_id='inv-01' THEN value END) AS \"INV-01\", MAX(CASE WHEN device_id='inv-02' THEN value END) AS \"INV-02\", MAX(CASE WHEN device_id='inv-03' THEN value END) AS \"INV-03\", MAX(CASE WHEN device_id='inv-04' THEN value END) AS \"INV-04\", MAX(CASE WHEN device_id='inv-05' THEN value END) AS \"INV-05\", MAX(CASE WHEN device_id='inv-06' THEN value END) AS \"INV-06\", MAX(CASE WHEN device_id='inv-07' THEN value END) AS \"INV-07\", MAX(CASE WHEN device_id='inv-08' THEN value END) AS \"INV-08\", MAX(CASE WHEN device_id='inv-09' THEN value END) AS \"INV-09\", MAX(CASE WHEN device_id='inv-10' THEN value END) AS \"INV-10\" FROM readings WHERE point_id='cabin_temp_c' AND device_id IN ('inv-01', 'inv-02', 'inv-03', 'inv-04', 'inv-05', 'inv-06', 'inv-07', 'inv-08', 'inv-09', 'inv-10') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "celsius",
+     "decimals": 1,
+     "color": {
+      "mode": "palette-classic"
+     },
+     "custom": {
+      "lineWidth": 1,
+      "fillOpacity": 0,
+      "showPoints": "never",
+      "spanNulls": 3600000,
+      "thresholdsStyle": {
+       "mode": "dashed"
+      }
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "value": null,
+        "color": "transparent"
+       },
+       {
+        "value": 55,
+        "color": "#FF9830"
+       },
+       {
+        "value": 70,
+        "color": "#F2495C"
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 46,
+   "type": "table",
+   "title": "Inverter fleet",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 85,
+    "w": 24,
+    "h": 13
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT UPPER(i.id) AS Inverter, (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='grid_connected' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"On grid\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"AC kW\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='dc_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"DC kW\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='efficiency_pct' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Efficiency %\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='cabin_temp_c' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Cabin °C\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='energy_today_kwh' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Today kWh\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='energy_total_kwh' AND quality='good' ORDER BY ts DESC LIMIT 1) / 1000.0 AS \"Total MWh\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='fault' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Fault\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='comm_error' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Link\" FROM (SELECT 'inv-01' AS id UNION ALL SELECT 'inv-02' AS id UNION ALL SELECT 'inv-03' AS id UNION ALL SELECT 'inv-04' AS id UNION ALL SELECT 'inv-05' AS id UNION ALL SELECT 'inv-06' AS id UNION ALL SELECT 'inv-07' AS id UNION ALL SELECT 'inv-08' AS id UNION ALL SELECT 'inv-09' AS id UNION ALL SELECT 'inv-10' AS id) i ORDER BY i.id",
+     "queryText": "SELECT UPPER(i.id) AS Inverter, (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='grid_connected' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"On grid\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='ac_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"AC kW\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='dc_power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"DC kW\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='efficiency_pct' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Efficiency %\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='cabin_temp_c' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Cabin °C\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='energy_today_kwh' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Today kWh\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='energy_total_kwh' AND quality='good' ORDER BY ts DESC LIMIT 1) / 1000.0 AS \"Total MWh\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='fault' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Fault\", (SELECT value AS \"v\" FROM readings WHERE device_id=i.id AND point_id='comm_error' AND quality='good' ORDER BY ts DESC LIMIT 1) AS \"Link\" FROM (SELECT 'inv-01' AS id UNION ALL SELECT 'inv-02' AS id UNION ALL SELECT 'inv-03' AS id UNION ALL SELECT 'inv-04' AS id UNION ALL SELECT 'inv-05' AS id UNION ALL SELECT 'inv-06' AS id UNION ALL SELECT 'inv-07' AS id UNION ALL SELECT 'inv-08' AS id UNION ALL SELECT 'inv-09' AS id UNION ALL SELECT 'inv-10' AS id) i ORDER BY i.id",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "center",
+      "cellOptions": {
+       "type": "auto"
+      },
+      "inspect": false
+     },
+     "mappings": [],
+     "decimals": 1
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Inverter"
+      },
+      "properties": [
+       {
+        "id": "custom.width",
+        "value": 110
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "On grid"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "● generating",
+            "color": "#73BF69",
+            "index": 0
+           },
+           "0": {
+            "text": "○ off",
+            "color": "#464C54",
+            "index": 1
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "AC kW"
+      },
+      "properties": [
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "gauge",
+         "mode": "lcd",
+         "valueDisplayMode": "text"
+        }
+       },
+       {
+        "id": "min",
+        "value": 0
+       },
+       {
+        "id": "max",
+        "value": 352
+       },
+       {
+        "id": "decimals",
+        "value": 0
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "continuous-YlRd"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "DC kW"
+      },
+      "properties": [
+       {
+        "id": "decimals",
+        "value": 0
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Efficiency %"
+      },
+      "properties": [
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-text"
+        }
+       },
+       {
+        "id": "decimals",
+        "value": 1
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "value": null,
+           "color": "#464C54"
+          },
+          {
+           "value": 90,
+           "color": "#FF9830"
+          },
+          {
+           "value": 97,
+           "color": "#73BF69"
+          }
+         ]
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "thresholds"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Cabin °C"
+      },
+      "properties": [
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background",
+         "mode": "gradient"
+        }
+       },
+       {
+        "id": "decimals",
+        "value": 1
+       },
+       {
+        "id": "thresholds",
+        "value": {
+         "mode": "absolute",
+         "steps": [
+          {
+           "value": null,
+           "color": "#37872D"
+          },
+          {
+           "value": 55,
+           "color": "#FF9830"
+          },
+          {
+           "value": 70,
+           "color": "#F2495C"
+          }
+         ]
+        }
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "thresholds"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Today kWh"
+      },
+      "properties": [
+       {
+        "id": "decimals",
+        "value": 0
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Total MWh"
+      },
+      "properties": [
+       {
+        "id": "decimals",
+        "value": 1
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Fault"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "0": {
+            "text": "—",
+            "color": "#464C54",
+            "index": 0
+           },
+           "1": {
+            "text": "FAULT",
+            "color": "#F2495C",
+            "index": 1
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Link"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "0": {
+            "text": "ONLINE",
+            "color": "#73BF69",
+            "index": 0
+           },
+           "1": {
+            "text": "NO DATA",
+            "color": "#F2495C",
+            "index": 1
+           }
+          }
+         }
+        ]
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 47,
+   "type": "timeseries",
+   "title": "String currents - $inverter",
+   "description": "Pick the inverter at the top of the dashboard. A string far under its neighbours while the sun is up = a blown fuse, a loose connector or shading.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 98,
+    "w": 24,
+    "h": 8
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='string_current_1_a' THEN value END) AS \"String 1\", MAX(CASE WHEN point_id='string_current_2_a' THEN value END) AS \"String 2\", MAX(CASE WHEN point_id='string_current_3_a' THEN value END) AS \"String 3\", MAX(CASE WHEN point_id='string_current_4_a' THEN value END) AS \"String 4\", MAX(CASE WHEN point_id='string_current_5_a' THEN value END) AS \"String 5\", MAX(CASE WHEN point_id='string_current_6_a' THEN value END) AS \"String 6\", MAX(CASE WHEN point_id='string_current_7_a' THEN value END) AS \"String 7\", MAX(CASE WHEN point_id='string_current_8_a' THEN value END) AS \"String 8\", MAX(CASE WHEN point_id='string_current_9_a' THEN value END) AS \"String 9\", MAX(CASE WHEN point_id='string_current_10_a' THEN value END) AS \"String 10\", MAX(CASE WHEN point_id='string_current_11_a' THEN value END) AS \"String 11\", MAX(CASE WHEN point_id='string_current_12_a' THEN value END) AS \"String 12\" FROM readings WHERE device_id='$inverter' AND point_id IN ('string_current_1_a', 'string_current_2_a', 'string_current_3_a', 'string_current_4_a', 'string_current_5_a', 'string_current_6_a', 'string_current_7_a', 'string_current_8_a', 'string_current_9_a', 'string_current_10_a', 'string_current_11_a', 'string_current_12_a') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, MAX(CASE WHEN point_id='string_current_1_a' THEN value END) AS \"String 1\", MAX(CASE WHEN point_id='string_current_2_a' THEN value END) AS \"String 2\", MAX(CASE WHEN point_id='string_current_3_a' THEN value END) AS \"String 3\", MAX(CASE WHEN point_id='string_current_4_a' THEN value END) AS \"String 4\", MAX(CASE WHEN point_id='string_current_5_a' THEN value END) AS \"String 5\", MAX(CASE WHEN point_id='string_current_6_a' THEN value END) AS \"String 6\", MAX(CASE WHEN point_id='string_current_7_a' THEN value END) AS \"String 7\", MAX(CASE WHEN point_id='string_current_8_a' THEN value END) AS \"String 8\", MAX(CASE WHEN point_id='string_current_9_a' THEN value END) AS \"String 9\", MAX(CASE WHEN point_id='string_current_10_a' THEN value END) AS \"String 10\", MAX(CASE WHEN point_id='string_current_11_a' THEN value END) AS \"String 11\", MAX(CASE WHEN point_id='string_current_12_a' THEN value END) AS \"String 12\" FROM readings WHERE device_id='$inverter' AND point_id IN ('string_current_1_a', 'string_current_2_a', 'string_current_3_a', 'string_current_4_a', 'string_current_5_a', 'string_current_6_a', 'string_current_7_a', 'string_current_8_a', 'string_current_9_a', 'string_current_10_a', 'string_current_11_a', 'string_current_12_a') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "gradientMode": "opacity",
+      "showPoints": "never",
+      "spanNulls": 3600000,
+      "stacking": {
+       "mode": "none",
+       "group": "A"
+      },
+      "axisBorderShow": false,
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "barWidthFactor": 0.75
+     },
+     "mappings": [],
+     "unit": "amp",
+     "decimals": 1,
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "table",
+     "placement": "right",
+     "calcs": [
+      "lastNotNull",
+      "max",
+      "mean"
+     ]
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 48,
+   "type": "row",
+   "title": "Mains  ·  3 × ComAp InteliMains 210 G2",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 106,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 49,
+   "type": "stat",
+   "title": "MAIN 1",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 107,
+    "w": 4,
+    "h": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Mains breaker\" FROM readings WHERE device_id='main-01' AND point_id='available' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Mains breaker\" FROM readings WHERE device_id='main-01' AND point_id='available' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Import\" FROM readings WHERE device_id='main-01' AND point_id='power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Import\" FROM readings WHERE device_id='main-01' AND point_id='power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "C",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Load\" FROM readings WHERE device_id='main-01' AND point_id='load_p_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Load\" FROM readings WHERE device_id='main-01' AND point_id='load_p_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Mains breaker"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "CLOSED",
+            "color": "#73BF69",
+            "index": 0
+           },
+           "0": {
+            "text": "OPEN",
+            "color": "#F2495C",
+            "index": 1
+           }
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Import"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "suffix: kW"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5794F2"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Load"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "suffix: kW"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#D8D9DA"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "horizontal",
+    "wideLayout": true
+   },
+   "transparent": false
+  },
+  {
+   "id": 50,
+   "type": "stat",
+   "title": "MAIN 2",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 4,
+    "y": 107,
+    "w": 4,
+    "h": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Mains breaker\" FROM readings WHERE device_id='main-02' AND point_id='available' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Mains breaker\" FROM readings WHERE device_id='main-02' AND point_id='available' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Import\" FROM readings WHERE device_id='main-02' AND point_id='power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Import\" FROM readings WHERE device_id='main-02' AND point_id='power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "C",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Load\" FROM readings WHERE device_id='main-02' AND point_id='load_p_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Load\" FROM readings WHERE device_id='main-02' AND point_id='load_p_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Mains breaker"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "CLOSED",
+            "color": "#73BF69",
+            "index": 0
+           },
+           "0": {
+            "text": "OPEN",
+            "color": "#F2495C",
+            "index": 1
+           }
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Import"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "suffix: kW"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5794F2"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Load"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "suffix: kW"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#D8D9DA"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "horizontal",
+    "wideLayout": true
+   },
+   "transparent": false
+  },
+  {
+   "id": 51,
+   "type": "stat",
+   "title": "MAIN 3",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 8,
+    "y": 107,
+    "w": 4,
+    "h": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Mains breaker\" FROM readings WHERE device_id='main-03' AND point_id='available' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Mains breaker\" FROM readings WHERE device_id='main-03' AND point_id='available' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Import\" FROM readings WHERE device_id='main-03' AND point_id='power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Import\" FROM readings WHERE device_id='main-03' AND point_id='power_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "C",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT value AS \"Load\" FROM readings WHERE device_id='main-03' AND point_id='load_p_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "queryText": "SELECT value AS \"Load\" FROM readings WHERE device_id='main-03' AND point_id='load_p_kw' AND quality='good' ORDER BY ts DESC LIMIT 1",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Mains breaker"
+      },
+      "properties": [
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "1": {
+            "text": "CLOSED",
+            "color": "#73BF69",
+            "index": 0
+           },
+           "0": {
+            "text": "OPEN",
+            "color": "#F2495C",
+            "index": 1
+           }
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Import"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "suffix: kW"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5794F2"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Load"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "suffix: kW"
+       },
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#D8D9DA"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "value_and_name",
+    "justifyMode": "center",
+    "orientation": "horizontal",
+    "wideLayout": true
+   },
+   "transparent": false
+  },
+  {
+   "id": 52,
+   "type": "timeseries",
+   "title": "Import per incomer",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 107,
+    "w": 12,
+    "h": 12
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) AS time, MAX(CASE WHEN device_id='main-01' THEN value END) AS \"MAIN 1\", MAX(CASE WHEN device_id='main-02' THEN value END) AS \"MAIN 2\", MAX(CASE WHEN device_id='main-03' THEN value END) AS \"MAIN 3\" FROM readings WHERE point_id='power_kw' AND device_id IN ('main-01', 'main-02', 'main-03') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) AS time, MAX(CASE WHEN device_id='main-01' THEN value END) AS \"MAIN 1\", MAX(CASE WHEN device_id='main-02' THEN value END) AS \"MAIN 2\", MAX(CASE WHEN device_id='main-03' THEN value END) AS \"MAIN 3\" FROM readings WHERE point_id='power_kw' AND device_id IN ('main-01', 'main-02', 'main-03') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "line",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 25,
+      "gradientMode": "opacity",
+      "showPoints": "never",
+      "spanNulls": 3600000,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      },
+      "axisBorderShow": false,
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "barWidthFactor": 0.75
+     },
+     "mappings": [],
+     "unit": "suffix: kW",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "MAIN 1"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5794F2"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "MAIN 2"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#8AB8FF"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "MAIN 3"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#1F60C4"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "list",
+     "placement": "bottom",
+     "calcs": []
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 53,
+   "type": "state-timeline",
+   "title": "Mains breakers",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 113,
+    "w": 12,
+    "h": 6
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) AS time, MAX(CASE WHEN device_id='main-01' THEN value END) AS \"MAIN 1\", MAX(CASE WHEN device_id='main-02' THEN value END) AS \"MAIN 2\", MAX(CASE WHEN device_id='main-03' THEN value END) AS \"MAIN 3\" FROM readings WHERE point_id='available' AND device_id IN ('main-01', 'main-02', 'main-03') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) AS time, MAX(CASE WHEN device_id='main-01' THEN value END) AS \"MAIN 1\", MAX(CASE WHEN device_id='main-02' THEN value END) AS \"MAIN 2\", MAX(CASE WHEN device_id='main-03' THEN value END) AS \"MAIN 3\" FROM readings WHERE point_id='available' AND device_id IN ('main-01', 'main-02', 'main-03') AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "fillOpacity": 85,
+      "lineWidth": 0
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "open",
+         "color": "#F2495C",
+         "index": 0
+        },
+        "1": {
+         "text": "closed",
+         "color": "#5794F2",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#464C54"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "showValue": "auto",
+    "mergeValues": true,
+    "alignValue": "center",
+    "rowHeight": 0.82,
+    "legend": {
+     "showLegend": false
+    },
+    "tooltip": {
+     "mode": "single"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 54,
+   "type": "row",
+   "title": "Energy & savings",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 119,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 55,
+   "type": "timeseries",
+   "title": "Energy per day - by source",
+   "description": "Solar = the SAU's daily generation; Mains = InteliNeo mains kWh counter; Gensets = site energy (PCC kWh counter) minus both. Set the time range to 7 days or more.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 120,
+    "w": 14,
+    "h": 9
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', d) AS INTEGER) + 32400 AS time, MAX(pv) AS \"Solar PV\", MAX(0, MAX(pcc) - MIN(pcc) - MAX(pv) - (MAX(mn) - MIN(mn))) AS \"Gensets\", MAX(mn) - MIN(mn) AS \"Mains\" FROM (SELECT date(ts, '+3 hours') AS d, CASE WHEN device_id='pv-array' AND point_id='energy_today_kwh' THEN value END AS pv, CASE WHEN device_id='neo-01' AND point_id='pcc_kwh' THEN value END AS pcc, CASE WHEN device_id='neo-01' AND point_id='mains_kwh' THEN value END AS mn FROM readings WHERE ((device_id='pv-array' AND point_id='energy_today_kwh') OR (device_id='neo-01' AND point_id IN ('pcc_kwh','mains_kwh'))) AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch')) GROUP BY d ORDER BY d",
+     "queryText": "SELECT CAST(strftime('%s', d) AS INTEGER) + 32400 AS time, MAX(pv) AS \"Solar PV\", MAX(0, MAX(pcc) - MIN(pcc) - MAX(pv) - (MAX(mn) - MIN(mn))) AS \"Gensets\", MAX(mn) - MIN(mn) AS \"Mains\" FROM (SELECT date(ts, '+3 hours') AS d, CASE WHEN device_id='pv-array' AND point_id='energy_today_kwh' THEN value END AS pv, CASE WHEN device_id='neo-01' AND point_id='pcc_kwh' THEN value END AS pcc, CASE WHEN device_id='neo-01' AND point_id='mains_kwh' THEN value END AS mn FROM readings WHERE ((device_id='pv-array' AND point_id='energy_today_kwh') OR (device_id='neo-01' AND point_id IN ('pcc_kwh','mains_kwh'))) AND quality='good' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch')) GROUP BY d ORDER BY d",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "drawStyle": "bars",
+      "lineInterpolation": "smooth",
+      "lineWidth": 2,
+      "fillOpacity": 85,
+      "gradientMode": "opacity",
+      "showPoints": "never",
+      "spanNulls": 3600000,
+      "stacking": {
+       "mode": "normal",
+       "group": "A"
+      },
+      "axisBorderShow": false,
+      "axisPlacement": "auto",
+      "barAlignment": 0,
+      "barWidthFactor": 0.75
+     },
+     "mappings": [],
+     "unit": "kwatth",
+     "decimals": 0,
+     "color": {
+      "mode": "palette-classic"
+     },
+     "min": 0
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Solar PV"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#F2CC0C"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Gensets"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#FF9830"
+        }
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Mains"
+      },
+      "properties": [
+       {
+        "id": "color",
+        "value": {
+         "mode": "fixed",
+         "fixedColor": "#5794F2"
+        }
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "legend": {
+     "showLegend": true,
+     "displayMode": "list",
+     "placement": "bottom",
+     "calcs": []
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "transparent": false,
+   "timeFrom": "7d"
+  },
+  {
+   "id": 56,
+   "type": "stat",
+   "title": "Diesel saved by solar today",
+   "description": "Estimate: solar kWh today x 0.27 L/kWh (typical genset fuel use at part load). Change the factor in tools/grafana_dashboard.py when the gensets' real consumption is known.",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 14,
+    "y": 120,
+    "w": 5,
+    "h": 9
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT (SELECT MAX(value) FROM readings WHERE device_id='pv-array' AND point_id='energy_today_kwh' AND quality='good' AND date(ts, '+3 hours') = date('now', '+3 hours')) * 0.27 AS \"Diesel\"",
+     "queryText": "SELECT (SELECT MAX(value) FROM readings WHERE device_id='pv-array' AND point_id='energy_today_kwh' AND quality='good' AND date(ts, '+3 hours') = date('now', '+3 hours')) * 0.27 AS \"Diesel\"",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: L",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#73BF69"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 57,
+   "type": "stat",
+   "title": "CO₂ avoided today",
+   "description": "Estimate: solar kWh today x 0.72 kg CO2/kWh (diesel generation).",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 19,
+    "y": 120,
+    "w": 5,
+    "h": 9
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT (SELECT MAX(value) FROM readings WHERE device_id='pv-array' AND point_id='energy_today_kwh' AND quality='good' AND date(ts, '+3 hours') = date('now', '+3 hours')) * 0.72 / 1000 AS \"CO2\"",
+     "queryText": "SELECT (SELECT MAX(value) FROM readings WHERE device_id='pv-array' AND point_id='energy_today_kwh' AND quality='good' AND date(ts, '+3 hours') = date('now', '+3 hours')) * 0.72 / 1000 AS \"CO2\"",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {},
+     "mappings": [],
+     "unit": "suffix: t",
+     "decimals": 1,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#56A64B"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "value",
+    "graphMode": "none",
+    "textMode": "auto",
+    "justifyMode": "center",
+    "orientation": "auto",
+    "wideLayout": true,
+    "showPercentChange": false
+   },
+   "transparent": false
+  },
+  {
+   "id": 58,
+   "type": "row",
+   "title": "Communications & events",
+   "collapsed": false,
+   "gridPos": {
+    "x": 0,
+    "y": 129,
+    "w": 24,
+    "h": 1
+   },
+   "panels": []
+  },
+  {
+   "id": 59,
+   "type": "state-timeline",
+   "title": "Device links (every poll)",
+   "description": "Green = the device answered. Red = no valid data (for the inverters: the SAU in front of them was silent).",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 130,
+    "w": 24,
+    "h": 10
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) AS time, MAX(CASE WHEN device_id='neo-01' THEN value END) AS \"NEO master\", MAX(CASE WHEN device_id='pv-array' THEN value END) AS \"SAU\", MAX(CASE WHEN device_id='main-01' THEN value END) AS \"MAIN 1\", MAX(CASE WHEN device_id='main-02' THEN value END) AS \"MAIN 2\", MAX(CASE WHEN device_id='main-03' THEN value END) AS \"MAIN 3\", MAX(CASE WHEN device_id='inv-01' THEN value END) AS \"INV-01\", MAX(CASE WHEN device_id='inv-02' THEN value END) AS \"INV-02\", MAX(CASE WHEN device_id='inv-03' THEN value END) AS \"INV-03\", MAX(CASE WHEN device_id='inv-04' THEN value END) AS \"INV-04\", MAX(CASE WHEN device_id='inv-05' THEN value END) AS \"INV-05\", MAX(CASE WHEN device_id='inv-06' THEN value END) AS \"INV-06\", MAX(CASE WHEN device_id='inv-07' THEN value END) AS \"INV-07\", MAX(CASE WHEN device_id='inv-08' THEN value END) AS \"INV-08\", MAX(CASE WHEN device_id='inv-09' THEN value END) AS \"INV-09\", MAX(CASE WHEN device_id='inv-10' THEN value END) AS \"INV-10\" FROM readings WHERE point_id='comm_error' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "queryText": "SELECT CAST(strftime('%s', strftime('%Y-%m-%dT%H:%M:00', ts)) AS INTEGER) AS time, MAX(CASE WHEN device_id='neo-01' THEN value END) AS \"NEO master\", MAX(CASE WHEN device_id='pv-array' THEN value END) AS \"SAU\", MAX(CASE WHEN device_id='main-01' THEN value END) AS \"MAIN 1\", MAX(CASE WHEN device_id='main-02' THEN value END) AS \"MAIN 2\", MAX(CASE WHEN device_id='main-03' THEN value END) AS \"MAIN 3\", MAX(CASE WHEN device_id='inv-01' THEN value END) AS \"INV-01\", MAX(CASE WHEN device_id='inv-02' THEN value END) AS \"INV-02\", MAX(CASE WHEN device_id='inv-03' THEN value END) AS \"INV-03\", MAX(CASE WHEN device_id='inv-04' THEN value END) AS \"INV-04\", MAX(CASE WHEN device_id='inv-05' THEN value END) AS \"INV-05\", MAX(CASE WHEN device_id='inv-06' THEN value END) AS \"INV-06\", MAX(CASE WHEN device_id='inv-07' THEN value END) AS \"INV-07\", MAX(CASE WHEN device_id='inv-08' THEN value END) AS \"INV-08\", MAX(CASE WHEN device_id='inv-09' THEN value END) AS \"INV-09\", MAX(CASE WHEN device_id='inv-10' THEN value END) AS \"INV-10\" FROM readings WHERE point_id='comm_error' AND ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') GROUP BY time ORDER BY time",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "fillOpacity": 85,
+      "lineWidth": 0
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "",
+         "color": "#73BF69",
+         "index": 0
+        },
+        "1": {
+         "text": "NO DATA",
+         "color": "#F2495C",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#464C54"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "showValue": "auto",
+    "mergeValues": true,
+    "alignValue": "center",
+    "rowHeight": 0.82,
+    "legend": {
+     "showLegend": false
+    },
+    "tooltip": {
+     "mode": "single"
+    }
+   },
+   "transparent": false
+  },
+  {
+   "id": 60,
+   "type": "table",
+   "title": "Event log",
+   "description": "",
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 140,
+    "w": 24,
+    "h": 11
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "frser-sqlite-datasource",
+      "uid": "plant-sqlite"
+     },
+     "queryType": "table",
+     "rawQueryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, UPPER(COALESCE(severity,'info')) AS Severity, COALESCE(device_id,'-') AS Device, kind AS Kind, message AS Message FROM events WHERE ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') ORDER BY ts DESC LIMIT 300",
+     "queryText": "SELECT CAST(strftime('%s', ts) AS INTEGER) AS time, UPPER(COALESCE(severity,'info')) AS Severity, COALESCE(device_id,'-') AS Device, kind AS Kind, message AS Message FROM events WHERE ts >= strftime('%Y-%m-%dT%H:%M:%S', $__from/1000, 'unixepoch') AND ts <= strftime('%Y-%m-%dT%H:%M:%S', $__to/1000, 'unixepoch') ORDER BY ts DESC LIMIT 300",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "custom": {
+      "align": "left",
+      "cellOptions": {
+       "type": "auto"
+      },
+      "inspect": false
+     },
+     "mappings": []
+    },
+    "overrides": [
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "time"
+      },
+      "properties": [
+       {
+        "id": "unit",
+        "value": "dateTimeAsLocal"
+       },
+       {
+        "id": "custom.width",
+        "value": 190
+       },
+       {
+        "id": "displayName",
+        "value": "Time"
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Severity"
+      },
+      "properties": [
+       {
+        "id": "custom.width",
+        "value": 110
+       },
+       {
+        "id": "custom.cellOptions",
+        "value": {
+         "type": "color-background"
+        }
+       },
+       {
+        "id": "mappings",
+        "value": [
+         {
+          "type": "value",
+          "options": {
+           "ERROR": {
+            "text": "ERROR",
+            "color": "#F2495C",
+            "index": 0
+           },
+           "WARNING": {
+            "text": "WARNING",
+            "color": "#FF9830",
+            "index": 1
+           },
+           "INFO": {
+            "text": "INFO",
+            "color": "#3274D9",
+            "index": 2
+           }
+          }
+         }
+        ]
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Device"
+      },
+      "properties": [
+       {
+        "id": "custom.width",
+        "value": 110
+       }
+      ]
+     },
+     {
+      "matcher": {
+       "id": "byName",
+       "options": "Kind"
+      },
+      "properties": [
+       {
+        "id": "custom.width",
+        "value": 150
+       }
+      ]
+     }
+    ]
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm",
+    "footer": {
+     "show": false
+    },
+    "sortBy": [
+     {
+      "displayName": "time",
+      "desc": true
+     }
+    ]
+   },
+   "transparent": false
+  }
+ ]
+}

@@ -1,0 +1,28 @@
+# Device profile: one ComAp InteliMains 210 G2 (mains incomer controller), read over Modbus TCP, read-only.
+#
+# Source: the InteliNeo's own Modbus-master definition "Modbus TCP IM210 G2" (controller archive of
+# 2026-10-14) - the registers the Neo reads from each of MAIN 1-3 every second, so they are known to
+# answer. Register = 0-based address (FC03; the MCB feedback is coil 0, FC01).
+# Unit id: ComAp default Modbus server address 1 (the Neo's definition does not carry it) - confirm on CHECK.
+# Site: MAIN 1 = 192.168.0.107, MAIN 2 = 192.168.0.111, MAIN 3 = 192.168.0.110.
+#
+# Note: on 14 Oct all three read ~1,47 MW "LAOD P" while the gensets carried 1,48 MW in total, so the
+# three units very probably measure the same bus - do not add them up as three feeders.
+
+kind: grid
+vendor: ComAp
+model: "InteliMains 210 G2"
+profile_revision: 1
+profile_status: mapped (from the Neo definition)
+source_document: "InteliNeo archive 2026-10-14, Modbus master datapoints 'Modbus TCP IM210 G2'"
+
+points:
+  - {id: power_kw,          unit: kW,   raw: {address: 1001, kind: int16},               description: "Mains Import P (dashboard key for grid kind)"}
+  - {id: mains_import_q_kvar, unit: kVAr, raw: {address: 1006, kind: int16},             description: "Mains Import Q"}
+  - {id: mains_pf,          unit: "",   raw: {address: 1014, kind: int16, scale: 0.01},  description: "Mains PF"}
+  - {id: load_p_kw,         unit: kW,   raw: {address: 1046, kind: int32},               description: "LAOD P - load measured by this unit"}
+  - {id: load_q_kvar,       unit: kVAr, raw: {address: 1048, kind: int32},               description: "LAOD Q"}
+  - {id: load_pf,           unit: "",   raw: {address: 1050, kind: int16, scale: 0.01},  description: "LAOD PF"}
+  - {id: battery_v,         unit: V,    raw: {address: 1051, kind: int16, scale: 0.1},   description: "controller battery"}
+  - {id: available,         type: boolean, raw: {address: 0, kind: uint16, fn: coil},    description: "MCB Feedback - mains breaker closed (dashboard key for grid kind)"}
+  - {id: comm_error,        type: boolean, raw: {derived: comm_error}}

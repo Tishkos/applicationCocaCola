@@ -1,0 +1,121 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1900" height="1180" viewBox="0 0 1900 1180" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+<defs><marker id="m" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#9ca3af"/></marker><marker id="mr" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#be123c"/></marker><marker id="mt" markerWidth="10" markerHeight="10" refX="9" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#0f766e"/></marker></defs>
+<rect width="1900" height="1180" fill="#fafaf9"/>
+<text x="40" y="44" font-size="24" fill="#1f2937" font-weight="700" text-anchor="start">Erbil Coca-Cola hybrid plant — as understood on 14 Oct 2026, and the proposed modifications</text>
+<text x="40" y="68" font-size="14" fill="#6b7280" font-weight="400" text-anchor="start">Left: power and data today (from the InteliNeo and SAU exports). Right: changes in the order I suggest, each one only after the previous one is proven on data.</text>
+<rect x="40" y="90" width="900" height="1060" rx="14" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+<text x="60" y="122" font-size="18" fill="#1f2937" font-weight="700" text-anchor="start">TODAY</text>
+<text x="140" y="122" font-size="13.5" fill="#6b7280" font-weight="400" text-anchor="start">gensets carry the plant, PV curtailed to keep them ≥ 25 % loaded, grid used when available</text>
+<rect x="80" y="560" width="820" height="12" fill="#1f2937"/>
+<text x="80" y="552" font-size="13.5" fill="#1f2937" font-weight="700" text-anchor="start">400 V plant bus — measured 417 V / 50.01 Hz</text>
+<rect x="80" y="160" width="250" height="150" rx="10" fill="#ffffff" stroke="#2563eb" stroke-width="2" />
+<text x="94" y="186" font-size="17" font-weight="700" fill="#2563eb">Government grid</text>
+<text x="94" y="210" font-size="13.5" fill="#1f2937">3 incomers, MAIN 1-3 (InteliMains 210 G2)</text>
+<text x="94" y="229" font-size="13.5" fill="#1f2937">mains import today: 0 kW (outage)</text>
+<text x="94" y="248" font-size="13.5" fill="#1f2937">each unit reads ~1.47 MW on the bus;</text>
+<text x="94" y="267" font-size="13.5" fill="#1f2937">PLC sums them to 4.4 MW (looks wrong)</text>
+<line x1="205" y1="310" x2="205" y2="558" stroke="#2563eb" stroke-width="3" marker-end="url(#m)" />
+<rect x="370" y="160" width="250" height="150" rx="10" fill="#ffffff" stroke="#b45309" stroke-width="2" />
+<text x="384" y="186" font-size="17" font-weight="700" fill="#b45309">5 diesel gensets</text>
+<text x="384" y="210" font-size="13.5" fill="#1f2937">IG4 200 controllers, CAN bus</text>
+<text x="384" y="229" font-size="13.5" fill="#1f2937">today: Gen 1, 2, 3, 5 loaded = 1,482 kW</text>
+<text x="384" y="248" font-size="13.5" fill="#1f2937">= 38 % of 3,851 kW running capacity</text>
+<text x="384" y="267" font-size="13.5" fill="#1f2937">not in power management (In PM = 0)</text>
+<line x1="495" y1="310" x2="495" y2="558" stroke="#b45309" stroke-width="3" marker-end="url(#m)" />
+<rect x="640" y="160" width="262" height="150" rx="10" fill="#ffffff" stroke="#15803d" stroke-width="2" />
+<text x="654" y="186" font-size="17" font-weight="700" fill="#15803d">PV 3.2 MW</text>
+<text x="654" y="210" font-size="12.5" fill="#1f2937">10 x Sineng SP-320K-H, 320 kW, 12 strings</text>
+<text x="654" y="229" font-size="12.5" fill="#1f2937">800 V side, two windings (5 + 5)</text>
+<text x="654" y="248" font-size="12.5" fill="#1f2937">PV CB1 / PV CB2 switched by the Neo</text>
+<text x="654" y="267" font-size="12.5" fill="#1f2937">allowed output: curtailment 95.9 % (night)</text>
+<line x1="780" y1="310" x2="780" y2="558" stroke="#15803d" stroke-width="3" marker-end="url(#m)" />
+<rect x="660" y="340" width="242" height="110" rx="10" fill="#ffffff" stroke="#15803d" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="674" y="366" font-size="15" font-weight="700" fill="#15803d">SAU-100 gateway</text>
+<text x="674" y="390" font-size="12.5" fill="#1f2937">RS485 to the inverters (99-100 % ok)</text>
+<text x="674" y="409" font-size="12.5" fill="#1f2937">Modbus TCP server :502</text>
+<text x="674" y="428" font-size="12.5" fill="#1f2937">unit 245 = whole array totals</text>
+<line x1="780" y1="340" x2="780" y2="312" stroke="#15803d" stroke-width="2" marker-end="url(#m)" stroke-dasharray="6 5"/>
+<rect x="150" y="640" width="262" height="120" rx="10" fill="#ffffff" stroke="#1f2937" stroke-width="2" />
+<text x="164" y="666" font-size="17" font-weight="700" fill="#1f2937">Plant load</text>
+<text x="164" y="690" font-size="12.5" fill="#1f2937">~1.5 MW this evening, ~1.9 MW peak</text>
+<text x="164" y="709" font-size="12.5" fill="#1f2937">bottling lines, utilities</text>
+<line x1="281" y1="572" x2="281" y2="640" stroke="#9ca3af" stroke-width="3" marker-end="url(#m)" />
+<rect x="430" y="640" width="196" height="120" rx="10" fill="#ffffff" stroke="#7c3aed" stroke-width="2" />
+<text x="444" y="666" font-size="17" font-weight="700" fill="#7c3aed">UPS 1 and UPS 2</text>
+<text x="444" y="690" font-size="12.5" fill="#1f2937">critical loads behind the UPS</text>
+<text x="444" y="709" font-size="12.5" fill="#1f2937">Neo outputs UPS ON / OFF</text>
+<text x="444" y="728" font-size="12.5" fill="#1f2937">thresholds 70/35 % and 80/35 %</text>
+<text x="444" y="747" font-size="12.5" fill="#1f2937">today: both OFF active</text>
+<line x1="528" y1="572" x2="528" y2="640" stroke="#7c3aed" stroke-width="3" marker-end="url(#m)" />
+<rect x="80" y="800" width="400" height="150" rx="10" fill="#ffffff" stroke="#0f766e" stroke-width="2" />
+<text x="94" y="826" font-size="17" font-weight="700" fill="#0f766e">InteliNeo 5500 — site master (AUTO)</text>
+<text x="94" y="850" font-size="13.5" fill="#1f2937">CAN: 5 gensets + 3 mains + itself = 9 (limit 8 → red alarm)</text>
+<text x="94" y="869" font-size="13.5" fill="#1f2937">reads PV totals from the SAU (Modbus TCP) → curtails PV</text>
+<text x="94" y="888" font-size="13.5" fill="#1f2937">controls PV CB1/2 and UPS1/2 through the PLC program</text>
+<text x="94" y="907" font-size="13.5" fill="#1f2937">Modbus server :502 unit 1 — read-only table, no setpoints</text>
+<text x="94" y="926" font-size="13.5" fill="#1f2937">PV energy statistics implausible (yield scaling wrong)</text>
+<line x1="110" y1="572" x2="110" y2="800" stroke="#0f766e" stroke-width="2" marker-end="url(#m)" stroke-dasharray="6 5"/>
+<text transform="translate(102,700) rotate(-90)" font-size="12.5" fill="#6b7280" text-anchor="end">measures the bus</text>
+<path d="M340,800 L340,785 L640,785 L640,455 L658,455" fill="none" stroke="#0f766e" stroke-width="2" stroke-dasharray="6 5" marker-end="url(#mt)"/>
+<text transform="translate(652,680) rotate(-90)" font-size="12.5" fill="#6b7280" text-anchor="middle">PV request (limit)</text>
+<rect x="520" y="800" width="380" height="150" rx="10" fill="#ffffff" stroke="#374151" stroke-width="2" />
+<text x="534" y="826" font-size="17" font-weight="700" fill="#374151">Plant PC 192.168.0.200 — data collector</text>
+<text x="534" y="850" font-size="13.5" fill="#1f2937">reads Neo + SAU once per hour, read-only, 3 requests</text>
+<text x="534" y="869" font-size="13.5" fill="#1f2937">SQLite on the PC, dashboard :8080, Excel / CSV</text>
+<text x="534" y="888" font-size="13.5" fill="#1f2937">Modbus TCP server :502 for the CCI platform (VPN)</text>
+<text x="534" y="907" font-size="13.5" fill="#1f2937">305 tags: 8 live from the Neo, 297 await the SAU map</text>
+<text x="534" y="926" font-size="13.5" fill="#1f2937">to be installed at the next site session</text>
+<line x1="520" y1="875" x2="480" y2="875" stroke="#374151" stroke-width="2" marker-end="url(#m)" stroke-dasharray="6 5"/>
+<line x1="780" y1="800" x2="780" y2="452" stroke="#374151" stroke-width="2" marker-end="url(#m)" stroke-dasharray="6 5"/>
+<text x="810" y="640" font-size="12.5" fill="#6b7280" text-anchor="middle">hourly</text>
+<rect x="520" y="990" width="380" height="70" rx="10" fill="#ffffff" stroke="#be123c" stroke-width="2" stroke-dasharray="7 5"/>
+<text x="534" y="1016" font-size="15" font-weight="700" fill="#be123c">CCI / DT Turkey platform</text>
+<text x="534" y="1040" font-size="13.5" fill="#1f2937">polls the plant PC every 30-60 min over VPN</text>
+<line x1="710" y1="990" x2="710" y2="952" stroke="#be123c" stroke-width="2" marker-end="url(#m)" stroke-dasharray="6 5"/>
+<text x="80" y="1010" font-size="13.5" fill="#0f766e" font-weight="700" text-anchor="start">Nothing in the collector writes to any device.</text>
+<text x="80" y="1032" font-size="12.5" fill="#6b7280" font-weight="400" text-anchor="start">All numbers on this side are from one evening's snapshot (17:28 plant time).</text>
+<rect x="980" y="90" width="880" height="1060" rx="14" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
+<text x="1000" y="122" font-size="18" fill="#1f2937" font-weight="700" text-anchor="start">PROPOSED MODIFICATIONS — in this order</text>
+<text x="1000" y="146" font-size="13.5" fill="#6b7280" font-weight="400" text-anchor="start">each step is small, reversible, and justified by the data of the step before</text>
+<rect x="1000" y="170" width="840" height="140" rx="10" fill="#ffffff" stroke="#374151" stroke-width="2.5"/>
+<circle cx="1032" cy="200" r="18" fill="#374151"/>
+<text x="1032" y="206" font-size="17" fill="#ffffff" font-weight="700" text-anchor="middle">0</text>
+<text x="1064" y="206" font-size="16.5" fill="#374151" font-weight="700" text-anchor="start">Now — no change on the plant</text>
+<text x="1820" y="206" font-size="12.5" fill="#6b7280" font-weight="400" text-anchor="end">weeks 1-4</text>
+<text x="1064" y="234" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• install the collector; CHECK the Neo values against the screen; get the SAU point table</text>
+<text x="1064" y="254" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• 4 weeks of hourly data: load profile, gensets running vs load, PV allowed vs available, grid hours</text>
+<text x="1064" y="274" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• ask the site: why 4 gensets manually, what 'Production Mode' and user buttons 1-4 do</text>
+<text x="1064" y="294" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• read the Neo archive: PLC program (PV request formula, UPS logic), Modbus-master map of the SAU</text>
+<rect x="1000" y="326" width="840" height="140" rx="10" fill="#ffffff" stroke="#0f766e" stroke-width="2.5"/>
+<circle cx="1032" cy="356" r="18" fill="#0f766e"/>
+<text x="1032" y="362" font-size="17" fill="#ffffff" font-weight="700" text-anchor="middle">1</text>
+<text x="1064" y="362" font-size="16.5" fill="#0f766e" font-weight="700" text-anchor="start">Neo configuration — read-only additions (low risk)</text>
+<text x="1820" y="362" font-size="12.5" fill="#6b7280" font-weight="400" text-anchor="end">after step 0</text>
+<text x="1064" y="390" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• extend the Neo Modbus table: PV logger values, the 3 mains readings, PLC site load, statistics</text>
+<text x="1064" y="410" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• fix the PV-logger register scaling so daily / total yield become real numbers</text>
+<text x="1064" y="430" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• ask ComAp about the 8-controller CAN limit (firmware or layout) — clears the permanent alarm</text>
+<text x="1064" y="450" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• written by the plant with InteliConfig, from a file we prepare and test in the ComAp emulator</text>
+<rect x="1000" y="482" width="840" height="140" rx="10" fill="#ffffff" stroke="#b45309" stroke-width="2.5"/>
+<circle cx="1032" cy="512" r="18" fill="#b45309"/>
+<text x="1032" y="518" font-size="17" fill="#ffffff" font-weight="700" text-anchor="middle">2</text>
+<text x="1064" y="518" font-size="16.5" fill="#b45309" font-weight="700" text-anchor="start">Operation — gensets back under power management (no code change)</text>
+<text x="1820" y="518" font-size="12.5" fill="#6b7280" font-weight="400" text-anchor="end">after step 1</text>
+<text x="1064" y="546" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• run the gensets in AUTO with the existing reserves (start 300 / stop 400 kW), 2 engines for 1.5 MW</text>
+<text x="1064" y="566" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• then tune Gen P Min (25 %) and the solar coverage ratio against the recorded PV ramps</text>
+<text x="1064" y="586" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• expected: fewer engine hours, engines at 70-80 % load, PV allowed up from ~0.9 MW towards 2+ MW</text>
+<text x="1064" y="606" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• measured by the collector before/after; the plant can go back to manual at any time</text>
+<rect x="1000" y="638" width="840" height="140" rx="10" fill="#ffffff" stroke="#7c3aed" stroke-width="2.5"/>
+<circle cx="1032" cy="668" r="18" fill="#7c3aed"/>
+<text x="1032" y="674" font-size="17" fill="#ffffff" font-weight="700" text-anchor="middle">3</text>
+<text x="1064" y="674" font-size="16.5" fill="#7c3aed" font-weight="700" text-anchor="start">UPS logic — the two UPS as fast load support (medium risk)</text>
+<text x="1820" y="674" font-size="12.5" fill="#6b7280" font-weight="400" text-anchor="end">after step 2, with the PLC program</text>
+<text x="1064" y="702" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• today the UPS outputs shed critical loads when a genset is loaded above 70-80 % (PLC thresholds)</text>
+<text x="1064" y="722" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• proposal: also switch the UPS to battery for the seconds after a PV drop or a grid loss, so the</text>
+<text x="1064" y="742" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• gensets see a smaller load step → the spinning reserve can be reduced → fewer engines, more PV</text>
+<text x="1064" y="762" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• built in the archive copy, simulated in the ComAp emulator, tested on site in MAN with one UPS first</text>
+<rect x="1000" y="794" width="840" height="128" rx="10" fill="#f3f4f6" stroke="#e5e7eb"/>
+<text x="1016" y="822" font-size="15" fill="#1f2937" font-weight="700" text-anchor="start">How every modification is done</text>
+<text x="1016" y="848" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• we engineer it on a copy of the archive and prove it in the ComAp emulator + the collector's simulator;</text>
+<text x="1016" y="868" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• the plant writes it to the controller (never us, never remotely), with a saved archive to roll back;</text>
+<text x="1016" y="888" font-size="13.5" fill="#1f2937" font-weight="400" text-anchor="start">• the collector measures before and after, so each step is judged on fuel, engine hours and PV kWh — not on opinion.</text>
+</svg>

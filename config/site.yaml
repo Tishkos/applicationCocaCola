@@ -1,0 +1,40 @@
+# DEMO configuration — a simulated plant, scaled to the real one (3.2 MW PV, ~1.9 MW peak load,
+# five gensets, government grid with outages), so the dashboard and the exports can be shown
+# before the real register maps arrive. START.bat uses this file by default.
+# For the real plant use config/site.plant.yaml (START.bat -Plant).
+#
+# adapter: simulator   -> built-in plant model (no network traffic at all)
+# adapter: modbus_tcp  -> real device over Modbus TCP, read-only
+# adapter: inteliscada -> ComAp InteliSCADA REST API (licensed machine, if on 24/7)
+
+site:
+  site_id: erbil-cc-01
+  name: "Erbil Coca-Cola hybrid plant"
+  timezone: Asia/Baghdad
+  fuel_price_per_l: 0.85              # local diesel price, any currency — used for the fuel cost figures only
+  poll_interval_s: 30                 # demo refreshes every 30 s; the plant config uses 3600 (once an hour)
+
+devices:
+  - {id: grid-01,   profile: grid_mains.yaml,   adapter: simulator, connection: {}, limits: {import_limit_kw: 2000}}
+  - {id: pv-01,     profile: pv_sunspec.yaml,   adapter: simulator, connection: {}, limits: {rated_kw: 3200}}
+  - {id: genset-01, profile: genset_comap.yaml, adapter: simulator, connection: {}}
+  - {id: genset-02, profile: genset_comap.yaml, adapter: simulator, connection: {}}
+  - {id: genset-03, profile: genset_comap.yaml, adapter: simulator, connection: {}}
+  - {id: genset-04, profile: genset_comap.yaml, adapter: simulator, connection: {}}
+  - {id: genset-05, profile: genset_comap.yaml, adapter: simulator, connection: {}}
+  - {id: meter-01,  profile: meter_site.yaml,   adapter: simulator, connection: {}}
+  # a battery is not installed on site; to demo one add:
+  # - {id: bess-01, profile: bess_generic.yaml, adapter: simulator, connection: {}}
+
+site_load:
+  # simulator only — typical bottling plant profile, kW by hour (0..23, plant local time)
+  profile_kw: [900,850,850,860,900,1000,1250,1500,1700,1800,1850,1900,1880,1850,1800,1750,1650,1500,1350,1200,1100,1000,950,920]
+
+# Demo of the Modbus TCP server for the Turkey platform (read-only). Port 5020 so it needs no
+# administrator rights; the plant config uses 502. Test with any Modbus client, unit id 1.
+publish:
+  modbus_tcp:
+    enabled: true
+    bind: 127.0.0.1
+    port: 5020
+    unit_id: 1

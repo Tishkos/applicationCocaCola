@@ -1,0 +1,62 @@
+# Device profile: the Sineng SAU-100's "virtual array" device - the whole PV plant as one Modbus unit
+# (unit id 245 on 192.168.0.128:502). Read-only.
+#
+# Source: the InteliNeo's own Modbus-master definitions for "PV Logger group 1/2", extracted from the
+# controller archive of 2026-10-14. These are exactly the registers the Neo reads from the SAU every
+# 1-2 s, so they are known to answer. Register = 0-based address as in the Neo definition (FC03).
+# The Neo also WRITES to this unit (AP Set 2100/2101, RP Set 2102/2103, PF Set 2105, percentage sets
+# 2018/2020, mode 1007/1008, coil 4002/4003 inverter ON/OFF) - the collector never touches those.
+#
+# Addresses checked against Sineng's TCP protocol document for this plant (sheet SAU, received
+# 2026-10-20): AP/RP/PF at 1000/1002/1004 as the Neo has them; every other value sits one register
+# lower than in the Neo definition (Daily Generation 1008, Total Generation 1010, inverter numbers
+# 1016/1018/1020, ...). The CHECK of 2026-10-20 agrees: read at the document's addresses the words give
+# 10 inverters, 3,520 kW maximum active power and a plausible daily / total generation.
+# The document gives TCP device id 251 for the array; the SAU on site answers it at 245 (the Neo's id),
+# which is what the CHECK used and what matches the Neo's PV power.
+
+kind: pv
+vendor: Sineng
+model: "SAU-100 virtual array (10 x SP-320K-H, 3.2 MW)"
+profile_revision: 2
+profile_status: mapped (Sineng TCP protocol document)
+source_document: "Sineng TCP protocol document (sheet SAU); InteliNeo archive 2026-10-14 for the read-back words"
+
+limits: {rated_kw: 3200}
+
+points:
+  - {id: ac_power_kw,          unit: kW,   raw: {address: 1000, kind: int32,  scale: 0.1},   description: "AP (Active Power) of the array"}
+  - {id: reactive_kvar,        unit: kVAr, raw: {address: 1002, kind: int32,  scale: 0.1},   description: "RP (Reactive Power)"}
+  - {id: power_factor,         unit: "",   raw: {address: 1004, kind: int32,  scale: 0.001}, description: "PF"}
+  - {id: energy_today_kwh,     unit: kWh,  raw: {address: 1008, kind: int32,  scale: 0.1},   description: "Daily Generation"}
+  - {id: energy_total_kwh,     unit: kWh,  raw: {address: 1010, kind: int32},               description: "Total Generation"}
+  - {id: inverters_total,      unit: "",   raw: {address: 1016, kind: int32}}
+  - {id: inverters_online,     unit: "",   raw: {address: 1018, kind: int32}}
+  - {id: inverters_working,    unit: "",   raw: {address: 1020, kind: int32}}
+  - {id: max_power_kw,         unit: kW,   raw: {address: 1062, kind: uint32, scale: 0.1},   description: "Maximum Active Power (10 x 352 kW = 3,520)"}
+  - {id: max_reactive_kvar,    unit: kVAr, raw: {address: 1064, kind: uint32, scale: 0.1}}
+  - {id: min_reactive_kvar,    unit: kVAr, raw: {address: 1066, kind: int32,  scale: 0.1}}
+  - {id: available_kw,         unit: kW,   raw: {address: 1092, kind: uint32, scale: 0.1},   description: "Maximum Active Power Available = what the sun allows now (before curtailment)"}
+  - {id: available_reactive_kvar, unit: kVAr, raw: {address: 1094, kind: uint32, scale: 0.1}}
+  - {id: min_reactive_available_kvar, unit: kVAr, raw: {address: 1096, kind: int32, scale: 0.1}}
+  - {id: inverters_stopped,    unit: "",   raw: {address: 1186, kind: uint32}}
+  - {id: inverters_standby,    unit: "",   raw: {address: 1188, kind: uint32}}
+  - {id: inverters_faulty,     unit: "",   raw: {address: 1192, kind: uint32}}
+  - {id: inverters_alarm,      unit: "",   raw: {address: 1194, kind: uint32}}
+  - {id: rated_capacity_kva,   unit: kVA,  raw: {address: 1030, kind: int32,  scale: 0.1},   description: "Rated Capacity"}
+  - {id: frequency_hz,         unit: Hz,   raw: {address: 1180, kind: int32,  scale: 0.1},   description: "Frequency"}
+  # Read-back of the registers the Neo writes (FC03 on the same addresses; nothing is written). Each
+  # register is read as its own 16-bit word so the layout shows as it is: the Neo's group 1 session writes
+  # "AP Set" as a 32-bit value at 2100-2101 every second, its group 2 session writes the same datapoint at
+  # 2101-2102 every 10 s (archive of 14 Oct), so the words are expected to move. 'edge: true' puts every
+  # change of these in the trace's event log.
+  - {id: set_2100, unit: "", raw: {address: 2100, kind: uint16, edge: true}, description: "AP Set word 0 (group 1 session)"}
+  - {id: set_2101, unit: "", raw: {address: 2101, kind: uint16, edge: true}, description: "AP Set word 1 (group 1) / word 0 (group 2)"}
+  - {id: set_2102, unit: "", raw: {address: 2102, kind: uint16, edge: true}, description: "RP Set word 0 (group 1) / AP Set word 1 (group 2)"}
+  - {id: set_2103, unit: "", raw: {address: 2103, kind: uint16, edge: true}, description: "RP Set word 1 (group 1) / word 0 (group 2)"}
+  - {id: set_2104, unit: "", raw: {address: 2104, kind: uint16, edge: true}, description: "RP Set word 1 (group 2)"}
+  - {id: set_2105, unit: "", raw: {address: 2105, kind: uint16, edge: true}, description: "PF Set word 0 (group 2)"}
+  - {id: set_2106, unit: "", raw: {address: 2106, kind: uint16, edge: true}, description: "PF Set word 1 (group 2)"}
+  - {id: mode_1007, unit: "", raw: {address: 1007, kind: uint16, edge: true}, description: "Reactive power scheduling mode (group 1 session writes it)"}
+  - {id: mode_1008, unit: "", raw: {address: 1008, kind: uint16, edge: true}, description: "Reactive power scheduling mode (group 2 session writes it)"}
+  - {id: comm_error,           type: boolean, raw: {derived: comm_error}, description: "set by the collector: SAU not answering"}

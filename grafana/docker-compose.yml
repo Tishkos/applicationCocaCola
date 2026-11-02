@@ -1,0 +1,28 @@
+# Optional: Grafana — "CCI Plant Monitoring" — reading the collector's SQLite database.
+# Needs Docker Desktop. Run from this folder:  docker compose up -d --build   -> http://localhost:3000 (admin / admin)
+# GRAFANA-DEMO.bat runs it on simulated real-plant data instead (PLANT_DB=grafana/plant-demo.sqlite,
+# written by tools\grafana_demo_data.py).
+services:
+  grafana:
+    build: .
+    image: cci-plant-monitoring-grafana:11.3.0
+    ports: ["3000:3000"]
+    environment:
+      PLANT_DB: ${PLANT_DB:-telemetry.sqlite}          # file in data\ that the data source reads
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_USERS_DEFAULT_THEME: dark
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/cci-plant-monitoring.json
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES: "false"
+    volumes:
+      - ../data:/data:ro
+      - ./provisioning:/etc/grafana/provisioning:ro
+      - ./dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+volumes:
+  grafana-data:

@@ -1,0 +1,23 @@
+# Device profile: PV plant totals via an inverter data logger (SunSpec-style Modbus).
+# Used by the demo simulator as "the solar plant". raw addresses are PLACEHOLDERS —
+# confirm base offset + scale factors for the real logger before use.
+
+kind: pv
+vendor: "TBC"
+model: "PV data logger (TBC)"
+profile_revision: 2
+profile_status: draft
+source_document: "logger Modbus map — TO BE ATTACHED"
+
+limits:
+  rated_kw: 800            # demo simulator only
+
+points:
+  - {id: power_kw,          unit: kW,   raw: {address: 40083, kind: int16,  scale: 0.01}}  # TODO
+  - {id: available_kw,      unit: kW,   raw: {address: 40084, kind: int16,  scale: 0.01}}  # TODO (if the logger exposes it)
+  - {id: energy_today_kwh,  unit: kWh,  raw: {address: 40093, kind: uint32, scale: 0.001}} # TODO
+  - {id: energy_total_kwh,  unit: kWh,  raw: {address: 40095, kind: uint32, scale: 0.001}} # TODO
+  - {id: irradiance_wm2,    unit: W/m2, raw: {address: 40200, kind: uint16}}               # TODO
+  - {id: inverters_online,  unit: "",   raw: {address: 40201, kind: uint16}}               # TODO
+  - {id: status,            type: enum, raw: {address: 40107, kind: uint16}}               # TODO
+  - {id: power_limit_pct,   unit: "%",  raw: {address: 40232, kind: uint16}}               # TODO (read back only)

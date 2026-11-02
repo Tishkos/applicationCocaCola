@@ -1,0 +1,36 @@
+# Device profile: one ComAp genset controller (InteliGen / InteliLite / InteliNeo family),
+# read over Modbus TCP. Monitoring only.
+#
+# `raw:` is the register mapping for the modbus_tcp adapter. EVERY ADDRESS HERE IS A
+# PLACEHOLDER (TODO) until replaced from InteliConfig -> Modules -> Modbus Registers for the
+# exact controller + firmware. The demo simulator ignores raw and uses the point id directly.
+#
+# `limits:` is used only by the demo simulator (nameplate, ramp).
+
+kind: genset
+vendor: ComAp
+model: "genset controller (model TBC)"
+firmware: "TBC"
+profile_revision: 2
+profile_status: draft
+source_document: "InteliConfig Modbus Registers export — TO BE ATTACHED"
+
+limits:
+  rated_kw: 500            # TODO real nameplate
+  min_load_kw: 150
+  max_load_kw: 450
+  ramp_kw_per_min: 100
+
+points:
+  - {id: power_kw,         unit: kW,   raw: {address: 0,  kind: int32,  scale: 0.1}}    # TODO
+  - {id: running,          type: boolean, raw: {address: 2, kind: uint16}}               # TODO
+  - {id: run_hours,        unit: h,    raw: {address: 3,  kind: uint32}}                 # TODO
+  - {id: fuel_level_pct,   unit: "%",  raw: {address: 5,  kind: uint16}}                 # TODO
+  - {id: fuel_rate_lph,    unit: L/h,  raw: {address: 6,  kind: uint16, scale: 0.1}}     # TODO
+  - {id: coolant_temp_c,   unit: "°C", raw: {address: 7,  kind: int16}}                  # TODO
+  - {id: oil_pressure_bar, unit: bar,  raw: {address: 8,  kind: uint16, scale: 0.01}}    # TODO
+  - {id: battery_v,        unit: V,    raw: {address: 9,  kind: uint16, scale: 0.1}}     # TODO
+  - {id: mode,             type: enum, raw: {address: 10, kind: uint16}}                 # OFF/MAN/AUT/TEST
+  - {id: power_target_kw,  unit: kW,   raw: {address: 11, kind: int32,  scale: 0.1}}     # TODO (read back only)
+  - {id: alarm_active,     type: boolean, raw: {address: 13, kind: uint16}}              # TODO
+  - {id: alarm_code,       type: enum, raw: {address: 14, kind: uint16}}                 # TODO

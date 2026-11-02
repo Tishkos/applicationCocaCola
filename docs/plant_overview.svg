@@ -1,0 +1,228 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1240 800" class="d" role="img" aria-label="Single-line and communication overview of the Erbil hybrid plant: three grid incomers with InteliMains 210 G2 controllers feed a plant bus; five gensets with IG4 200 controllers and ten Sineng inverters behind two PV breakers feed the same bus; the InteliNeo 5500 master talks to the genset and mains controllers over CAN and to the Sineng SAU-100 over Modbus TCP, where it writes the PV setpoint; two UPS with unverified wiring hang off the plant load; a plant PC runs the read-only collector.">
+<style>
+.d text { font-family: 'IBM Plex Sans', 'Segoe UI', Arial, sans-serif; font-size: 13px; fill: #1d2229; }
+.d .hdr { font-weight: 600; }
+.d .muted { fill: #5c6570; font-size: 12px; }
+.d .pwr { stroke: #1d2229; stroke-width: 1.6; fill: none; stroke-linecap: round; }
+.d .bus { stroke: #1d2229; stroke-width: 5; stroke-linecap: round; }
+.d .dot { fill: #1d2229; }
+.d .gen { stroke: #1d2229; stroke-width: 1.6; fill: #ffffff; }
+.d .dev { stroke: #1d2229; stroke-width: 1.2; fill: #ffffff; }
+.d .dev-v { stroke: #a86d00; stroke-width: 1.2; stroke-dasharray: 5 4; fill: #ffffff; }
+.d .comm { stroke: #1f5fbf; stroke-width: 1.5; fill: none; stroke-dasharray: 6 4; }
+.d .comm-t { fill: #1f5fbf; }
+.d .comm-f { fill: #1f5fbf; }
+.d .verify { stroke: #a86d00; stroke-width: 1.5; fill: none; stroke-dasharray: 5 4; }
+.d .verify-t { fill: #a86d00; }
+.d .cmd { fill: #5c6570; font-style: italic; }
+</style>
+<defs>
+<marker id="a-comm" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+<path d="M0,0 L10,5 L0,10 z" class="comm-f"/></marker>
+</defs>
+<text x="80" y="34" class="hdr" font-size="15">Grid, three incomers</text>
+<text x="80" y="54" class="muted">export cap 1,300 kW per closed feeder (PLC setpoint)</text>
+<line x1="272" y1="72" x2="328" y2="72" class="pwr"/>
+<text x="300" y="66" text-anchor="middle" class="lbl">Mains 1</text>
+<line x1="300" y1="72" x2="300" y2="250" class="pwr"/>
+<line x1="300" y1="192" x2="300" y2="203" class="pwr"/>
+<line x1="300" y1="221" x2="300" y2="232" class="pwr"/>
+<line x1="300" y1="221" x2="309" y2="203" class="pwr"/>
+<circle cx="300" cy="203" r="1.8" class="dot"/>
+<text x="292" y="216" text-anchor="end" class="lbl">MCB1</text>
+<rect x="318" y="110" width="150" height="40" rx="3" class="dev"/>
+<text x="393.0" y="126.5" text-anchor="middle" class="lbl" font-size="13">InteliMains 210 G2</text>
+<text x="393.0" y="142.5" text-anchor="middle" class="lbl" font-size="13">192.168.0.107</text>
+<line x1="393" y1="100" x2="393" y2="110" class="comm"/>
+<line x1="592" y1="72" x2="648" y2="72" class="pwr"/>
+<text x="620" y="66" text-anchor="middle" class="lbl">Mains 2</text>
+<line x1="620" y1="72" x2="620" y2="250" class="pwr"/>
+<line x1="620" y1="192" x2="620" y2="203" class="pwr"/>
+<line x1="620" y1="221" x2="620" y2="232" class="pwr"/>
+<line x1="620" y1="221" x2="629" y2="203" class="pwr"/>
+<circle cx="620" cy="203" r="1.8" class="dot"/>
+<text x="612" y="216" text-anchor="end" class="lbl">MCB2</text>
+<rect x="638" y="110" width="150" height="40" rx="3" class="dev"/>
+<text x="713.0" y="126.5" text-anchor="middle" class="lbl" font-size="13">InteliMains 210 G2</text>
+<text x="713.0" y="142.5" text-anchor="middle" class="lbl" font-size="13">192.168.0.111</text>
+<line x1="713" y1="100" x2="713" y2="110" class="comm"/>
+<line x1="912" y1="72" x2="968" y2="72" class="pwr"/>
+<text x="940" y="66" text-anchor="middle" class="lbl">Mains 3</text>
+<line x1="940" y1="72" x2="940" y2="250" class="pwr"/>
+<line x1="940" y1="192" x2="940" y2="203" class="pwr"/>
+<line x1="940" y1="221" x2="940" y2="232" class="pwr"/>
+<line x1="940" y1="221" x2="949" y2="203" class="pwr"/>
+<circle cx="940" cy="203" r="1.8" class="dot"/>
+<text x="932" y="216" text-anchor="end" class="lbl">MCB3</text>
+<rect x="958" y="110" width="150" height="40" rx="3" class="dev"/>
+<text x="1033.0" y="126.5" text-anchor="middle" class="lbl" font-size="13">InteliMains 210 G2</text>
+<text x="1033.0" y="142.5" text-anchor="middle" class="lbl" font-size="13">192.168.0.110</text>
+<line x1="1033" y1="100" x2="1033" y2="110" class="comm"/>
+<polyline points="1033,100 40,100 40,480 640,480 640,540" class="comm"/>
+<text x="625" y="522" text-anchor="end" class="comm-t">CAN bus · power management, load sharing</text>
+<line x1="80" y1="250" x2="1160" y2="250" class="bus"/>
+<text x="650" y="240" class="lbl">Plant bus · load ≈ 2 MW on 14 Oct</text>
+<text x="80" y="276" class="hdr" font-size="15">Gensets</text>
+<line x1="130" y1="250" x2="130" y2="336" class="pwr"/>
+<line x1="130" y1="280" x2="130" y2="291" class="pwr"/>
+<line x1="130" y1="309" x2="130" y2="320" class="pwr"/>
+<line x1="130" y1="309" x2="139" y2="291" class="pwr"/>
+<circle cx="130" cy="291" r="1.8" class="dot"/>
+<text x="122" y="304" text-anchor="end" class="lbl">GCB1</text>
+<circle cx="130" cy="360" r="24" class="gen"/>
+<text x="130" y="365" text-anchor="middle" class="lbl" font-size="15">G</text>
+<text x="160" y="365" class="lbl">Gen 1</text>
+<line x1="130" y1="384" x2="130" y2="400" class="pwr"/>
+<rect x="85" y="400" width="90" height="40" rx="3" class="dev"/>
+<text x="130.0" y="416.5" text-anchor="middle" class="lbl" font-size="13">IG4 200</text>
+<text x="130.0" y="432.5" text-anchor="middle" class="lbl" font-size="13">.105</text>
+<line x1="130" y1="440" x2="130" y2="480" class="comm"/>
+<line x1="230" y1="250" x2="230" y2="336" class="pwr"/>
+<line x1="230" y1="280" x2="230" y2="291" class="pwr"/>
+<line x1="230" y1="309" x2="230" y2="320" class="pwr"/>
+<line x1="230" y1="309" x2="239" y2="291" class="pwr"/>
+<circle cx="230" cy="291" r="1.8" class="dot"/>
+<text x="222" y="304" text-anchor="end" class="lbl">GCB2</text>
+<circle cx="230" cy="360" r="24" class="gen"/>
+<text x="230" y="365" text-anchor="middle" class="lbl" font-size="15">G</text>
+<text x="260" y="365" class="lbl">Gen 2</text>
+<line x1="230" y1="384" x2="230" y2="400" class="pwr"/>
+<rect x="185" y="400" width="90" height="40" rx="3" class="dev"/>
+<text x="230.0" y="416.5" text-anchor="middle" class="lbl" font-size="13">IG4 200</text>
+<text x="230.0" y="432.5" text-anchor="middle" class="lbl" font-size="13">.106</text>
+<line x1="230" y1="440" x2="230" y2="480" class="comm"/>
+<line x1="330" y1="250" x2="330" y2="336" class="pwr"/>
+<line x1="330" y1="280" x2="330" y2="291" class="pwr"/>
+<line x1="330" y1="309" x2="330" y2="320" class="pwr"/>
+<line x1="330" y1="309" x2="339" y2="291" class="pwr"/>
+<circle cx="330" cy="291" r="1.8" class="dot"/>
+<text x="322" y="304" text-anchor="end" class="lbl">GCB3</text>
+<circle cx="330" cy="360" r="24" class="gen"/>
+<text x="330" y="365" text-anchor="middle" class="lbl" font-size="15">G</text>
+<text x="360" y="365" class="lbl">Gen 3</text>
+<line x1="330" y1="384" x2="330" y2="400" class="pwr"/>
+<rect x="285" y="400" width="90" height="40" rx="3" class="dev"/>
+<text x="330.0" y="416.5" text-anchor="middle" class="lbl" font-size="13">IG4 200</text>
+<text x="330.0" y="432.5" text-anchor="middle" class="lbl" font-size="13">.113</text>
+<line x1="330" y1="440" x2="330" y2="480" class="comm"/>
+<line x1="430" y1="250" x2="430" y2="336" class="pwr"/>
+<line x1="430" y1="280" x2="430" y2="291" class="pwr"/>
+<line x1="430" y1="309" x2="430" y2="320" class="pwr"/>
+<line x1="430" y1="309" x2="439" y2="291" class="pwr"/>
+<circle cx="430" cy="291" r="1.8" class="dot"/>
+<text x="422" y="304" text-anchor="end" class="lbl">GCB4</text>
+<circle cx="430" cy="360" r="24" class="gen"/>
+<text x="430" y="365" text-anchor="middle" class="lbl" font-size="15">G</text>
+<text x="460" y="365" class="lbl">Gen 4</text>
+<line x1="430" y1="384" x2="430" y2="400" class="pwr"/>
+<rect x="385" y="400" width="90" height="40" rx="3" class="dev"/>
+<text x="430.0" y="416.5" text-anchor="middle" class="lbl" font-size="13">IG4 200</text>
+<text x="430.0" y="432.5" text-anchor="middle" class="lbl" font-size="13">.114</text>
+<line x1="430" y1="440" x2="430" y2="480" class="comm"/>
+<line x1="530" y1="250" x2="530" y2="336" class="pwr"/>
+<line x1="530" y1="280" x2="530" y2="291" class="pwr"/>
+<line x1="530" y1="309" x2="530" y2="320" class="pwr"/>
+<line x1="530" y1="309" x2="539" y2="291" class="pwr"/>
+<circle cx="530" cy="291" r="1.8" class="dot"/>
+<text x="522" y="304" text-anchor="end" class="lbl">GCB5</text>
+<circle cx="530" cy="360" r="24" class="gen"/>
+<text x="530" y="365" text-anchor="middle" class="lbl" font-size="15">G</text>
+<text x="560" y="365" class="lbl">Gen 5</text>
+<line x1="530" y1="384" x2="530" y2="400" class="pwr"/>
+<rect x="485" y="400" width="90" height="40" rx="3" class="dev"/>
+<text x="530.0" y="416.5" text-anchor="middle" class="lbl" font-size="13">IG4 200</text>
+<text x="530.0" y="432.5" text-anchor="middle" class="lbl" font-size="13">.115</text>
+<line x1="530" y1="440" x2="530" y2="480" class="comm"/>
+<text x="80" y="500" class="lbl">5 sets, running nominal ≈ 1,050 kW each · Gen P Min 25 %</text>
+<line x1="740" y1="250" x2="740" y2="300" class="pwr"/>
+<rect x="660" y="300" width="160" height="50" rx="3" class="dev"/>
+<text x="740.0" y="321.5" text-anchor="middle" class="lbl" font-size="13">Plant load</text>
+<text x="740.0" y="337.5" text-anchor="middle" class="lbl" font-size="13">bottling lines, chillers</text>
+<line x1="690" y1="350" x2="690" y2="360" class="verify"/>
+<line x1="690" y1="358" x2="690" y2="369" class="verify"/>
+<line x1="690" y1="387" x2="690" y2="398" class="verify"/>
+<line x1="690" y1="387" x2="699" y2="369" class="verify"/>
+<circle cx="690" cy="369" r="1.8" class="dot"/>
+<text x="682" y="382" text-anchor="end" class="lbl">UPS1 CB</text>
+<text x="682" y="396" text-anchor="end" class="cmd" font-size="11">cmd ← Neo PLC</text>
+<line x1="690" y1="398" x2="690" y2="408" class="verify"/>
+<rect x="645" y="408" width="90" height="40" rx="3" class="dev-v"/>
+<text x="690.0" y="424.5" text-anchor="middle" class="lbl" font-size="13">UPS 1</text>
+<text x="690.0" y="440.5" text-anchor="middle" class="lbl" font-size="13">350 kVA</text>
+<line x1="790" y1="350" x2="790" y2="360" class="verify"/>
+<line x1="790" y1="358" x2="790" y2="369" class="verify"/>
+<line x1="790" y1="387" x2="790" y2="398" class="verify"/>
+<line x1="790" y1="387" x2="799" y2="369" class="verify"/>
+<circle cx="790" cy="369" r="1.8" class="dot"/>
+<text x="804" y="382" class="lbl">UPS2 CB</text>
+<text x="804" y="396" class="cmd" font-size="11">cmd ← Neo PLC</text>
+<line x1="790" y1="398" x2="790" y2="408" class="verify"/>
+<rect x="745" y="408" width="90" height="40" rx="3" class="dev-v"/>
+<text x="790.0" y="424.5" text-anchor="middle" class="lbl" font-size="13">UPS 2</text>
+<text x="790.0" y="440.5" text-anchor="middle" class="lbl" font-size="13">350 kVA</text>
+<text x="740" y="470" text-anchor="middle" class="verify-t">wiring and feedbacks not verified</text>
+<text x="1190" y="276" text-anchor="end" class="hdr" font-size="15">Solar</text>
+<line x1="930" y1="250" x2="930" y2="320" class="pwr"/>
+<line x1="930" y1="280" x2="930" y2="291" class="pwr"/>
+<line x1="930" y1="309" x2="930" y2="320" class="pwr"/>
+<line x1="930" y1="309" x2="939" y2="291" class="pwr"/>
+<circle cx="930" cy="291" r="1.8" class="dot"/>
+<text x="922" y="304" text-anchor="end" class="lbl">PV CB1</text>
+<text x="922" y="318" text-anchor="end" class="cmd" font-size="11">cmd ← Neo PLC</text>
+<line x1="930" y1="320" x2="930" y2="340" class="verify"/>
+<rect x="870" y="340" width="120" height="50" rx="3" class="dev"/>
+<text x="930.0" y="361.5" text-anchor="middle" class="lbl" font-size="13">Inverters 1–5</text>
+<text x="930.0" y="377.5" text-anchor="middle" class="lbl" font-size="13">5 × SP-320K-H, 320 kW</text>
+<line x1="1130" y1="250" x2="1130" y2="320" class="pwr"/>
+<line x1="1130" y1="280" x2="1130" y2="291" class="pwr"/>
+<line x1="1130" y1="309" x2="1130" y2="320" class="pwr"/>
+<line x1="1130" y1="309" x2="1139" y2="291" class="pwr"/>
+<circle cx="1130" cy="291" r="1.8" class="dot"/>
+<text x="1144" y="304" class="lbl">PV CB2</text>
+<text x="1144" y="318" class="cmd" font-size="11">cmd ← Neo PLC</text>
+<line x1="1130" y1="320" x2="1130" y2="340" class="verify"/>
+<rect x="1070" y="340" width="120" height="50" rx="3" class="dev"/>
+<text x="1130.0" y="361.5" text-anchor="middle" class="lbl" font-size="13">Inverters 6–10</text>
+<text x="1130.0" y="377.5" text-anchor="middle" class="lbl" font-size="13">5 × SP-320K-H, 320 kW</text>
+<text x="1030" y="335" text-anchor="middle" class="verify-t" font-size="11">pairing to verify</text>
+<rect x="970" y="450" width="120" height="50" rx="3" class="dev"/>
+<text x="1030.0" y="471.5" text-anchor="middle" class="lbl" font-size="13">SAU-100</text>
+<text x="1030.0" y="487.5" text-anchor="middle" class="lbl" font-size="13">192.168.0.128</text>
+<line x1="1000" y1="450" x2="930" y2="390" class="comm"/>
+<line x1="1060" y1="450" x2="1130" y2="390" class="comm"/>
+<text x="1030" y="425" text-anchor="middle" class="comm-t" font-size="11">RS485</text>
+<text x="1030" y="528" text-anchor="middle" class="muted">3.2 MW installed · max available 3,520 kW</text>
+<rect x="520" y="540" width="240" height="60" rx="3" class="dev"/>
+<text x="640.0" y="559.0" text-anchor="middle" class="lbl" font-size="12">InteliNeo 5500 · master</text>
+<text x="640.0" y="574.0" text-anchor="middle" class="lbl" font-size="12">192.168.0.112</text>
+<text x="640.0" y="589.0" text-anchor="middle" class="lbl" font-size="12">PLC: PV request, breaker commands</text>
+<polyline points="760,570 1030,570 1030,500" class="comm" marker-start="url(#a-comm)" marker-end="url(#a-comm)"/>
+<text x="780" y="586" class="comm-t" font-size="11">Modbus TCP, 2 sessions, 1–2 s, timeout 3 s</text>
+<text x="780" y="602" class="comm-t" font-size="11">reads PV power, writes setpoint 2100/2101</text>
+<rect x="880" y="650" width="300" height="70" rx="3" class="dev"/>
+<text x="1030.0" y="674.0" text-anchor="middle" class="lbl" font-size="12">Plant PC · 192.168.0.200 · collector, read only</text>
+<text x="1030.0" y="689.0" text-anchor="middle" class="lbl" font-size="12">hourly: master, 3 × IM210, SAU array · dashboard</text>
+<text x="1030.0" y="704.0" text-anchor="middle" class="lbl" font-size="12">Modbus server for the CCI / Turkey platform</text>
+<polyline points="880,690 640,690 640,600" class="comm" marker-end="url(#a-comm)"/>
+<text x="760" y="682" text-anchor="middle" class="comm-t" font-size="11">Modbus TCP reads</text>
+<line x1="1070" y1="650" x2="1070" y2="500" class="comm" marker-end="url(#a-comm)"/>
+<text x="1078" y="630" class="comm-t" font-size="11">reads</text>
+<line x1="1030" y1="720" x2="1030" y2="740" class="comm"/>
+<text x="1030" y="756" text-anchor="middle" class="comm-t" font-size="11">CCI Wi-Fi 172.17.76.x · internet · Turkey platform</text>
+<text x="1050" y="640" text-anchor="end" class="verify-t" font-size="11">IG4 1–5: Modbus server to confirm</text>
+<text x="80" y="660" class="hdr" font-size="15">Legend</text>
+<line x1="80" y1="682" x2="130" y2="682" class="pwr"/>
+<text x="140" y="686" class="lbl">power</text>
+<line x1="80" y1="706" x2="130" y2="706" class="comm"/>
+<text x="140" y="710" class="lbl">communication (CAN, Modbus TCP, RS485)</text>
+<line x1="80" y1="730" x2="130" y2="730" class="verify"/>
+<text x="140" y="734" class="lbl">not verified yet, to check on the next visit</text>
+<text x="80" y="758" class="cmd" font-size="11">cmd ← Neo PLC</text>
+<text x="190" y="758" class="lbl">breaker commanded by the master’s PLC program</text>
+<line x1="420" y1="686" x2="420" y2="697" class="pwr"/>
+<line x1="420" y1="715" x2="420" y2="726" class="pwr"/>
+<line x1="420" y1="715" x2="429" y2="697" class="pwr"/>
+<circle cx="420" cy="697" r="1.8" class="dot"/>
+<text x="412" y="710" text-anchor="end" class="lbl"></text>
+<text x="440" y="710" class="lbl">breaker (drawn closed)</text>
+</svg>

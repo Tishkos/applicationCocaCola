@@ -1,0 +1,141 @@
+# Device profile: ComAp InteliNeo 5500 as the site MASTER, read over Modbus TCP (read-only).
+#
+# Source: "Generate Cfg image (MODBUS)" export of this controller taken on 2026-10-14
+# (InteliNeo 5500, SN 240842DA, firmware 1.2.0.43, application "Standard HC").
+# Everything below is in the controller's Modbus table: Values 1000-1548 (FC03/04),
+# Binaries 0-453 (FC01/02, the same bits are also in the Log Bout / I-O registers used here).
+# The Setpoints table is EMPTY - the controller exposes nothing writable over Modbus.
+#
+# Controller settings read with the table:
+#   Modbus Server: Enabled, Modbus Server Address (unit id): 1, port 502
+#   CAN / Terminal comm address: 9 (ComAp protocol only; not the Modbus unit id)
+#   IP 192.168.0.112/24, gateway 192.168.0.1, direct connection port 23
+#
+# Addresses are the register numbers of the export, used as 0-based protocol addresses
+# (ComAp convention; a read of 1000..1009 answered on 14 Oct). If the first live read shows
+# bus_frequency_hz far from 50 and the voltages shifted by one register, the table is
+# 1-based: set connection.address_offset: -1 in config/site.plant.yaml instead of editing here.
+# Bit numbers are the "Bit" column of the export (0 = PV1 feedback, 0 = first Log Bout bit).
+#
+# NOT in the Modbus table (would need the plant to extend the controller's Modbus list):
+#   PV logger values (SAU totals: AP, Max Active Power Available, Daily/Total yield, inverter
+#   counts), the three InteliMains load/mains readings (LAOD P, Mains Import P), the PLC values
+#   (Load P site, PV req), the Statistics group (PV/Gen kWh, fuel, Hours Of Silent), PV 1..8 arrays.
+#   Com. objects to add if the plant agrees: 19433 19424 19400 19399 19393 19436 19415 19408 21256
+#   21265 15575 15579 15580 15584 15585 15589 20130.
+
+kind: genset                # it is a controller; 'genset' kind lets the dashboard show the genset tiles
+vendor: ComAp
+model: "InteliNeo 5500 (site master)"
+firmware: "1.2.0.43 Standard HC"
+profile_revision: 3
+profile_status: mapped
+source_document: "cfgmodbus.txt 2026-10-14 (Generate Cfg image MODBUS), Values.csv, Setpoints.csv"
+
+limits: {}
+
+points:
+  # --- site power ---------------------------------------------------------------------------
+  - {id: power_kw,          unit: kW,   raw: {address: 1068, kind: int32},               description: "Gensets P - all gensets together"}
+  - {id: gensets_q_kvar,    unit: kVAr, raw: {address: 1070, kind: int32},               description: "Gensets Q"}
+  - {id: gensets_pf,        unit: "",   raw: {address: 1072, kind: int16, scale: 0.001}, description: "Gensets Power Factor"}
+  - {id: mains_power_kw,    unit: kW,   raw: {address: 1085, kind: int16},               description: "Mains Import P (negative = export)"}
+  - {id: mains_q_kvar,      unit: kVAr, raw: {address: 1086, kind: int16},               description: "Mains Import Q"}
+  - {id: mains_pf,          unit: "",   raw: {address: 1087, kind: int16, scale: 0.001}, description: "Mains PF"}
+  - {id: mains_current_l1_a, unit: A,   raw: {address: 1084, kind: uint16},              description: "Mains L1 Current"}
+  - {id: pv_prod_kw,        unit: kW,   raw: {address: 1040, kind: int16},               description: "PV Actual P (aggregated, from the SAU)"}
+  - {id: pv_q_kvar,         unit: kVAr, raw: {address: 1041, kind: int16},               description: "PV Actual Q"}
+  - {id: pv_s_kva,          unit: kVA,  raw: {address: 1042, kind: int16},               description: "PV Actual S"}
+  - {id: pv_pf,             unit: "",   raw: {address: 1043, kind: int16, scale: 0.001}, description: "PV Actual Power Factor"}
+  - {id: pv_curtailment_pct, unit: "%", raw: {address: 1046, kind: int16, scale: 0.01},  description: "Curtailment Output - % of PV allowed"}
+  - {id: ren_power_kw,      unit: kW,   raw: {address: 1055, kind: int16},               description: "REN Actual P (all renewables)"}
+  - {id: total_p_kw,        unit: kW,   raw: {address: 1060, kind: int32},               description: "Hybrid System Total P (read 0 on 14 Oct - check)"}
+  - {id: load_kw,           unit: kW,   raw: {derived: sum, of: [power_kw, mains_power_kw, pv_prod_kw]}, description: "site load = gensets + mains import + PV"}
+  # --- bus ------------------------------------------------------------------------------------
+  - {id: bus_frequency_hz,  unit: Hz,   raw: {address: 1074, kind: int32, scale: 0.001}, description: "Mains/Bus Frequency"}
+  - {id: bus_voltage_l1_v,  unit: V,    raw: {address: 1076, kind: uint16},              description: "Mains/Bus Voltage L1-N"}
+  - {id: bus_voltage_l2_v,  unit: V,    raw: {address: 1077, kind: uint16}}
+  - {id: bus_voltage_l3_v,  unit: V,    raw: {address: 1078, kind: uint16}}
+  - {id: bus_voltage_l12_v, unit: V,    raw: {address: 1079, kind: uint16},              description: "Mains/Bus Voltage L1-L2"}
+  - {id: bus_voltage_l23_v, unit: V,    raw: {address: 1080, kind: uint16}}
+  - {id: bus_voltage_l31_v, unit: V,    raw: {address: 1081, kind: uint16}}
+  - {id: bus_voltage_v,     unit: V,    raw: {address: 1082, kind: uint16},              description: "+Mains/Bus Voltage (the one on the screen)"}
+  - {id: bus_voltage_rel_pct, unit: "%", raw: {address: 1083, kind: int16, scale: 0.01}}
+  # --- power management ---------------------------------------------------------------------------
+  - {id: engine_priority,   unit: "",   raw: {address: 1114, kind: uint16}}
+  - {id: actual_reserve_kw, unit: kW,   raw: {address: 1115, kind: int32}}
+  - {id: start_reserve_kw,  unit: kW,   raw: {address: 1117, kind: int32}}
+  - {id: stop_reserve_kw,   unit: kW,   raw: {address: 1119, kind: int32}}
+  - {id: running_power_kw,  unit: kW,   raw: {address: 1124, kind: int32},               description: "Total Running P"}
+  - {id: running_nominal_kw, unit: kW,  raw: {address: 1130, kind: int32},               description: "Running Nominal Power Of All - capacity of the gensets on the bus"}
+  - {id: battery_v,         unit: V,    raw: {address: 1148, kind: int16, scale: 0.1},   description: "controller battery"}
+  # --- controller inputs / outputs (Binary Inputs 1149, Binary Outputs 1151) ---------------------
+  - {id: pvcb_closed,       type: boolean, raw: {address: 1149, kind: uint16, bit: 0},   description: "PV1 feedback - PV breaker 1 (LV panel) closed"}
+  - {id: pvcb_open,         type: boolean, raw: {address: 1149, kind: uint16, bit: 0, invert: true}, description: "PV breaker 1 open"}
+  - {id: pv2cb_closed,      type: boolean, raw: {address: 1149, kind: uint16, bit: 1},   description: "PV2 feedback"}
+  - {id: ups1_feedback,     type: boolean, raw: {address: 1149, kind: uint16, bit: 2}}
+  - {id: ups2_feedback,     type: boolean, raw: {address: 1149, kind: uint16, bit: 3}}
+  - {id: remote_off,        type: boolean, raw: {address: 1149, kind: uint16, bit: 4}}
+  - {id: remote_test,       type: boolean, raw: {address: 1149, kind: uint16, bit: 5}}
+  - {id: sd_override,       type: boolean, raw: {address: 1149, kind: uint16, bit: 6}}
+  - {id: estop,             type: boolean, raw: {address: 1150, kind: uint16, bit: 0}}
+  - {id: pv_cb1_on_cmd,     type: boolean, raw: {address: 1151, kind: uint16, bit: 0},   description: "binary output PV CB1 ON"}
+  - {id: pv_cb2_on_cmd,     type: boolean, raw: {address: 1151, kind: uint16, bit: 1}}
+  - {id: ups1_on_cmd,       type: boolean, raw: {address: 1151, kind: uint16, bit: 2}}
+  - {id: pv_cb1_off_cmd,    type: boolean, raw: {address: 1151, kind: uint16, bit: 3}}
+  - {id: pv_cb2_off_cmd,    type: boolean, raw: {address: 1151, kind: uint16, bit: 4}}
+  - {id: ups1_off_cmd,      type: boolean, raw: {address: 1151, kind: uint16, bit: 5}}
+  - {id: ups2_on_cmd,       type: boolean, raw: {address: 1151, kind: uint16, bit: 6}}
+  - {id: ups2_off_cmd,      type: boolean, raw: {address: 1151, kind: uint16, bit: 7}}
+  # --- counters ---------------------------------------------------------------------------------
+  - {id: pcc_kwh,           unit: kWh,  raw: {address: 1152, kind: int32}}
+  - {id: mains_kwh,         unit: kWh,  raw: {address: 1156, kind: int32}}
+  - {id: running_hours,     unit: h,    raw: {address: 1160, kind: int32, scale: 0.1}}
+  - {id: num_starts,        unit: "",   raw: {address: 1162, kind: uint16}}
+  # --- states ---------------------------------------------------------------------------------
+  - {id: controller_mode,   unit: "",   raw: {address: 1189, kind: uint16},              description: "0 OFF, 1 MAN, 2 AUTO, 3 TEST"}
+  - {id: breaker_state,     unit: "",   raw: {address: 1192, kind: uint16},              description: "0 Init 1 BrksOff 2 IslOper 3 MainsOper 4 ParalOper 5 RevSync 6 Synchro 7 MainsFlt 8 ValidFlt 9 MainsRet 10 MultIslOp 11 MultParOp 12 EmergMan 13 StrUpSync"}
+  - {id: eth_status,        unit: "",   raw: {address: 1269, kind: uint16},              description: "0 Unknown 1 Disconnected 2 Connecting 3 Connected 4 Failure"}
+  # CAN16: which controller addresses answer on the CAN bus (1..5 Gen 1-5, 6..8 MAIN 1-3, 9 this Neo)
+  - {id: can_present_mask,  unit: "",   raw: {address: 1223, kind: uint16},              description: "CAN16 bit n-1 = controller address n present"}
+  # Gen Loaded 16: which gensets have their breaker closed (same addresses as CAN16)
+  - {id: g1_running,        type: boolean, raw: {address: 1227, kind: uint16, bit: 0},   description: "Gen 1 loaded (GCB closed)"}
+  - {id: g2_running,        type: boolean, raw: {address: 1227, kind: uint16, bit: 1}}
+  - {id: g3_running,        type: boolean, raw: {address: 1227, kind: uint16, bit: 2}}
+  - {id: g4_running,        type: boolean, raw: {address: 1227, kind: uint16, bit: 3}}
+  - {id: g5_running,        type: boolean, raw: {address: 1227, kind: uint16, bit: 4}}
+  - {id: running,           type: boolean, raw: {address: 1259, kind: uint16, bit: 3},   description: "Any GCB Closed"}
+  # --- logical binary outputs (Log Bout 1..13 = registers 1256..1268) ----------------------------
+  - {id: alarm,             type: boolean, raw: {address: 1256, kind: uint16, bit: 1},   description: "Log Bout 1: Alarm"}
+  - {id: mcb_status,        type: boolean, raw: {address: 1257, kind: uint16, bit: 11},  description: "Log Bout 2: MCB Status"}
+  - {id: mains_available,   type: boolean, raw: {address: 1257, kind: uint16, bit: 11},  description: "= MCB Status; verify against the mains kW when the grid is on"}
+  - {id: pvcb_status,       type: boolean, raw: {address: 1258, kind: uint16, bit: 11},  description: "Log Bout 3: PVCB Status"}
+  - {id: pv_run_request,    type: boolean, raw: {address: 1258, kind: uint16, bit: 12},  description: "PV/WT Run Request"}
+  - {id: curtailment_enable, type: boolean, raw: {address: 1258, kind: uint16, bit: 13}}
+  - {id: system_ready,      type: boolean, raw: {address: 1259, kind: uint16, bit: 7},   description: "Log Bout 4: System Ready"}
+  - {id: peripheral_comm_fail, type: boolean, raw: {address: 1259, kind: uint16, bit: 10}}
+  - {id: common_warning,    type: boolean, raw: {address: 1260, kind: uint16, bit: 0},   description: "Log Bout 5: Common Warning"}
+  - {id: common_shutdown,   type: boolean, raw: {address: 1260, kind: uint16, bit: 1}}
+  - {id: alarm_active,      type: boolean, raw: {address: 1260, kind: uint16, mask: 0x1803}, description: "Common Warning | Shutdown | Alarm Level 1 | Alarm Level 2"}
+  - {id: common_pvcb_open,  type: boolean, raw: {address: 1260, kind: uint16, bit: 7}}
+  - {id: common_mains_protection, type: boolean, raw: {address: 1260, kind: uint16, bit: 8}}
+  - {id: not_in_auto,       type: boolean, raw: {address: 1261, kind: uint16, bit: 11},  description: "Log Bout 6"}
+  - {id: mode_auto,         type: boolean, raw: {address: 1261, kind: uint16, bit: 14}}
+  - {id: heartbeat,         type: boolean, raw: {address: 1261, kind: uint16, bit: 9}}
+  - {id: bus_healthy,       type: boolean, raw: {address: 1262, kind: uint16, bit: 7},   description: "Log Bout 7: Mains/Bus Healthy"}
+  - {id: deadbus,           type: boolean, raw: {address: 1262, kind: uint16, bit: 11}}
+  - {id: alarm_mains_fail,  type: boolean, raw: {address: 1264, kind: uint16, bit: 3},   description: "Log Bout 9: Alarm Mains Fail"}
+  - {id: alarm_mains_frequency, type: boolean, raw: {address: 1264, kind: uint16, bit: 4}}
+  - {id: alarm_mains_voltage, type: boolean, raw: {address: 1264, kind: uint16, bit: 5}}
+  - {id: pv_operable,       type: boolean, raw: {address: 1267, kind: uint16, bit: 12},  description: "Log Bout 12: PV Operable"}
+  # ECU n Comm Fail = the Modbus master devices of the Neo (the InteliMains and the two PV logger
+  # groups). Their order follows the controller configuration; from the Values export it looks like
+  # ECU 1 = IM1, ECU 2 = PV Logger group 1, ECU 3 = PV Logger group 2, ECU 4 = IM2, ECU 5 = IM3.
+  # TO VERIFY in the archive (Controller configuration -> Modbus master) or at the next comm-fail alarm.
+  - {id: ecu1_comm_fail,    type: boolean, raw: {address: 1268, kind: uint16, bit: 0}}
+  - {id: ecu2_comm_fail,    type: boolean, raw: {address: 1268, kind: uint16, bit: 1}}
+  - {id: ecu3_comm_fail,    type: boolean, raw: {address: 1268, kind: uint16, bit: 2}}
+  - {id: ecu4_comm_fail,    type: boolean, raw: {address: 1268, kind: uint16, bit: 3}}
+  - {id: ecu5_comm_fail,    type: boolean, raw: {address: 1268, kind: uint16, bit: 4}}
+  - {id: pv_logger_comm_fail, type: boolean, raw: {address: 1268, kind: uint16, mask: 0x0006}, description: "ECU 2 or ECU 3 comm fail (PV logger group 1 / 2) - order to verify"}
+  - {id: comm_error,        type: boolean, raw: {derived: comm_error}, description: "set by the collector: controller not answering"}

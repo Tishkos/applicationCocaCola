@@ -1,0 +1,285 @@
+{
+ "title": "Plant overview",
+ "uid": "plant-overview",
+ "schemaVersion": 39,
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "refresh": "1m",
+ "panels": [
+  {
+   "id": 1,
+   "type": "timeseries",
+   "title": "Power (kW)",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 16,
+    "h": 10
+   },
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "kwatt",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "queryType": "table",
+     "rawQueryText": "SELECT strftime('%s', ts) * 1000 AS time, value AS \"Load\" FROM readings WHERE device_id='meter-01' AND point_id='load_kw' AND quality='good' AND ts >= datetime($__from/1000,'unixepoch') AND ts <= datetime($__to/1000,'unixepoch') ORDER BY ts",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "queryType": "table",
+     "rawQueryText": "SELECT strftime('%s', ts) * 1000 AS time, value AS \"Solar\" FROM readings WHERE device_id='pv-01' AND point_id='power_kw' AND quality='good' AND ts >= datetime($__from/1000,'unixepoch') AND ts <= datetime($__to/1000,'unixepoch') ORDER BY ts",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "C",
+     "queryType": "table",
+     "rawQueryText": "SELECT strftime('%s', ts) * 1000 AS time, value AS \"Genset 1\" FROM readings WHERE device_id='genset-01' AND point_id='power_kw' AND quality='good' AND ts >= datetime($__from/1000,'unixepoch') AND ts <= datetime($__to/1000,'unixepoch') ORDER BY ts",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "D",
+     "queryType": "table",
+     "rawQueryText": "SELECT strftime('%s', ts) * 1000 AS time, value AS \"Genset 2\" FROM readings WHERE device_id='genset-02' AND point_id='power_kw' AND quality='good' AND ts >= datetime($__from/1000,'unixepoch') AND ts <= datetime($__to/1000,'unixepoch') ORDER BY ts",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "E",
+     "queryType": "table",
+     "rawQueryText": "SELECT strftime('%s', ts) * 1000 AS time, value AS \"Battery\" FROM readings WHERE device_id='bess-01' AND point_id='power_kw' AND quality='good' AND ts >= datetime($__from/1000,'unixepoch') AND ts <= datetime($__to/1000,'unixepoch') ORDER BY ts",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ]
+  },
+  {
+   "id": 2,
+   "type": "timeseries",
+   "title": "Battery SOC (%)",
+   "gridPos": {
+    "x": 16,
+    "y": 0,
+    "w": 8,
+    "h": 10
+   },
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "queryType": "table",
+     "rawQueryText": "SELECT strftime('%s', ts) * 1000 AS time, value AS \"SOC\" FROM readings WHERE device_id='bess-01' AND point_id='soc_pct' AND quality='good' AND ts >= datetime($__from/1000,'unixepoch') AND ts <= datetime($__to/1000,'unixepoch') ORDER BY ts",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ]
+  },
+  {
+   "id": 3,
+   "type": "timeseries",
+   "title": "Fuel level (%)",
+   "gridPos": {
+    "x": 0,
+    "y": 10,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "queryType": "table",
+     "rawQueryText": "SELECT strftime('%s', ts) * 1000 AS time, value AS \"Genset 1\" FROM readings WHERE device_id='genset-01' AND point_id='fuel_level_pct' AND quality='good' AND ts >= datetime($__from/1000,'unixepoch') AND ts <= datetime($__to/1000,'unixepoch') ORDER BY ts",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "queryType": "table",
+     "rawQueryText": "SELECT strftime('%s', ts) * 1000 AS time, value AS \"Genset 2\" FROM readings WHERE device_id='genset-02' AND point_id='fuel_level_pct' AND quality='good' AND ts >= datetime($__from/1000,'unixepoch') AND ts <= datetime($__to/1000,'unixepoch') ORDER BY ts",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ]
+  },
+  {
+   "id": 4,
+   "type": "timeseries",
+   "title": "Fuel rate (L/h)",
+   "gridPos": {
+    "x": 8,
+    "y": 10,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "queryType": "table",
+     "rawQueryText": "SELECT strftime('%s', ts) * 1000 AS time, value AS \"Genset 1\" FROM readings WHERE device_id='genset-01' AND point_id='fuel_rate_lph' AND quality='good' AND ts >= datetime($__from/1000,'unixepoch') AND ts <= datetime($__to/1000,'unixepoch') ORDER BY ts",
+     "timeColumns": [
+      "time"
+     ]
+    },
+    {
+     "refId": "B",
+     "queryType": "table",
+     "rawQueryText": "SELECT strftime('%s', ts) * 1000 AS time, value AS \"Genset 2\" FROM readings WHERE device_id='genset-02' AND point_id='fuel_rate_lph' AND quality='good' AND ts >= datetime($__from/1000,'unixepoch') AND ts <= datetime($__to/1000,'unixepoch') ORDER BY ts",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ]
+  },
+  {
+   "id": 5,
+   "type": "timeseries",
+   "title": "Irradiance (W/m\u00b2)",
+   "gridPos": {
+    "x": 16,
+    "y": 10,
+    "w": 8,
+    "h": 8
+   },
+   "datasource": {
+    "type": "frser-sqlite-datasource",
+    "uid": "plant-sqlite"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 0,
+      "showPoints": "never"
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "queryType": "table",
+     "rawQueryText": "SELECT strftime('%s', ts) * 1000 AS time, value AS \"pv-01\" FROM readings WHERE device_id='pv-01' AND point_id='irradiance_wm2' AND quality='good' AND ts >= datetime($__from/1000,'unixepoch') AND ts <= datetime($__to/1000,'unixepoch') ORDER BY ts",
+     "timeColumns": [
+      "time"
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,19 @@
+# Device profile: site load / LV panel meter, read-only. Used by the demo (simulator).
+#
+# Real plant: no PV-side energy meter was found on the SAU on 2026-10-14 (its two meters are
+# M1 = generator feeder, Acrel PZ96L-E4, and M3 = grid feeder, Sfere PD194E, showing no data),
+# so config/site.plant.yaml has no meter device. Site load, frequency and voltage come from the
+# InteliNeo (intelineo_master.yaml: load_kw, bus_frequency_hz, bus_voltage_l1_v). If a meter is
+# connected later, add its registers here and the device to the plant config.
+
+kind: meter
+vendor: "TBC"
+model: "LV panel meter (TBC)"
+profile_revision: 3
+profile_status: draft
+source_document: "meter Modbus map - TO BE ATTACHED"
+
+points:
+  - {id: load_kw,       unit: kW,  raw: {}}   # register unknown
+  - {id: frequency_hz,  unit: Hz,  raw: {}}
+  - {id: voltage_v,     unit: V,   raw: {}}
