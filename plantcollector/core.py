@@ -46,6 +46,7 @@ class Collector:
                 except FileNotFoundError:
                     pass
         self.db_path = db
+        self.data_dir = data_dir
         self.store = TelemetryStore(db)
         # polling rate: the config value, overridden by what was saved from the dashboard (real plant only)
         self.settings_path = os.path.join(data_dir, "settings.json")

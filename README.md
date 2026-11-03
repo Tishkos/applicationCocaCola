@@ -47,6 +47,56 @@ itself if it fails**: shutting the PC down is fine, everything collected so far 
 administrator rights once (for the Windows task); if that is refused it still runs, in the
 window, until the window is closed.
 
+## Install with the Setup (one wizard, standalone: service, window, updater)
+
+`CCI-Plant-Monitoring-Setup-<version>.exe` (from the repository's GitHub Releases, or built with
+`installer/build.sh`) installs everything in one wizard, as administrator. It is **standalone**: it carries its
+own Python 3.13 and every package, so the PC needs nothing else (no Python, no internet, no other program):
+
+- the program in `C:\Program Files\CCI Plant Monitoring`: `CCI Plant Monitoring.exe` (the window),
+  `CCI Plant Monitoring Service.exe` (the collector), `runtime\` (the program's own Python and packages);
+- **the background service**: the Windows task `PlantDataCollector` runs `CCI Plant Monitoring Service.exe`
+  as SYSTEM at start-up and restarts it every minute if it stops. It runs whether the window is open or not,
+  and whether anybody is signed in;
+- **the window** "CCI Plant Monitoring" in the Start Menu (and on the Desktop): the dashboard as an
+  application, no browser and no address. Closing it does not stop anything;
+- **the updater**: the Windows task `PlantCollectorUpdater` asks GitHub for the newest release every
+  4 hours. With automatic updates on, it installs it at night (01:00-05:00, the PC's clock), after
+  checking the file's SHA-256. If the new version does not answer within 3 minutes, it puts the previous
+  one back and does not try that release again. Settings > Updates shows the state, with
+  "Check for updates" and "Install now" (only in the window on that PC);
+- optional: the firewall rules for Turkey's Modbus (TCP 502) and the dashboard (TCP 8080).
+
+**The database** is SQLite, built into the program (no database server to install or look after):
+`C:\ProgramData\CCI Plant Monitoring\data\telemetry.sqlite`, in WAL mode, so a power cut does not damage it.
+Every reading of every site read (all devices, every 10 minutes) is stored, and nothing is ever deleted.
+The live reading of the master (every 2 s) is stored once a minute, every state change at once, and
+every value at least every 5 minutes. With the plant config (15 devices, 688 points) that is roughly
+100,000 site rows and up to 130,000 live rows a day, about 30-35 MB a day.
+
+Settings and history live in `C:\ProgramData\CCI Plant Monitoring` (`config\`, `data\`, `update\`,
+`install.log`); an update never overwrites them. If an earlier copy of this folder ran as the Windows
+task, the Setup finds it and brings its `config\site.plant.yaml`, database and `settings.json` over
+(the first time only). The wizard can also be pointed at such a folder.
+
+Uninstall: Settings > Apps > CCI Plant Monitoring. It removes the program (with its Python), both tasks,
+the processes, the firewall rules and the shortcuts. The history and settings stay unless "Collected data
+and settings" is ticked (silent: `uninstall.exe /S /DELETEDATA`).
+
+Silent install: `Setup.exe /S [/AUTOUPDATE=1|0] [/FIREWALL=1|0] [/DESKTOP=1|0] [/IMPORT=<folder>]
+[/SOURCE=<this PC's plant IP>]`; the updater runs `/S /UPDATE` (the earlier choices).
+
+Building: `installer/build.sh 1.2.3` (Linux; needs Python 3.13 with pip, zstd, nsis, gcc-mingw-w64-x86-64).
+`installer/build_runtime.py` makes `build/stage`: the Windows Python from conda-forge (exactly the files and
+SHA-256s in `installer/runtime.lock`), the packages from `wheels\` (offline), the program, the two exes
+(`installer/launcher/`: they start the program's own `runtime\python313.dll` in-process, so Windows shows
+their names and icon) and the `.pyc` files. NSIS then packs it.
+
+A new release: `git tag v1.2.3 && git push origin v1.2.3`. The workflow `.github/workflows/release.yml`
+runs the tests, builds the Setup and publishes it with `SHA256SUMS.txt`. The Setup is not code-signed,
+so Windows SmartScreen asks once on a hand install ("More info" > "Run anyway"); the updater is not
+affected.
+
 ## Desktop application (own icon, one double-click, no browser)
 
 `INSTALL-APP.bat` puts a **Plant Collector** icon on the Desktop and in the Start Menu. The icon

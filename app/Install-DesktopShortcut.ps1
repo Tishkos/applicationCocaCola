@@ -9,15 +9,32 @@
 #
 # Run once (INSTALL-APP.bat does it). Safe to run again: the shortcuts are simply rewritten.
 # -Remove deletes them again.
-param([switch]$Remove)
+#
+# The Setup (scripts\install.ps1) uses it with:
+#   -AllUsers     the Public Desktop and the all-users Start Menu instead of the current user's
+#   -Name         the shortcut's name ("CCI Plant Monitoring")
+#   -Target       the program the shortcut runs (.venv\Scripts\pythonw.exe) instead of app\launch.ps1
+#   -Arguments    its command line ("app\desktop.py" --installed --data ...)
+#   -NoDesktop    only the Start Menu (a Desktop shortcut that is there is removed)
+param(
+    [switch]$Remove,
+    [switch]$AllUsers,
+    [string]$Name = "Plant Collector",
+    [string]$Target = "",
+    [string]$Arguments = "",
+    [switch]$NoDesktop
+)
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
-$name = "Plant Collector"
+$name = $Name
 $appId = "CCI.PlantCollector"                             # the same string as APP_ID in app\desktop.py
 $icon = Join-Path $root "app\PlantCollector.ico"
 $launcher = Join-Path $root "app\launch.ps1"
-if (-not (Test-Path $icon)) { throw "icon not found: $icon" }
-if (-not (Test-Path $launcher)) { throw "launcher not found: $launcher" }
+if (-not $Remove) {
+    if (-not (Test-Path $icon)) { throw "icon not found: $icon" }
+    if (-not $Target -and -not (Test-Path $launcher)) { throw "launcher not found: $launcher" }
+    if ($Target -and -not (Test-Path $Target)) { throw "program not found: $Target" }
+}
 
 # Writes System.AppUserModel.ID into a .lnk (the shell's IPropertyStore on a ShellLink; WScript.Shell
 # cannot do it). Compiled on first use; a failure here only costs the taskbar tag, never the shortcut.
@@ -88,37 +105,47 @@ function Set-ShortcutAppId([string]$path, [string]$id) {
         [PlantCollector.ShortcutAppId]::Set($path, $id)
         return $true
     } catch {
-        Write-Host "[app] (taskbar tag not written: $($_.Exception.Message))"
+        Write-Output "[app] (taskbar tag not written: $($_.Exception.Message))" | Out-Host
         return $false
     }
 }
 
-$places = @(
-    [Environment]::GetFolderPath("Desktop"),
-    (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs")
-)
+if ($AllUsers) {
+    $desk = [Environment]::GetFolderPath("CommonDesktopDirectory")
+    $menu = [Environment]::GetFolderPath("CommonPrograms")
+} else {
+    $desk = [Environment]::GetFolderPath("Desktop")
+    $menu = Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
+}
+$places = @(@{ dir = $desk; want = (-not $NoDesktop) }, @{ dir = $menu; want = $true })
 $shell = New-Object -ComObject WScript.Shell
-foreach ($dir in $places) {
-    if (-not (Test-Path $dir)) { continue }
+foreach ($pl in $places) {
+    $dir = $pl.dir
+    if (-not $dir -or -not (Test-Path $dir)) { continue }
     $path = Join-Path $dir "$name.lnk"
-    if ($Remove) {
-        if (Test-Path $path) { Remove-Item $path -Force; Write-Host "[app] removed $path" }
+    if ($Remove -or -not $pl.want) {
+        if (Test-Path $path) { Remove-Item $path -Force; Write-Output "[app] removed $path" }
         continue
     }
     $lnk = $shell.CreateShortcut($path)
-    $lnk.TargetPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
-    $lnk.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcher`""
+    if ($Target) {
+        $lnk.TargetPath = $Target
+        $lnk.Arguments = $Arguments
+        $lnk.WindowStyle = 1
+    } else {
+        $lnk.TargetPath = "$env:SystemRoot\System32\WindowsPowerShell\v1.0\powershell.exe"
+        $lnk.Arguments = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launcher`""
+        $lnk.WindowStyle = 7                              # minimized console, hidden by -WindowStyle Hidden anyway
+    }
     $lnk.WorkingDirectory = $root
     $lnk.IconLocation = "$icon,0"
-    $lnk.Description = "Plant Data Collector - dashboard (read-only)"
-    $lnk.WindowStyle = 7                                  # minimized console, hidden by -WindowStyle Hidden anyway
+    $lnk.Description = "CCI Plant Monitoring - dashboard (read-only)"
     $lnk.Save()
     $tagged = Set-ShortcutAppId $path $appId
-    Write-Host "[app] shortcut written: $path" -NoNewline
-    if ($tagged) { Write-Host "  (taskbar: $appId)" } else { Write-Host "" }
+    if ($tagged) { Write-Output "[app] shortcut written: $path  (taskbar: $appId)" } else { Write-Output "[app] shortcut written: $path" }
 }
 if (-not $Remove) {
     # Refresh the icon cache so the new icon shows at once (harmless if it fails).
     try { & "$env:SystemRoot\System32\ie4uinit.exe" -show } catch {}
-    Write-Host "[app] Done. Double-click 'Plant Collector' on the Desktop."
+    Write-Output "[app] Done. Double-click '$name' on the Desktop or in the Start Menu."
 }

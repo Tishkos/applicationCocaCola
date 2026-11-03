@@ -1,0 +1,43 @@
+# A tag like v1.2.3 builds the standalone Windows Setup (its own Python, every package, the two exes) and publishes it
+# as a GitHub Release with its SHA256SUMS.txt.
+# The plant PC's updater (scripts/updater.ps1) checks the newest release every 4 hours and installs it at night.
+#   git tag v1.2.3 && git push origin v1.2.3
+# Nothing is published when the tests fail.
+name: Release
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: write
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"            # the same as the Setup's runtime: its .pyc files are made with it
+
+      - name: Tests
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          python -m pytest -q
+
+      - name: NSIS, mingw-w64, zstd
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq nsis gcc-mingw-w64-x86-64 zstd
+
+      - name: Build the Setup
+        run: PYTHON=python installer/build.sh "${GITHUB_REF_NAME}"
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          v="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" \
+            "dist/CCI-Plant-Monitoring-Setup-$v.exe" dist/SHA256SUMS.txt \
+            --title "CCI Plant Monitoring $v" --generate-notes --verify-tag

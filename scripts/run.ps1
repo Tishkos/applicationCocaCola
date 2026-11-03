@@ -82,7 +82,9 @@ if (-not (Test-Path $stamp) -or ((Get-Item requirements.txt).LastWriteTime -gt (
     if (Test-Path "wheels\*.whl") {
         # first from the wheels folder in the repository: no internet needed (the site's line does not reach the package server)
         Say "Installing packages from the wheels folder (no internet needed)..."
-        $whl = @(Get-ChildItem "wheels\*.whl" | ForEach-Object { $_.FullName })
+        # only the wheels of this Python: "-cp312-cp312-" for 3.12, "-cp313-cp313-" for 3.13, and the pure ones
+        $minor = (& $venvPy -c "import sys; print(sys.version_info[1])" | Out-String).Trim()
+        $whl = @(Get-ChildItem "wheels\*.whl" | Where-Object { $_.Name -notmatch "-cp3\d+-cp3\d+-" -or $_.Name -match "-cp3$minor-cp3$minor-" } | ForEach-Object { $_.FullName })
         & $venvPy -m pip install --quiet --no-index --find-links wheels @whl
         & $venvPy -c $need 2>$null
         $ok = ($LASTEXITCODE -eq 0)

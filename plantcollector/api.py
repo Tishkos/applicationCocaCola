@@ -25,11 +25,11 @@ import os
 import time
 from datetime import datetime, timedelta, timezone
 
-from fastapi import FastAPI, HTTPException, Query, Response
+from fastapi import FastAPI, HTTPException, Query, Request, Response
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import export, views
+from . import export, updates, views
 from . import __version__
 from .core import POLL_MIN_S, POLL_OPTIONS_S, Collector
 
@@ -100,7 +100,37 @@ def create_app(c: Collector) -> FastAPI:
                                                      "error": getattr(c, "publisher_error", None)},
                 "options": [{"value": v, "label": f"{v // 3600} h" if v >= 3600 and v % 3600 == 0 else f"{v // 60} min"} for v in POLL_OPTIONS_S],
                 "source": c.settings_source, "simulated": c.simulated, "config": os.path.basename(c.config_path),
-                "settings_file": c.settings_path, "database": c.db_path, "version": __version__}
+                "settings_file": c.settings_path, "database": c.db_path, "version": updates.installed_version(),
+                "update": updates.status(c.data_dir)}
+
+    @app.get("/api/v1/local/version")
+    def version():
+        """The installed version and what the auto-updater last found (it checks GitHub Releases)."""
+        return updates.status(c.data_dir)
+
+    def _from_this_pc(request: Request):
+        host = request.client.host if request.client else ""
+        if host not in ("127.0.0.1", "::1", "localhost", "testclient"):
+            raise HTTPException(403, "only from the PC the collector runs on")
+
+    @app.post("/api/v1/local/update/check")
+    def update_check(request: Request):
+        """Let the updater look at GitHub Releases now. Only from this PC itself: another PC on the plant
+        network cannot."""
+        _from_this_pc(request)
+        try:
+            return updates.request_check(c.data_dir)
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc))
+
+    @app.post("/api/v1/local/update/install")
+    def update_install(request: Request):
+        """Install the newer release now (the collector stops for about a minute). Only from this PC itself."""
+        _from_this_pc(request)
+        try:
+            return updates.request_check(c.data_dir, install=True)
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc))
 
     @app.post("/api/v1/local/poll")
     def poll_now():

@@ -1271,6 +1271,12 @@ a.rcard:hover { border-color: var(--xc); }
             <div class="actions"><button class="btn primary" id="setSave">Save</button><span class="note" id="setNote" role="status"></span></div>
             <div class="hint">Every 10 minutes at the most. Every reading is saved in the database the moment it is read. For a one-off read at any time use "Read devices now" at the top. The setting is kept in <code>data\settings.json</code> and survives restarts.</div>
           </div>
+          <div class="panel w12" id="p-upd">
+            <div class="ph"><h3>Updates</h3><span class="r">new versions from GitHub</span></div>
+            <dl class="about" id="updList"></dl>
+            <div class="actions"><button class="btn" type="button" id="updCheck" hidden><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg><span>Check for updates</span></button><button class="btn primary" type="button" id="updInstall" hidden><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>Install now</span></button><span class="note" id="updNote" role="status"></span></div>
+            <div class="hint">The updater looks for a newer release every 4 hours. With automatic updates on, it installs it at night (01:00–05:00). The settings and the history stay. Installing stops the collector for about a minute, Turkey's feed included. If the new version does not start, the updater puts the previous one back. The buttons work only in the window on the PC the collector runs on.</div>
+          </div>
           <div class="panel w12">
             <div class="ph"><h3>About this collector</h3></div>
             <dl class="about" id="aboutList"></dl>
@@ -1327,8 +1333,6 @@ a.rcard:hover { border-color: var(--xc); }
     <label class="switch">Windows notification on a new alarm or warning<input type="checkbox" id="optNotify"></label>
     <div class="note" id="notifyNote"></div>
     <div class="note" id="soundNote" style="color:var(--warn)"></div>
-    <label class="switch" style="margin-top:6px">Test alerts — a test alarm or warning every 10–15 s for 10 minutes (only on this screen; nothing is saved)<input type="checkbox" id="optTest"></label>
-    <div class="note" id="testLeft" style="color:var(--primary)"></div>
     <h4>Alarm history · last 7 days</h4><div class="hist" id="alHist"></div>
   </div>
 </aside>
@@ -2891,10 +2895,56 @@ a.rcard:hover { border-color: var(--xc); }
     const pubText = !pb.enabled ? "off (publish.modbus_tcp.enabled in the config)" : !pb.running ? `enabled but not running — ${pb.error || "see data\\collector.log"} (retrying every minute)`
       : `on · ${pb.bind}:${pb.port} unit ${pb.unit_id} · ${pb.tags} tags · ${pb.reads} reads` + (pb.rejected_writes ? ` · ${pb.rejected_writes} writes refused` : "");
     $("#footVer").textContent = `Version ${st.version} · All rights reserved`;
+    renderUpdate(st.update);
     $("#aboutList").innerHTML = [["Modbus server for Turkey", pubText], ["Config", st.config], ["Database", st.database], ["Settings file", st.settings_file], ["Version", st.version],
       ["Polls since start", summary ? summary.collector.polls : "—"], ["Rows stored", summary ? summary.collector.rows.toLocaleString() : "—"],
       ["Running since", summary ? stamp(Date.now() - summary.collector.uptime_s * 1000) : "—"]].map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
   }
+  // ---- updates (scripts\updater.ps1 does the work; the collector only passes the request on)
+  const ON_THIS_PC = ["localhost", "127.0.0.1", "[::1]", "::1"].includes(location.hostname);
+  let updWatch = null;
+  function renderUpdate(u) {
+    if (!u) return;
+    const inst = !!u.installed;
+    const rows = [["Installed version", u.version]];
+    if (inst) {
+      rows.push(["Newest on GitHub", u.latest || "—"], ["Update state", u.message ? `${u.state} — ${u.message}` : u.state],
+        ["Last check", u.last_check || "—"], ["Last update", u.last_install || "—"],
+        ["Automatic updates", u.auto === false ? "off" : `on, at night ${u.window || "01:00-05:00"}`]);
+    } else {
+      rows.push(["Automatic updates", "none: this copy was not installed by the Setup"]);
+    }
+    redraw($("#updList"), rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join(""));
+    const busy = ["downloading", "installing"].includes(u.state);
+    $("#updCheck").hidden = !(inst && ON_THIS_PC);
+    $("#updCheck").disabled = busy || !!u.check_requested;
+    const ib = $("#updInstall");
+    ib.hidden = !(inst && ON_THIS_PC && u.available);
+    ib.disabled = busy || !!u.check_requested;
+    if (u.available) ib.querySelector("span").textContent = `Install ${u.available} now`;
+    $("#updNote").textContent = u.check_requested ? "asked the updater, waiting for it…" : busy ? u.state + "…"
+      : (inst && !ON_THIS_PC ? "the buttons are on the PC the collector runs on" : "");
+  }
+  async function askUpdater(install) {
+    const b = install ? $("#updInstall") : $("#updCheck");
+    if (install && !confirm("Install the new version now? The collector stops for about a minute (Turkey's feed included); settings and history stay.")) return;
+    b.classList.add("busy");
+    try {
+      const r = await getJSON(install ? "/api/v1/local/update/install" : "/api/v1/local/update/check", { method: "POST" });
+      renderUpdate(r.status);
+      toast(install ? "Installing: the window reconnects by itself when the collector is back." : (r.started ? "Asked GitHub for the newest version…" : "The request is waiting for the updater (it starts within a few minutes)."));
+      clearInterval(updWatch);
+      const t0 = Date.now();
+      updWatch = setInterval(async () => {
+        let u; try { u = await getJSON("/api/v1/local/version"); } catch (e) { return; }   // the collector restarts during an install
+        renderUpdate(u);
+        if ((!u.check_requested && !["downloading", "installing"].includes(u.state)) || Date.now() - t0 > 10 * 60000) clearInterval(updWatch);
+      }, 3000);
+    } catch (e) { toast(`Updater not reached: ${why(e)}.`, true); }
+    b.classList.remove("busy");
+  }
+  $("#updCheck").addEventListener("click", () => askUpdater(false));
+  $("#updInstall").addEventListener("click", () => askUpdater(true));
   $("#setSave").addEventListener("click", async () => {
     const b = $("#setSave"); b.classList.add("busy");
     try {
@@ -2977,7 +3027,6 @@ a.rcard:hover { border-color: var(--xc); }
     out.push({ k: "Range", t: "Custom range…", run: () => { rMenu.hidden = false; paintRange(); fitMenu(); } });
     out.push({ k: "Action", t: document.fullscreenElement ? "Leave full screen" : "Full screen", h: "F", run: () => toggleFs() });
     out.push({ k: "Action", t: "Alarms", h: "active alarms, acknowledge, history", run: () => openDrawer() },
-      { k: "Action", t: optTest.checked ? "Stop the test alerts" : "Test alerts (every 10–15 s)", h: "sound, banner and notification, nothing saved", run: () => { setTest(!optTest.checked); openDrawer(); } },
       { k: "Action", t: "Read devices now", run: () => $("#pollBtn").click() },
       { k: "Action", t: "Refresh every panel", h: "R", run: () => $("#refreshBtn").click() },
       { k: "Action", t: document.body.classList.contains("kiosk") ? "Leave TV mode" : "TV mode", h: "T", run: () => setKiosk(!document.body.classList.contains("kiosk")) },
@@ -3035,10 +3084,9 @@ a.rcard:hover { border-color: var(--xc); }
   // A new active fault (comms lost, controller alarm, grid lost) raises the banner, rings the bell, plays a sound
   // and (if allowed) shows a Windows notification. Acknowledged alarms are remembered on this computer until they
   // clear; one that comes back later is new again.
-  const ALCODE = { COMMS_LOST: "not answering", ALARM: "controller alarm active", GRID_OFF: "grid not available",
-    TEST_FAULT: "TEST alarm — not real", TEST_WARNING: "TEST warning — not real" };
+  const ALCODE = { COMMS_LOST: "not answering", ALARM: "controller alarm active", GRID_OFF: "grid not available" };
   const alText = (k) => { const [code, dev] = k.split(":"); return `${dev}: ${ALCODE[code] || code}`; };
-  const isErr = (k) => !k.startsWith("GRID_OFF") && !k.startsWith("TEST_WARNING");       // red alarm; the others are orange warnings
+  const isErr = (k) => !k.startsWith("GRID_OFF");       // red alarm; the others are orange warnings
   // "3 alarms and 2 warnings": each piece is its own text so the translations can follow
   const plural = (n, w) => `${n} ${w}${n === 1 ? "" : "s"}`;
   const split = (keys) => { const e = keys.filter(isErr).length; return [e, keys.length - e]; };
@@ -3051,10 +3099,7 @@ a.rcard:hover { border-color: var(--xc); }
       + (tail ? ` <span>${tail}</span>` : "");
   }
   const stampNow = () => `${hm(Date.now())}:${p2(new Date().getSeconds())}`;
-  // test alerts: a made-up fault or warning every 10-15 s, only in this browser (never stored)
-  let testKeys = [], testTimer = null, testN = 0, testUntil = 0, testClock = null;
-  const TEST_MS = 10 * 60 * 1000;
-  const allFaults = () => (summary ? summary.active_faults : []).concat(testKeys);
+  const allFaults = () => (summary ? summary.active_faults : []);
   let acked = {}; try { acked = JSON.parse(saved("pc.acked") || "{}") || {}; } catch (e) { acked = {}; }
   const optSound = $("#optSound"), optNotify = $("#optNotify");
   optSound.checked = saved("pc.sound") !== "off"; optNotify.checked = saved("pc.notify") === "on";
@@ -3245,29 +3290,6 @@ a.rcard:hover { border-color: var(--xc); }
   const ack = (list) => { list.forEach((k) => { acked[k] = Date.now(); $$(".ntf").filter((el) => el.dataset.key === k).forEach(closeNotif); }); save("pc.acked", JSON.stringify(acked)); paintAlarms(); };
   $("#alarmAck").addEventListener("click", () => ack(allFaults().filter((k) => !acked[k])));
   $("#ackAll").addEventListener("click", () => ack(allFaults().filter((k) => !acked[k])));
-  const optTest = $("#optTest");
-  function testTick() {
-    if (Date.now() >= testUntil) { setTest(false); return; }
-    testN++;
-    const fault = testN % 2 === 1, key = `${fault ? "TEST_FAULT" : "TEST_WARNING"}:test-${p2(testN)}`;
-    testKeys = testKeys.concat([key]).slice(-4);                                   // the last 4 stay active
-    checkAlarms();
-    testTimer = setTimeout(testTick, 10000 + Math.random() * 5000);
-  }
-  function setTest(onOff) {
-    optTest.checked = onOff; clearTimeout(testTimer); testTimer = null;
-    clearInterval(testClock); paintTestLeft();
-    if (onOff) { unlock(); testN = 0; testUntil = Date.now() + TEST_MS; testTick(); testClock = setInterval(paintTestLeft, 1000); toast("Test alerts on for 10 minutes: a test alarm or warning every 10–15 s."); }
-    else { testUntil = 0; testKeys.forEach((k) => delete acked[k]); testKeys = []; save("pc.acked", JSON.stringify(acked)); checkAlarms(); toast("Test alerts finished."); }
-  }
-  optTest.addEventListener("change", () => setTest(optTest.checked));
-  function paintTestLeft() {
-    const n = $("#testLeft"); if (!n) return;
-    const left = Math.max(0, testUntil - Date.now());
-    n.textContent = testUntil && left ? `Test running — ${Math.floor(left / 60000)}:${p2(Math.floor(left / 1000) % 60)} left · ${testN} test alarm${testN === 1 ? "" : "s"} so far` : "";
-  }
-  // /?test=alerts starts the 10-minute test straight away
-  if (new URLSearchParams(location.search).get("test") === "alerts") setTimeout(() => { setTest(true); history.replaceState(null, "", location.pathname + location.hash); }, 4000);
   document.addEventListener("click", (e) => { const b = e.target.closest("[data-ack]"); if (b) ack([b.dataset.ack]); });
   async function loadAlarmHistory() {
     let r; try { r = await getJSON("/api/v1/local/alarms?hours=168&limit=600"); } catch (e) { return; }

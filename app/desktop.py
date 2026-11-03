@@ -15,6 +15,9 @@ Started by app\launch.ps1 (the desktop shortcut). By hand:
     .venv\Scripts\pythonw.exe app\desktop.py            real plant
     .venv\Scripts\pythonw.exe app\desktop.py --demo     demo plant
     .venv\Scripts\pythonw.exe app\desktop.py --no-start never start the collector, only open the window
+Installed by the Setup, the shortcut runs it with --installed --data <ProgramData>\CCI Plant Monitoring\data:
+the collector is then the background service (Windows task PlantDataCollector) and is only ever started
+as that task, never from this folder.
 Needs the pywebview package (in requirements.txt and the wheels folder); without it, launch.ps1
 falls back to an Edge/Chrome app-mode window.
 """
@@ -48,19 +51,23 @@ animation:r 1s linear infinite;vertical-align:-2px;margin-right:8px}@keyframes r
 
 
 def waiting_page(text="Starting the collector…"):
-    """The start-up page: the logo at 256 px and one line of text."""
+    """The start-up page: the logo at 256 px, the window's name and one line of text."""
     try:
         with open(LOGO, "rb") as fh:
             logo = '<img class="logo" src="data:image/png;base64,%s" alt="">' % base64.b64encode(fh.read()).decode("ascii")
     except OSError:
         logo = ""
-    return WAITING_HTML.replace("LOGO", logo, 1).replace("Starting the collector…", text)
+    return (WAITING_HTML.replace("LOGO", logo, 1).replace("Starting the collector…", text)
+            .replace("Plant Collector", TITLE))
+
+
+DATA = os.path.join(ROOT, "data")             # --data: where the collector writes dashboard.url (ProgramData when installed)
 
 
 def dashboard_url(port):
     url = "http://localhost:%d/" % port
     try:
-        with open(os.path.join(ROOT, "data", "dashboard.url"), encoding="utf-8") as fh:
+        with open(os.path.join(DATA, "dashboard.url"), encoding="utf-8") as fh:
             line = fh.readline().strip()
         if line:
             url = line if line.endswith("/") else line + "/"
@@ -168,6 +175,17 @@ def start_task(port, demo):
         return False
 
 
+def start_task_any():
+    """Start the background service task as it is registered (the Setup's copy). Harmless when it runs."""
+    if not WINDOWS:
+        return False
+    try:
+        r = subprocess.run(["schtasks", "/Run", "/TN", TASK], capture_output=True, timeout=15, creationflags=NO_WINDOW)
+        return r.returncode == 0
+    except Exception:
+        return False
+
+
 def start_collector(port, demo):
     """Same as START-PLANT.bat / START.bat without the browser tab: scripts\\run.ps1 registers the
     Windows task (asks for administrator rights once) or runs in a window if that is refused."""
@@ -179,19 +197,43 @@ def start_collector(port, demo):
     subprocess.Popen(args, cwd=ROOT, creationflags=flags)
 
 
+def app_mode_browser(port):
+    """Fallback when the native window cannot start (no WebView2 / .NET on this PC): the dashboard in Edge's
+    app mode, a window without tabs or an address bar. Edge is part of Windows 10 and 11."""
+    url = dashboard_url(port)
+    for exe in (os.path.join(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"), r"Microsoft\Edge\Application\msedge.exe"),
+                os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), r"Microsoft\Edge\Application\msedge.exe")):
+        if os.path.exists(exe):
+            subprocess.Popen([exe, "--app=" + url, "--new-window"], creationflags=NO_WINDOW if WINDOWS else 0)
+            return 0
+    os.startfile(url) if WINDOWS else None    # the default browser, as the last way
+    return 0
+
+
 def main():
+    global DATA, TITLE
     demo = "--demo" in sys.argv
     no_start = "--no-start" in sys.argv
+    installed = "--installed" in sys.argv        # the Setup's copy: the background service is the only way to start it
+    if installed:
+        TITLE = "CCI Plant Monitoring"            # the Setup's name for the application (Start Menu, Apps list, window)
     port = 8080
     for i, a in enumerate(sys.argv):
         if a == "--port" and i + 1 < len(sys.argv):
             port = int(sys.argv[i + 1])
+        if a == "--data" and i + 1 < len(sys.argv):
+            DATA = sys.argv[i + 1]
 
     set_app_id()                              # before any window exists
     if not single_instance():
         return 0                              # the open window has the focus now
 
-    import webview  # pywebview; if it is missing this ends with an error and launch.ps1 opens the browser window
+    try:
+        import webview  # pywebview; if it is missing this ends with an error and launch.ps1 opens the browser window
+    except Exception:
+        if not installed:
+            raise
+        return app_mode_browser(port)          # the Setup's copy has no launch.ps1: open Edge's app window instead
 
     url = dashboard_url(port)
     up = alive(url)
@@ -207,7 +249,10 @@ def main():
             return
         deadline = time.time() + 180          # the first start installs packages: give it time
         retry_at = None
-        if not no_start:
+        if installed:
+            if not no_start:
+                start_task_any()              # the background service: start it if Windows had it stopped
+        elif not no_start:
             if start_task(port, demo):
                 retry_at = time.time() + 30   # the task was started; if it does not answer, the long way
             else:
@@ -221,11 +266,15 @@ def main():
             if retry_at and time.time() > retry_at:
                 retry_at = None
                 start_collector(port, demo)
-        window.load_html(waiting_page("The collector did not answer. Run RUN-IN-WINDOW.bat to see why."))
+        window.load_html(waiting_page("The background service did not answer. Restart the PC, or run the Setup again to repair it."
+                                      if installed else "The collector did not answer. Run RUN-IN-WINDOW.bat to see why."))
 
     window.events.shown += lambda: set_icon(window)
     threading.Thread(target=wait_and_load, daemon=True).start()
-    webview.start(icon=ICON, private_mode=False, storage_path=os.path.join(ROOT, "data", "appwindow"))
+    # the window's own browser data: the user's profile when installed (ProgramData belongs to the service)
+    store = os.path.join(os.environ.get("LOCALAPPDATA") or DATA, "CCI Plant Monitoring", "appwindow") if installed \
+        else os.path.join(DATA, "appwindow")
+    webview.start(icon=ICON, private_mode=False, storage_path=store)
     return 0
 
 
