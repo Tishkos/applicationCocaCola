@@ -2,11 +2,13 @@
 # 10 minutes after Windows starts, and at once when "Check for updates" / "Install now" is clicked in the dashboard
 # (Settings > About: the collector drops now.flag in the update folder and starts this task).
 #
-#   1. asks GitHub for the newest published release of the program (Releases of Tishkos/applicationCocaCola)
+#   1. asks GitHub for the newest version of the program: a published Release of Tishkos/applicationCocaCola, or the
+#      Setup on its branch "setup-download" (named in that branch's SHA256SUMS.txt), whichever is newer. Plain web
+#      requests: no GitHub program, account or sign-in is needed on the PC, only internet.
 #   2. newer than the installed version (version.txt)?
 #        - installs it when "Install now" was clicked, or automatically at night (01:00-05:00, the PC's own clock)
 #          when automatic updates are on; otherwise only reports "available" in the dashboard
-#   3. installs: downloads the release's CCI-Plant-Monitoring-Setup-<version>.exe and SHA256SUMS.txt, checks the
+#   3. installs: downloads that CCI-Plant-Monitoring-Setup-<version>.exe and its SHA256SUMS.txt, checks the
 #      SHA-256, runs the Setup quietly (/S /UPDATE: the settings and the data stay as they are)
 #   4. checks the background service answers afterwards; if not, puts the previous version back (its Setup is kept)
 #      and does not try that release again
@@ -119,32 +121,79 @@ if (Test-Path $Flag) {
 $installed = Get-Installed
 Say "--- check ($mode), installed $installed, repository $Repo"
 
-# ---- 1. the newest release on GitHub ----------------------------------------------------------------------------
+# ---- 1. the newest version: a published GitHub Release, or the Setup on the branch "setup-download" ------------
+# Plain web requests to github.com, like a browser: no GitHub program, account or sign-in is needed on this PC.
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $ProgressPreference = "SilentlyContinue"
-$headers = @{ "User-Agent" = "CCI-Plant-Monitoring-Updater/$installed"; "Accept" = "application/vnd.github+json" }
+$ua = "CCI-Plant-Monitoring-Updater/$installed"
+$headers = @{ "User-Agent" = $ua; "Accept" = "application/vnd.github+json" }
+$Raw = "https://raw.githubusercontent.com/$Repo/setup-download"
+$SetupName = "^CCI-Plant-Monitoring-Setup-(\d+\.\d+\.\d+)\.exe$"
+
+function Get-Text($url) {
+    $c = (Invoke-WebRequest $url -Headers @{ "User-Agent" = $ua } -TimeoutSec 60 -UseBasicParsing).Content
+    if ($c -is [byte[]]) { $c = [Text.Encoding]::UTF8.GetString($c) }
+    return "$c"
+}
+
+function Read-Sums($text) {
+    # "<sha256>  CCI-Plant-Monitoring-Setup-1.2.3.exe" lines -> @{ file name = sha256 }
+    $out = @{}
+    foreach ($line in ("$text" -split "`r?`n")) {
+        $m = [regex]::Match($line.Trim(), "^([0-9a-fA-F]{64})\s+\*?(\S+)$")
+        if ($m.Success -and $m.Groups[2].Value -match $SetupName) { $out[$m.Groups[2].Value] = $m.Groups[1].Value.ToLower() }
+    }
+    return $out
+}
+
+function Get-Code($err) {
+    try { return [int]$err.Exception.Response.StatusCode } catch { return $null }
+}
+
+$cands = @()
+$reached = $false
+$lastErr = ""
+# a) a published GitHub Release (made by the release workflow from a tag v1.2.3)
 try {
     $rel = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers -TimeoutSec 30 -UseBasicParsing
-} catch {
-    $code = $null
-    try { $code = [int]$_.Exception.Response.StatusCode } catch {}
-    if ($code -eq 404) {
-        Save-Status "up to date" "No release is published on GitHub yet; $installed is installed." @{ latest = $null; available = $null }
-        Say "no release published yet"
-        exit 0
+    $reached = $true
+    $asset = @($rel.assets | Where-Object { $_.name -match $SetupName }) | Select-Object -First 1
+    $sums = @($rel.assets | Where-Object { $_.name -eq "SHA256SUMS.txt" }) | Select-Object -First 1
+    $v = Get-Ver "$($rel.tag_name)"
+    if ($asset -and $sums -and $v) {
+        $cands += @{ version = $v; name = $asset.name; url = $asset.browser_download_url; sums = $sums.browser_download_url; from = "the GitHub release $($rel.tag_name)" }
     }
-    Save-Status "error" ("Could not reach GitHub: " + $_.Exception.Message + " (the next check is in 4 hours).")
-    Say "GitHub not reachable: $($_.Exception.Message)"
+} catch {
+    if ((Get-Code $_) -eq 404) { $reached = $true } else { $lastErr = $_.Exception.Message }
+}
+# b) the Setup on the download branch (its SHA256SUMS.txt names it)
+try {
+    $branchSums = Read-Sums (Get-Text "$Raw/SHA256SUMS.txt")
+    $reached = $true
+    foreach ($name in @($branchSums.Keys)) {
+        $v = Get-Ver ([regex]::Match($name, $SetupName).Groups[1].Value)
+        if ($v) { $cands += @{ version = $v; name = $name; url = "$Raw/$name"; sums = "$Raw/SHA256SUMS.txt"; from = "the download branch" } }
+    }
+} catch {
+    if ((Get-Code $_) -eq 404) { $reached = $true } elseif (-not $lastErr) { $lastErr = $_.Exception.Message }
+}
+if (-not $reached) {
+    Save-Status "error" ("Could not reach GitHub: " + $lastErr + " (the next check is in 4 hours).")
+    Say "GitHub not reachable: $lastErr"
     exit 1
 }
-$tag = "$($rel.tag_name)"
-$latest = Get-Ver $tag
+$best = @($cands | Sort-Object -Property @{ Expression = { $_.version } } -Descending) | Select-Object -First 1
 $have = Get-Ver $installed
-if (-not $latest) { Save-Status "error" "The newest release on GitHub ($tag) has no version number like v1.2.3."; Say "bad tag $tag"; exit 1 }
+if (-not $best) {
+    Save-Status "up to date" "No version is published on GitHub yet; $installed is installed." @{ latest = $null; available = $null }
+    Say "nothing published yet"
+    exit 0
+}
+$latest = $best.version
 $latestText = $latest.ToString()
 if (-not $have -or $latest -le $have) {
     Save-Status "up to date" "$installed is the newest version." @{ latest = $latestText; available = $null }
-    Say "up to date (newest on GitHub: $tag)"
+    Say "up to date (newest on GitHub: $latestText, from $($best.from))"
     exit 0
 }
 if ("$($cfg.skip)" -eq $latestText -and $mode -ne "install") {
@@ -165,37 +214,24 @@ if (-not $go) {
 }
 
 # ---- 3. download and check ---------------------------------------------------------------------------------------
-$asset = @($rel.assets | Where-Object { $_.name -like "CCI-Plant-Monitoring-Setup-*.exe" }) | Select-Object -First 1
-$sums = @($rel.assets | Where-Object { $_.name -eq "SHA256SUMS.txt" }) | Select-Object -First 1
-if (-not $asset -or -not $sums) {
-    Save-Status "error" "Release $tag has no Setup file and SHA256SUMS.txt; nothing installed." @{ latest = $latestText; available = $latestText }
-    Say "release $tag lacks the Setup or SHA256SUMS.txt"
-    exit 1
-}
 $dl = Join-Path $UpdDir "download"
 Remove-Tree $dl
 New-Item -ItemType Directory -Force $dl | Out-Null
-$exe = Join-Path $dl $asset.name
+$exe = Join-Path $dl $best.name
 Save-Status "downloading" "Downloading version $latestText..." @{ latest = $latestText; available = $latestText }
-Say "downloading $($asset.name) ($([math]::Round($asset.size / 1MB, 1)) MB)"
+Say "downloading $($best.name) from $($best.from)"
 try {
-    Invoke-WebRequest $asset.browser_download_url -OutFile $exe -Headers @{ "User-Agent" = $headers["User-Agent"] } -TimeoutSec 600 -UseBasicParsing
-    $sumText = (Invoke-WebRequest $sums.browser_download_url -Headers @{ "User-Agent" = $headers["User-Agent"] } -TimeoutSec 60 -UseBasicParsing).Content
-    if ($sumText -is [byte[]]) { $sumText = [Text.Encoding]::UTF8.GetString($sumText) }
+    Invoke-WebRequest $best.url -OutFile $exe -Headers @{ "User-Agent" = $ua } -TimeoutSec 600 -UseBasicParsing
+    $want = (Read-Sums (Get-Text $best.sums))[$best.name]
 } catch {
     Save-Status "error" ("Download failed: " + $_.Exception.Message + "; nothing installed.") @{ latest = $latestText; available = $latestText }
     Say "download failed: $($_.Exception.Message)"
     exit 1
 }
-$want = $null
-foreach ($line in ($sumText -split "`r?`n")) {
-    $m = [regex]::Match($line.Trim(), "^([0-9a-fA-F]{64})\s+\*?(.+)$")
-    if ($m.Success -and $m.Groups[2].Value.Trim() -eq $asset.name) { $want = $m.Groups[1].Value.ToLower() }
-}
 $got = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
 if (-not $want -or $want -ne $got) {
     Remove-Item $exe -Force -ErrorAction SilentlyContinue
-    Save-Status "error" "The downloaded Setup does not match its SHA-256 in the release; nothing installed." @{ latest = $latestText; available = $latestText }
+    Save-Status "error" "The downloaded Setup does not match its SHA-256 in SHA256SUMS.txt; nothing installed (the next check is in 4 hours)." @{ latest = $latestText; available = $latestText }
     Say "SHA-256 mismatch: want $want got $got"
     exit 1
 }

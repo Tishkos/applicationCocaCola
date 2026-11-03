@@ -62,8 +62,9 @@ own Python 3.13 and every package, so the PC needs nothing else (no Python, no i
   application, no browser and no address. Closing it does not stop anything. It needs the Microsoft Edge
   WebView2 Runtime (part of Windows 11 and of an up-to-date Windows 10); without it the window says so and
   opens the dashboard in Edge or Chrome instead, and the service is not affected;
-- **the updater**: the Windows task `PlantCollectorUpdater` asks GitHub for the newest release every
-  4 hours. With automatic updates on, it installs it at night (01:00-05:00, the PC's clock), after
+- **the updater**: the Windows task `PlantCollectorUpdater` asks GitHub for the newest version every
+  4 hours: a published Release, or the Setup on the branch `setup-download` (named in its `SHA256SUMS.txt`),
+  whichever is newer. Plain web requests: no GitHub program, account or sign-in on the PC, only internet. With automatic updates on, it installs it at night (01:00-05:00, the PC's clock), after
   checking the file's SHA-256. If the new version does not answer within 3 minutes, it puts the previous
   one back and does not try that release again. Settings > Updates shows the state, with
   "Check for updates" and "Install now" (only in the window on that PC);
@@ -96,7 +97,8 @@ SHA-256s in `installer/runtime.lock`), the packages from `wheels\` (offline), th
 (`installer/launcher/`: they start the program's own `runtime\python313.dll` in-process, so Windows shows
 their names and icon) and the `.pyc` files. NSIS then packs it.
 
-A new release: `git tag v1.2.3 && git push origin v1.2.3`. The workflow `.github/workflows/release.yml`
+A new version for the updater: put the Setup and its `SHA256SUMS.txt` on the branch `setup-download` (the
+previous Setup removed), or publish a release: `git tag v1.2.3 && git push origin v1.2.3`. The workflow `.github/workflows/release.yml`
 runs the tests, builds the Setup and publishes it with `SHA256SUMS.txt`. The Setup is not code-signed,
 so Windows SmartScreen asks once on a hand install ("More info" > "Run anyway"); the updater is not
 affected.
