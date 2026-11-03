@@ -102,7 +102,8 @@ def one_collector(name: str = "Global\\CCI.PlantMonitoring.collector") -> bool:
             return False
         h = k.CreateMutexW(None, 0, name)
         if not h:
-            return True                          # cannot make one (no right to): never block the collector over it
+            # access denied: the service made it a moment ago; any other failure: never block the collector over it
+            return ctypes.get_last_error() != 5
         if ctypes.get_last_error() == 183:       # ERROR_ALREADY_EXISTS: another collector started at the same moment
             k.CloseHandle(ctypes.c_void_p(h))
             return False

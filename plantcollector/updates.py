@@ -70,7 +70,7 @@ def status(data_dir: str) -> dict:
     if out.get("state") in ("downloading", "installing"):
         if out.get("latest") and out["latest"] == out["version"]:
             out.update(state="up to date", message=f"Version {out['version']} is installed.", available=None)
-        elif _older_than(out.get("last_check"), 30 * 60):
+        elif _older_than(out.get("last_check"), 70 * 60):    # the updater task is stopped by Windows after 1 h
             out.update(state="error", message="The updater did not report back (see update\\updater.log); "
                                                "'Check for updates' asks it again.")
     return out

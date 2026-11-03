@@ -110,7 +110,12 @@ function Run-Setup($path) {
     $psi.Arguments = "/S /UPDATE"
     $psi.UseShellExecute = $false
     $proc = [Diagnostics.Process]::Start($psi)
-    if (-not $proc.WaitForExit(20 * 60 * 1000)) { Say "the Setup did not end within 20 minutes" | Out-Null; return -1 }
+    if (-not $proc.WaitForExit(20 * 60 * 1000)) {
+        Say "the Setup did not end within 20 minutes: stopped" | Out-Null
+        & "$env:SystemRoot\System32\taskkill.exe" /T /F /PID $proc.Id 2>&1 | Out-Null     # it holds the Setup's lock
+        Start-Sleep -Seconds 3
+        return -1
+    }
     return $proc.ExitCode
 }
 

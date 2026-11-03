@@ -3209,7 +3209,7 @@ a.rcard:hover { border-color: var(--xc); }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); cmdk.hidden ? openCmdk() : closeCmdk(); return; }
     if (e.key === "Escape" && $(".panel.zoomed")) { unzoom(); return; }
     if (e.key === "Escape" && winFull && winFullBy === "page") { setWinFull(false); return; }
-    if (typing || e.ctrlKey || e.metaKey || e.altKey || !cmdk.hidden || $("#detail").open) return;
+    if (typing || e.repeat || e.ctrlKey || e.metaKey || e.altKey || !cmdk.hidden || $("#detail").open) return;
     if (e.key === "/") { e.preventDefault(); openCmdk(); }
     else if (e.key === "t") setKiosk(!document.body.classList.contains("kiosk"));
     else if (e.key === "f") toggleFs();

@@ -9,7 +9,7 @@ Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
 
 $created = $false
-$mutex = New-Object System.Threading.Mutex($true, "Local\CCI.PlantMonitoring.updateWindow", [ref]$created)
+$mutex = [System.Threading.Mutex]::new($true, "Local\CCI.PlantMonitoring.updateWindow", [ref]$created)
 if (-not $created) { exit 0 }                          # one update window at a time
 
 if (-not $InstallDir) { $InstallDir = Join-Path $env:ProgramFiles "CCI Plant Monitoring" }
@@ -23,7 +23,12 @@ try { $from = (Get-Content $VersionFile -TotalCount 1).Trim() } catch {}
 $started = Get-Date
 
 function Read-Status {
-    try { return (Get-Content $StatusFile -Raw -ErrorAction Stop | ConvertFrom-Json) } catch { return $null }
+    # only what the updater wrote after the click: an older state (last night's error, an earlier "up to date") is
+    # not about this update
+    try {
+        if ((Get-Item $StatusFile -ErrorAction Stop).LastWriteTime -lt $started.AddSeconds(-2)) { return $null }
+        return (Get-Content $StatusFile -Raw -ErrorAction Stop | ConvertFrom-Json)
+    } catch { return $null }
 }
 function Installed {
     try { return (Get-Content $VersionFile -TotalCount 1 -ErrorAction Stop).Trim() } catch { return "" }
@@ -103,15 +108,20 @@ function Finish($ok, $message) {
     $btnClose.Visible = $true
 }
 
-$state = @{ done = $false; doneAt = $null }
+$state = @{ done = $false; doneAt = $null; working = $false }
 $timer = New-Object System.Windows.Forms.Timer
 $timer.Interval = 1000
 $timer.Add_Tick({
+    if (((Get-Date) - $started).TotalMinutes -gt 15) {
+        Finish $false "The update takes longer than expected. It goes on by itself; the details are in C:\ProgramData\CCI Plant Monitoring\update\updater.log."
+        return
+    }
     $st = Read-Status
     $now = Installed
     $markerOn = $false
     try { $markerOn = (Test-Path $Marker) -and (((Get-Date) - (Get-Item $Marker).LastWriteTime).TotalMinutes -lt 30) } catch {}
-    $newVer = ($Version -and $now -eq $Version) -or (-not $Version -and $from -and $now -and $now -ne $from)
+    # any version other than the one that ran at the click (the updater may have found an even newer one)
+    $newVer = $now -and $from -and ($now -ne $from)
     if ($newVer -and -not $markerOn) {
         if (Answers) {
             if (-not $state.done) {
@@ -129,17 +139,16 @@ $timer.Add_Tick({
         $text.Text = "Version $now is installed. Starting the background service..."
         return
     }
+    if ($markerOn) { $state.working = $true }
     if ($st) {
         switch ("$($st.state)") {
-            "downloading" { $text.Text = "Downloading version $($st.latest)..." }
-            "installing"  { $text.Text = "Installing version $($st.latest). The collector stops for about a minute; the window opens again by itself." }
-            "error"       { if (((Get-Date) - $started).TotalSeconds -gt 5) { Finish $false ("The update did not finish: " + $st.message) } }
-            "up to date"  { if (((Get-Date) - $started).TotalSeconds -gt 20 -and -not $markerOn) { Finish $true ("Nothing to install: " + $st.message) } }
+            "downloading" { $state.working = $true; $text.Text = "Downloading version $($st.latest)..." }
+            "installing"  { $state.working = $true; $text.Text = "Installing version $($st.latest). The collector stops for about a minute; the window opens again by itself." }
+            "error"       { if (-not $markerOn) { Finish $false ("The update did not finish: " + $st.message) } }
+            # final only before any download or installation was seen (afterwards: a version change, or an error)
+            "up to date"  { if (-not $state.working -and -not $markerOn) { Finish $true ("Nothing to install: " + $st.message) } }
             default       { $text.Text = "Asking the updater..." }
         }
-    }
-    if (((Get-Date) - $started).TotalMinutes -gt 15) {
-        Finish $false "The update takes longer than expected. It goes on by itself; the details are in C:\ProgramData\CCI Plant Monitoring\update\updater.log."
     }
 })
 $form.Add_Shown({ $timer.Start(); $form.Activate() })

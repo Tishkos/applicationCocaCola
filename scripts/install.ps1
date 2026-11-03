@@ -339,6 +339,7 @@ for ($i = 0; $i -lt 120; $i++) {
 }
 if ($up) {
     Say "the background service answers: $url"
+    if ($Version) { Set-Installed }                       # before the updater reads the status file
     if (-not $running) {                                  # let Settings > Updates show the newest release at once
         try { Set-Content -Path (Join-Path $UpdDir "now.flag") -Value "check" -Encoding ASCII; Start-ScheduledTask -TaskName $UpdaterTask } catch {}
     }
