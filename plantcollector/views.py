@@ -189,6 +189,7 @@ def _sum(c: Collector, prs: list[tuple[str, str]], agg: str = "sum") -> float | 
 
 def summary(c: Collector) -> dict:
     reg, st = c.registry, c.store
+    lv = c.live                                  # Settings may switch the live reader off meanwhile
     specs = series_specs(reg)
     live = {k: _sum(c, prs, agg) for k, (agg, prs) in specs.items() if "/" not in k}
 
@@ -226,7 +227,7 @@ def summary(c: Collector) -> dict:
         devices.append({
             "id": d.id, "kind": d.kind, "vendor": d.vendor, "model": d.model, "adapter": d.adapter,
             "profile_status": d.profile_status, "comms": device_comms(c, d.id),
-            "every_s": c.device_every_s(d.id), "live": c.live is not None and d.id in c.live.device_ids,
+            "every_s": c.device_every_s(d.id), "live": lv is not None and d.id in lv.device_ids,
             "points": {pid: {"v": r.value, "q": r.quality.value, "unit": r.unit, "ts": r.source_ts.isoformat(),
                              "err": r.error} for pid, r in rows.items()},
         })
@@ -242,7 +243,7 @@ def summary(c: Collector) -> dict:
                       "config": os.path.basename(c.config_path),
                       "database": c.db_path},
         "kpi": kpi,
-        "live": c.live.status() if c.live is not None else {"enabled": False, "running": False},
+        "live": lv.status() if lv is not None else {"enabled": False, "running": False},
         "active_faults": [f"{i['code']}:{i['device']}" for i in c.active_issues()],
         "devices": devices,
     }
@@ -314,15 +315,74 @@ def parse_range(frm: str | None, to: str | None, hours: float | None, now: datet
 
 # --- the live view: what feeds the plant now, and the last 15 minutes ------------------------------
 
-def live_view(c: Collector, minutes: float = 15.0) -> dict:
-    """Small and cheap, for a refresh every 2 s: the four power figures now, the last `minutes` of them,
-    and the master's view of its links (from the live reader; in the demo from the site reads)."""
+def reading_settings(c: Collector) -> dict:
+    """Settings > Reading the devices: the master's live reading, and one row per device or gateway (devices
+    behind one address, like the inverters behind the SAU logger, are read together and set together)."""
+    from .core import DEVICE_OPTIONS_S, LIVE_OPTIONS_S
+    reg, lv = c.registry, c.live
+    cfg = reg.extra.get("live") or {}
+    live_ids = list(lv.device_ids) if lv is not None else [d for d in (cfg.get("devices") or []) if d in reg.devices]
+    names = {}
+    for v in (cfg.get("links") or {}).values():
+        if isinstance(v, (list, tuple)) and len(v) >= 2:
+            for d in v[1:]:
+                names.setdefault(d, str(v[0]))
+    site = int(c.poll_interval_s)
+
+    def every_text(s):
+        return f"{s // 3600} h" if s >= 3600 and s % 3600 == 0 else f"{s // 60} min" if s >= 60 else f"{s} s"
+
+    groups: dict[str, list] = {}
+    for d in reg.devices.values():
+        if lv is not None and d.id in lv.device_ids:
+            continue
+        conn = d.connection or {}
+        key = f"{conn.get('host')}:{conn.get('port', 502)}" if conn.get("host") else d.id
+        groups.setdefault(key, []).append(d)
+    rows = []
+    for key, ds in groups.items():
+        ids = [d.id for d in ds]
+        host = (ds[0].connection or {}).get("host", "")
+        if len(ds) > 1 and any(d.kind == "pv" for d in ds):
+            n_inv = sum(1 for d in ds if d.kind == "pv" and "inverter" in (d.model or "").lower())
+            name, what = "Solar: the SAU logger", f"{host} · the PV array" + (f" and {n_inv} inverter{'' if n_inv == 1 else 's'}" if n_inv else "") + f" ({len(ds)} devices)"
+        elif len(ds) > 1:
+            name, what = host or key, f"{len(ds)} devices: {', '.join(ids)}"
+        else:
+            d = ds[0]
+            name = names.get(d.id) or d.id
+            what = " · ".join(x for x in (host, f"{d.vendor} {d.model}".strip()) if x)
+        evs = [c.device_every_s(i) for i in ids]
+        choice = {c.device_choice.get(i) for i in ids}
+        guard = any(i in c.every_override and i not in c.device_choice for i in ids) and None in choice
+        rows.append({"key": key, "name": name, "what": what, "devices": ids, "every_s": int(max(evs)),
+                     "choice": next(iter(choice)) if len(choice) == 1 else None, "slowed": guard,
+                     "options": [{"value": v, "label": f"with every site read ({every_text(site)})" if v == 0 else
+                                  f"every {every_text(v)}"} for v in DEVICE_OPTIONS_S if v == 0 or v > site]})
+    live_now = int(lv.wanted_every_s) if lv is not None else 0
+    return {"site_every_s": site, "simulated": c.simulated,
+            "live": {"available": bool(live_ids) and not c.simulated, "devices": live_ids,
+                     "names": [f"{reg.devices[i].vendor} {reg.devices[i].model}".strip() or i for i in live_ids],
+                     "every_s": live_now, "actual_every_s": lv.every_s if lv is not None else None,
+                     "running": bool(lv is not None and lv.running),
+                     "options": [{"value": v, "label": "off (read with the site read)" if v == 0 else f"every {every_text(v)}"}
+                                 for v in LIVE_OPTIONS_S]},
+            "groups": rows}
+
+
+def live_view(c: Collector, minutes: float | None = None) -> dict:
+    """Small and cheap, for a refresh at the live rate: the four power figures now, the last `minutes` of them
+    (by default 15, or 60 when the master is read every 30 s or slower), and the master's view of its links
+    (from the live reader; in the demo, or with the live reading off, from the site reads)."""
     from .live import history_since
-    hist = history_since(c.live, c, minutes) if c.live is not None else \
+    lv = c.live                                  # Settings may switch the live reader off meanwhile
+    if minutes is None:
+        minutes = lv.chart_minutes() if lv is not None else 15.0
+    hist = history_since(lv, c, minutes) if lv is not None else \
         [p for p in list(c._sim_history) if p[0] >= (c.now() - timedelta(minutes=minutes)).timestamp() * 1000]
     now = c.live_point()
-    st = c.live.status() if c.live is not None else {"enabled": False, "running": False}
-    if c.live is None:          # no live reader (the demo, or live off): the master's link bits from the site read
+    st = lv.status() if lv is not None else {"enabled": False, "running": False}
+    if lv is None:          # no live reader (the demo, or live off): the master's link bits from the site read
         links = {}
         for pid, v in ((c.registry.extra.get("live") or {}).get("links") or {}).items():
             name = v[0] if isinstance(v, (list, tuple)) and v else str(v)
@@ -330,9 +390,9 @@ def live_view(c: Collector, minutes: float = 15.0) -> dict:
             val = c.store.value(dev.id, pid) if dev else None
             links[pid] = {"name": str(name), "failing": None if val is None else bool(val), "since": None}
         st["links"] = links
-    return {"time": c.now().isoformat(), "every_s": c.live.every_s if c.live is not None else c.poll_interval_s,
+    return {"time": c.now().isoformat(), "every_s": lv.every_s if lv is not None else c.poll_interval_s,
             "running": st.get("running", False), "last_ok": st.get("last_ok"), "backing_off": st.get("backing_off", False),
             "columns": ["t", "load_kw", "pv_kw", "genset_kw", "mains_kw"], "now": now, "history": hist,
             "links": st.get("links", {}), "site_read": c.last_poll_at.isoformat() if c.last_poll_at else None,
-            "site_every_s": c.poll_interval_s}
+            "site_every_s": c.poll_interval_s, "minutes": minutes}
 

@@ -18,6 +18,10 @@ from .store import TelemetryStore
 
 POLL_MIN_S = 600                                    # never read the plant more often than this (10 min)
 POLL_OPTIONS_S = (600, 1800, 3600, 7200)            # what the dashboard offers: 10 min, 30 min, 1 h, 2 h
+# Settings > Reading the devices: the master's live reading (0 = off: the master is then read at the site read)
+LIVE_OPTIONS_S = (0, 5, 10, 30, 60, 120, 300)
+# ... and each other device: 0 = with every site read, or less often (never more often than the site read)
+DEVICE_OPTIONS_S = (0, 1800, 3600, 7200)
 SAME_HOST_PAUSE_S = 0.2                             # between two devices behind the same gateway in a site read
 
 
@@ -94,6 +98,22 @@ class Collector:
                     continue
                 if did in self.registry.devices and s > 0:
                     self.every_override[did] = max(s, self.every_override.get(did, 0))
+        # what was chosen in Settings > Reading the devices (0 = with every site read); a later slow-down by the
+        # live guard removes the choice for that device again
+        self.device_choice: dict[str, int] = {}
+        if not self.simulated:
+            chosen = self._load_settings().get("device_every_s")
+            for did, s in (chosen.items() if isinstance(chosen, dict) else []):
+                try:
+                    s = int(s)
+                except (TypeError, ValueError):
+                    continue
+                if did in self.registry.devices and s in DEVICE_OPTIONS_S:
+                    self.device_choice[did] = s
+                    if s:
+                        self.every_override[did] = s
+                    else:
+                        self.every_override.pop(did, None)
         self.live = None                         # the live reader (plantcollector.live), started by `run`
         from collections import deque
         self._sim_history: deque = deque(maxlen=200)       # the demo's live chart (no live reader there)
@@ -134,7 +154,7 @@ class Collector:
 
     def _load_settings(self) -> dict:
         try:
-            with open(self.settings_path) as f:
+            with open(self.settings_path, encoding="utf-8-sig") as f:        # a BOM (an edit on Windows) is fine too
                 data = json.load(f) or {}
             return data if isinstance(data, dict) else {}
         except (FileNotFoundError, ValueError, OSError):
@@ -183,28 +203,43 @@ class Collector:
 
     def device_every_s(self, did: str) -> float:
         """How often this program reads the device: the live interval, a slower one, or the site read's."""
-        if self.live is not None and did in self.live.device_ids:
-            return self.live.every_s
-        return float(self.every_override.get(did, self.poll_interval_s))
+        lv = self.live
+        if lv is not None and did in lv.device_ids:
+            return lv.every_s
+        return float(max(self.every_override.get(did, 0), self.poll_interval_s))
 
     def slow_down(self, did: str, seconds: int, why: str) -> None:
         """Read `did` only every `seconds` from now on, and remember it (the live guard calls this)."""
         self.every_override[did] = int(seconds)
+        self.device_choice.pop(did, None)
         if not self.simulated:
             def change(data):
                 if not isinstance(data.get("slowed_devices"), dict):
                     data["slowed_devices"] = {}
                 data["slowed_devices"][did] = int(seconds)
                 data["slowed_at"] = datetime.now(timezone.utc).isoformat()
+                if isinstance(data.get("device_every_s"), dict):
+                    data["device_every_s"].pop(did, None)
             try:
                 self._update_settings(change)
             except OSError as exc:
                 print(f"[collector] could not save the slower rate of {did}: {exc}")
         self.store.event("read_rate", why, device_id=did, severity="warning", code="READ_SLOWED")
 
+    def live_cfg(self) -> dict:
+        """The config's live block with the rate chosen in Settings (live_every_s in settings.json) applied."""
+        cfg = dict(self.registry.extra.get("live") or {})
+        if not self.simulated:
+            saved = self._load_settings().get("live_every_s")
+            if isinstance(saved, (int, float)) and not isinstance(saved, bool) and int(saved) in LIVE_OPTIONS_S:
+                cfg["enabled"] = int(saved) > 0
+                if int(saved) > 0:
+                    cfg["every_s"] = int(saved)
+        return cfg
+
     def start_live(self) -> bool:
-        """Start the live reader when the config asks for it (real plant only; the demo has its own clock)."""
-        cfg = self.registry.extra.get("live") or {}
+        """Start the live reader when the config (or Settings) asks for it (real plant only; the demo has its own clock)."""
+        cfg = self.live_cfg()
         if self.simulated or not cfg.get("enabled") or self.live is not None:
             return False
         from .live import LiveReader
@@ -214,6 +249,67 @@ class Collector:
         self.live = r
         r.start()
         return True
+
+    def set_live_every(self, seconds: int) -> None:
+        """Settings: how often the master is read for the live view (0 = not live: read at the site read).
+        Applied at once and remembered in settings.json."""
+        seconds = int(seconds)
+        if seconds not in LIVE_OPTIONS_S:
+            raise ValueError(f"the live reading must be one of {list(LIVE_OPTIONS_S)} seconds (0 = off)")
+        if self.simulated:
+            raise ValueError("the demo has no live reading; this setting applies to the real plant config")
+        if seconds and not ((self.registry.extra.get("live") or {}).get("devices")):
+            raise ValueError("the config has no live devices (live.devices)")
+
+        def change(data):
+            data["live_every_s"] = seconds
+            data["changed_at"] = datetime.now(timezone.utc).isoformat()
+        self._update_settings(change)
+        if seconds == 0:
+            old, self.live = self.live, None
+            if old is not None:
+                old.close()
+                if old.thread is not None:
+                    old.thread.join(timeout=20)
+        elif self.live is None:
+            self.start_live()
+        else:
+            self.live.set_every(seconds)
+        self.store.event("settings", "live reading of the master: " + (f"every {seconds} s" if 0 < seconds < 60 else
+                         f"every {seconds // 60} min" if seconds else "off (read at the site read)"), severity="info", code="SETTINGS")
+
+    def set_device_every(self, dids: list[str], seconds: int) -> None:
+        """Settings: read these devices with every site read (0) or less often. Applied at once, remembered in
+        settings.json; it also undoes a slow-down by the live guard for them."""
+        seconds = int(seconds)
+        if seconds not in DEVICE_OPTIONS_S:
+            raise ValueError(f"the reading must be one of {list(DEVICE_OPTIONS_S)} seconds (0 = with every site read)")
+        if self.simulated:
+            raise ValueError("the demo refreshes every 30 s; this setting applies to the real plant config")
+        live = set(self.live.device_ids) if self.live is not None else set()
+        for did in dids:
+            if did not in self.registry.devices:
+                raise ValueError(f"unknown device {did}")
+            if did in live:
+                raise ValueError(f"{did} is read live; set the master's live reading instead")
+        for did in dids:
+            self.device_choice[did] = seconds
+            if seconds:
+                self.every_override[did] = seconds
+            else:
+                self.every_override.pop(did, None)
+
+        def change(data):
+            ch = data.get("device_every_s") if isinstance(data.get("device_every_s"), dict) else {}
+            sl = data.get("slowed_devices") if isinstance(data.get("slowed_devices"), dict) else {}
+            for did in dids:
+                ch[did] = seconds
+                sl.pop(did, None)
+            data["device_every_s"], data["slowed_devices"] = ch, sl
+            data["changed_at"] = datetime.now(timezone.utc).isoformat()
+        self._update_settings(change)
+        self.store.event("settings", f"{', '.join(dids)}: read " + (f"every {seconds // 60} min" if seconds else "with every site read"),
+                         severity="info", code="SETTINGS")
 
     def turkey_latest(self, did: str) -> dict:
         """The device's values as the Turkey feed shows them: those of the last site read."""
@@ -251,7 +347,8 @@ class Collector:
         return last is None or now_mono - last >= every - 5          # 5 s grace: the site read itself takes time
 
     def _poll(self) -> None:
-        live = self.live if (self.live is not None and self.live.running) else None
+        lv = self.live                           # Settings may switch the live reader off meanwhile
+        live = lv if (lv is not None and lv.running) else None
         now_mono = time.monotonic()
         prev_host = None
         for did, ad in self.adapters.items():
@@ -280,13 +377,13 @@ class Collector:
             self._health(did, rows)
         try:                                     # free the gateway's connection slots between polls
             from .adapters.modbus_tcp import close_all
-            close_all(keep=self.live.endpoints if self.live is not None else frozenset())   # the live one stays open
+            close_all(keep=lv.endpoints if lv is not None and lv is self.live else frozenset())   # the live one stays open
         except Exception:
             pass
         self.site_snapshot = {did: self.store.latest(did) for did in self.registry.devices}
         self.polls += 1
         self.last_poll_at = datetime.now(timezone.utc)
-        if self.live is None:
+        if lv is None:
             self._sim_history.append(self.live_point())
         for fn in list(self.after_poll):
             try:

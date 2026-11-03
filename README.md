@@ -72,7 +72,7 @@ own Python 3.13 and every package, so the PC needs nothing else (no Python, no i
 **The database** is SQLite, built into the program (no database server to install or look after):
 `C:\ProgramData\CCI Plant Monitoring\data\telemetry.sqlite`, in WAL mode, so a power cut does not damage it.
 Every reading of every site read (all devices, every 10 minutes) is stored, and nothing is ever deleted.
-The live reading of the master (every 2 s) is stored once a minute, every state change at once, and
+The live reading of the master (every minute by default) is stored once a minute, every state change at once, and
 every value at least every 5 minutes. With the plant config (15 devices, 688 points) that is roughly
 100,000 site rows and up to 130,000 live rows a day, about 30-35 MB a day.
 
@@ -202,9 +202,17 @@ Changing the poll rate: the dashboard's **Settings** page (10 min / 30 min / 1 h
 | What | How often | Why |
 |---|---|---|
 | **Site read** - every device, then the **Turkey feed** (Modbus registers, `/api/v1/tags`, the tag files) | every 10 min | what Turkey was told; their values change only here |
-| **InteliNeo master** | every 2 s, one kept connection, 3 requests | it already knows gensets P (CAN), mains import P, PV actual P, breakers, mode, which genset is on the bus: the dashboard is live without one extra request to the SAU or the InteliMains |
-| SAU + 10 inverters, pv-array | at the site read (10 min), 0.2 s between devices | no load on the SAU |
-| InteliMains MAIN 1-3 | at the site read (10 min) | see the guard below |
+| **InteliNeo master** | every 1 min (Settings: 5 s ... 5 min, or off), one kept connection, 3 requests | it already knows gensets P (CAN), mains import P, PV actual P, breakers, mode, which genset is on the bus: the dashboard is live without one extra request to the SAU or the InteliMains |
+| SAU + 10 inverters, pv-array | at the site read (10 min), 0.2 s between devices (Settings: or 30 min / 1 h / 2 h) | no load on the SAU |
+| InteliMains MAIN 1-3 | at the site read (10 min) (Settings: or 30 min / 1 h / 2 h, each on its own) | see the guard below |
+
+**Settings > Reading the devices** sets all of these from the dashboard: the master's live rate (5 s, 10 s, 30 s,
+1 min, 2 min, 5 min, or off: then the master is read at the site read like the others), and for every other device or
+gateway "with every site read" or less often. Applied at once, kept in `data\settings.json` (`live_every_s`,
+`device_every_s`) after restarts and updates. Devices behind one address (the inverters and the PV array behind the SAU
+logger) are one row. Choosing "with every site read" also undoes an automatic slow-down by the guard. With the master
+read every 30 s or slower, the live chart shows the last hour instead of 15 minutes. Turkey's feed is built at the site
+read either way; a device read less often than the site read shows its Turkey values as stale between its reads.
 
 - The live reader never refreshes the Turkey feed. It never asks the master more than `max_requests_per_s` (2): if the
   controller makes us read in smaller blocks, the live rate slows down by itself. When the master does not answer it
@@ -215,10 +223,10 @@ Changing the poll rate: the dashboard's **Settings** page (10 min / 30 min / 1 h
 - **The master's own comm-fail bits** (ECU 1-5: MAIN 1-3 and the two PV logger groups) are shown live in "Devices the
   master reads" and every fail and its end goes to Alarms & events, with "N s after this program read <device>" when it
   came right after one of our reads. A device in `back_off` (the InteliMains) that the master loses right after our read
-  twice is read only hourly from then on (`slowed_devices` in `data\settings.json`; delete that entry to undo).
-- New on the dashboard: "Last 15 minutes · live" under the single-line diagram, "Devices the master reads" in the master
-  row, and how often each device is read (row titles and device cards). The overview, the diagram, the gensets and the
-  master refresh every 3 s while the master is read live.
+  twice is read only hourly from then on (`slowed_devices` in `data\settings.json`; Settings > Reading the devices undoes it).
+- New on the dashboard: "Last 15 minutes · live" (or "Last hour · live") under the single-line diagram, "Devices the
+  master reads" in the master row, and how often each device is read (row titles and device cards). The overview, the
+  diagram, the gensets and the master refresh at the live rate while the master is read live (every 3 to 10 s).
 - `live: {enabled: false}` puts everything back at the site read, as before.
 - A PC with Wi-Fi or a 4G router in the same 192.168.0.x range as the plant cable: set `network: {source_address:
   <the PC's cable address>}`, or Windows sends the plant's traffic out through the Wi-Fi and every device looks dead.

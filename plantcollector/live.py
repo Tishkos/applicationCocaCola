@@ -44,9 +44,11 @@ class LiveReader:
         # its "Not Used" registers is read as several smaller blocks, and then the live rate slows down
         self.max_rps = max(0.5, float(cfg.get("max_requests_per_s", 2)))
         self.wanted_every_s = self.every_s
-        self.store_every_s = max(self.every_s, float(cfg.get("store_every_s", 60)))
+        self._store_base = float(cfg.get("store_every_s", 60))
+        self.store_every_s = max(self.every_s, self._store_base)
         # an unchanged value is still stored every 5 min, so every 10-minute bucket of the trends has a reading
-        self.idle_store_s = max(self.store_every_s, float(cfg.get("idle_store_s", 300)))
+        self._idle_base = float(cfg.get("idle_store_s", 300))
+        self.idle_store_s = max(self.store_every_s, self._idle_base)
         self.device_ids = [d for d in (cfg.get("devices") or []) if d in reg.devices]
         # the live devices' (host, port): their connections are kept open between site reads
         self.endpoints = frozenset(endpoint(reg.devices[d]) for d in self.device_ids if reg.devices[d].connection.get("host"))
@@ -56,7 +58,10 @@ class LiveReader:
             name, devs = (v[0], list(v[1:])) if isinstance(v, (list, tuple)) and v else (str(v), [])
             self.links[str(pid)] = (str(name), [d for d in devs if d in reg.devices])
         self.back_off = {d for d in (cfg.get("back_off") or []) if d in reg.devices}
-        self.guard_window_s = float(cfg.get("guard_window_s", 15))
+        # how soon after this program's read a comm fail on the master counts as "right after": the configured window,
+        # plus one live interval when the master is read slowly (the fail is only seen at the next live read)
+        self._guard_base = float(cfg.get("guard_window_s", 15))
+        self.guard_window_s = self._guard_window()
         self.guard_count = int(cfg.get("guard_count", 2))
         self.guard_period_s = float(cfg.get("guard_period_s", 86400))      # the hits must fall within a day ...
         self.guard_share = float(cfg.get("guard_share", 0.5))              # ... and be at least half of that link's fails
@@ -78,8 +83,9 @@ class LiveReader:
         self._edges: dict[str, list[float]] = {}                # device -> times the master lost it at all
         self._bad_run = {d: 0 for d in self.device_ids}
         self._ok_run = {d: 0 for d in self.device_ids}
-        self.history: deque = deque(maxlen=int(900 / self.every_s) + 5)   # the last 15 min for the live chart
+        self.history: deque = deque(maxlen=self._history_len())   # the live chart: 15 min, or 1 h when read slowly
         self.stop = threading.Event()
+        self._wake = threading.Event()                           # a new rate from Settings: the next cycle at once
         self.thread: threading.Thread | None = None
         self.cycles = 0
         self.failures_in_row = 0
@@ -87,14 +93,36 @@ class LiveReader:
         self.last_cycle_at: datetime | None = None
         self.last_ms: float | None = None
 
+    def _guard_window(self) -> float:
+        return self._guard_base if self.every_s <= 5 else self._guard_base + self.every_s
+
+    def _history_len(self) -> int:
+        """Points kept for the live chart: 15 minutes, or an hour when the master is read every 30 s or slower."""
+        minutes = 60 if self.every_s >= 30 else 15
+        return int(minutes * 60 / self.every_s) + 5
+
+    def chart_minutes(self) -> int:
+        return 60 if self.every_s >= 30 else 15
+
+    def set_every(self, seconds: float) -> None:
+        """A new live rate from Settings, applied at the next cycle (which starts at once)."""
+        self.wanted_every_s = max(1.0, float(seconds))
+        self.every_s = self.wanted_every_s
+        self._pace()
+        self.store_every_s = max(self.every_s, self._store_base)
+        self.idle_store_s = max(self.store_every_s, self._idle_base)
+        self.guard_window_s = self._guard_window()
+        self.history = deque(self.history, maxlen=self._history_len())
+        self._wake.set()
+
     # ------------------------------------------------------------------ state
     @property
     def running(self) -> bool:
-        """True while the thread is alive and has finished a cycle in the last minute (or is backing off
-        on purpose): the site read then leaves these devices to it."""
+        """True while the thread is alive and has finished a cycle lately (two and a half live intervals, at
+        least 90 s; or is backing off on purpose): the site read then leaves these devices to it."""
         if self.thread is None or not self.thread.is_alive() or self.last_cycle_at is None:
             return False
-        return (datetime.now(timezone.utc) - self.last_cycle_at).total_seconds() < 90
+        return (datetime.now(timezone.utc) - self.last_cycle_at).total_seconds() < max(90.0, 2.5 * self.every_s + 30)
 
     def status(self) -> dict:
         return {"enabled": True, "running": self.running, "every_s": self.every_s, "devices": self.device_ids,
@@ -115,6 +143,7 @@ class LiveReader:
 
     def close(self) -> None:
         self.stop.set()
+        self._wake.set()
 
     def _run(self) -> None:
         while not self.stop.is_set():
@@ -126,10 +155,11 @@ class LiveReader:
                 ok = False
             self.failures_in_row = 0 if ok else min(self.failures_in_row + 1, 6)
             wait = self.every_s * (2 ** self.failures_in_row) if self.failures_in_row else self.every_s
-            wait = min(60.0, wait)
+            wait = min(max(60.0, self.every_s), wait)          # backing off never asks more often than normal
             elapsed = time.monotonic() - t0
             # a slow master gets more rest, not less: never busy with it more than half of the time
-            self.stop.wait(max(0.2, wait - elapsed, min(elapsed, 60.0)))
+            self._wake.wait(max(0.2, wait - elapsed, min(elapsed, 60.0)))
+            self._wake.clear()
 
     # ------------------------------------------------------------------ one cycle
     def cycle(self) -> bool:

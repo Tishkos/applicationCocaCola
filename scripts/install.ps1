@@ -167,6 +167,20 @@ if ($Import -and -not (Test-Path (Join-Path $DataDir "telemetry.sqlite"))) {
     }
 }
 
+# the master's live reading: every minute, unless a rate was already chosen in Settings > Reading the devices (a config
+# from an earlier copy reads it every 2 s). Written once, without a BOM (the collector reads this file).
+$sj = Join-Path $DataDir "settings.json"
+try {
+    $o = $null
+    if (Test-Path $sj) { $o = Get-Content $sj -Raw | ConvertFrom-Json }
+    if ($null -eq $o) { $o = New-Object PSObject }
+    if ($null -eq $o.live_every_s) {
+        $o | Add-Member -NotePropertyName live_every_s -NotePropertyValue 60 -Force
+        [IO.File]::WriteAllText($sj, ($o | ConvertTo-Json -Depth 6), (New-Object Text.UTF8Encoding $false))
+        Say "the master is read every minute for the live view (Settings > Reading the devices changes it)"
+    }
+} catch { Say "note: settings.json not changed ($($_.Exception.Message))" }
+
 # the PC's own plant address, when another network adapter of the PC is in the same range (a Wi-Fi or 4G router)
 $cfgText = Get-Content $cfg -Raw
 if ($cfgText -notmatch "(?m)^network:") {

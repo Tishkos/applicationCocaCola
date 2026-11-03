@@ -300,6 +300,17 @@ input[aria-invalid="true"] { border-color: var(--bad); }
 .actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px 12px; }
 .note { color: var(--text-2); font-size: calc(12px * var(--zoom)); } .note.bad { color: var(--bad); }
 .hint { color: var(--text-3); font-size: calc(12px * var(--zoom)); padding: 0 12px 12px; }
+/* Settings > Reading the devices: one row per device (or gateway), its name on the left, the rate on the right */
+.rdg { display: grid; padding: 2px 12px 0; }
+.rdg .rrow { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.rdg .rrow:last-child { border-bottom: 0; }
+.rdg .rrow > div { min-width: 0; flex: 1 1 220px; }
+.rdg .rrow b { display: block; color: var(--text); font-weight: 600; font-size: calc(13px * var(--zoom)); }
+.rdg .rrow small { display: block; color: var(--text-3); font-size: calc(11.5px * var(--zoom)); margin-top: 2px; overflow-wrap: anywhere; }
+.rdg .rrow em { display: block; font-style: normal; color: var(--warn); font-size: calc(11.5px * var(--zoom)); margin-top: 2px; }
+.rdg .rrow select { flex: 0 0 auto; min-width: 210px; }
+.rdg .rrow.changed select { border-color: var(--primary); }
+.rdg .rsec { padding: 12px 0 2px; color: var(--text-2); font-size: calc(11px * var(--zoom)); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 dl.about { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; padding: 6px 12px 12px; font-size: calc(12.5px * var(--zoom)); }
 dl.about dt { color: var(--text-2); } dl.about dd { margin: 0; font-family: var(--mono); word-break: break-all; }
 
@@ -699,7 +710,9 @@ a.rcard:hover { border-color: var(--xc); }
 @keyframes expGlow { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 14%, transparent); } }
 @keyframes expArrow { 0% { transform: translate(-2px, 2px); opacity: .5; } 60% { transform: translate(1px, -1px); opacity: 1; } 100% { transform: translate(-2px, 2px); opacity: .5; } }
 .hero .mix { position: relative; display: flex; height: calc(8px * var(--zoom)); max-width: 560px; margin: 10px 0 6px; border-radius: 4px; overflow: hidden; background: var(--panel-3); }
-.hero .mix > i { display: block; height: 100%; background: var(--c); animation: mixIn .9s cubic-bezier(.2, .9, .3, 1) both; transform-origin: left; }
+.hero .mix > i { display: block; height: 100%; background: var(--c); animation: mixIn .9s cubic-bezier(.2, .9, .3, 1) both; transform-origin: left;
+                 transition: width .7s cubic-bezier(.2, .9, .3, 1); }
+.hero .mix.kept > i { animation: none; }          /* redrawn with new values: the shares move, they do not grow from 0 again */
 .hero .mix > i + i { box-shadow: inset 2px 0 0 var(--panel); }
 .hero .mix .exp { position: absolute; top: 0; bottom: 0; inset-inline-end: 0; background: repeating-linear-gradient(135deg, rgba(255,255,255,.7) 0 3px, transparent 3px 7px); box-shadow: inset 2px 0 0 #73bf69; animation: none; }
 [dir="rtl"] .hero .mix > i { transform-origin: right; }
@@ -907,7 +920,7 @@ a.rcard:hover { border-color: var(--xc); }
             <div class="pb" style="padding:0 8px 8px"><svg class="sld" id="flow" viewBox="0 0 1600 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Single-line diagram of the plant"></svg></div>
           </div>
           <div class="panel w24" data-src="live" id="p-live">
-            <div class="ph"><h3>Last 15 minutes · live</h3><span class="info" title="What feeds the plant, second by second: solar, gensets and grid stacked, the site load as a dashed line. From the master controller, which already knows every source, so nothing extra is asked of the SAU or the incomers. The Turkey feed does not follow these values; it changes at the site read."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" id="liveNote"></span></div>
+            <div class="ph"><h3>Last 15 minutes · live</h3><span class="info" title="What feeds the plant, at the master's live rate (Settings > Reading the devices): solar, gensets and grid stacked, the site load as a dashed line. From the master controller, which already knows every source, so nothing extra is asked of the SAU or the incomers. The Turkey feed does not follow these values; it changes at the site read."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" id="liveNote"></span></div>
             <div class="pb"><div class="chart"><canvas id="c-live"></canvas></div></div>
             <div class="legend" id="lg-live"></div>
           </div>
@@ -1270,6 +1283,12 @@ a.rcard:hover { border-color: var(--xc); }
             <div class="form"><label>Read the devices every <select id="setInterval"></select></label></div>
             <div class="actions"><button class="btn primary" id="setSave">Save</button><span class="note" id="setNote" role="status"></span></div>
             <div class="hint">Every 10 minutes at the most. Every reading is saved in the database the moment it is read. For a one-off read at any time use "Read devices now" at the top. The setting is kept in <code>data\settings.json</code> and survives restarts.</div>
+          </div>
+          <div class="panel w12" id="p-reading">
+            <div class="ph"><h3>Reading the devices</h3><span class="r">how often each one is asked</span></div>
+            <div class="rdg" id="rdgList"></div>
+            <div class="actions"><button class="btn primary" type="button" id="rdgSave" disabled>Save</button><span class="note" id="rdgNote" role="status"></span></div>
+            <div class="hint">The master controller gives the live view: who powers the plant, the gensets, the mains and the solar. Reading it less often means less load on it, and the live view moves less often. Every other device is read at the site read, or less often to give it more rest. Turkey's feed is built at the site read either way; the values of a device read less often than the site read show as stale to Turkey in between. Applied at once, kept in <code>settings.json</code> after restarts and updates.</div>
           </div>
           <div class="panel w12" id="p-upd">
             <div class="ph"><h3>Updates</h3><span class="r">new versions from GitHub</span></div>
@@ -1780,7 +1799,8 @@ a.rcard:hover { border-color: var(--xc); }
   }
   function renderLive() {
     const r = liveData; if (!r) return;
-    const now = Date.parse(r.time), range = [now - 15 * 60e3, now], H = r.history || [];
+    const mins = r.minutes || 15, now = Date.parse(r.time), range = [now - mins * 60e3, now], H = r.history || [];
+    $("#p-live h3").textContent = mins >= 60 ? "Last hour · live" : "Last 15 minutes · live";
     const has = (i) => H.some((p) => p[i] !== null);
     const pts = (i, f) => H.map((p) => ({ x: p[0], y: p[i] === null ? null : f ? f(p[i]) : p[i] }));
     const ds = [], pos = (v) => Math.max(0, v);
@@ -1795,7 +1815,7 @@ a.rcard:hover { border-color: var(--xc); }
     const lo = r.last_ok ? Date.parse(r.last_ok) : null;
     $("#liveNote").textContent = r.running
       ? (r.backing_off ? (lo ? `master slow or not answering · last good answer ${clockS(lo)}` : "master slow or not answering")
-                       : (lo ? `master every ${fmt(r.every_s)} s · ${clockS(lo)}` : `master every ${fmt(r.every_s)} s`))
+                       : (lo ? `master every ${liveEvery(r.every_s)} · ${clockS(lo)}` : `master every ${liveEvery(r.every_s)}`))
       : `from the site read · every ${everyText(r.site_every_s)}`;
     const L = Object.values(r.links || {});
     $("#p-mlinks").hidden = !L.length;
@@ -1804,14 +1824,16 @@ a.rcard:hover { border-color: var(--xc); }
       return sig(x.name, unknown ? "idle" : x.failing ? "bad" : "ok", unknown ? "—" : x.failing ? (since ? `COMM FAIL since ${clockS(since)}` : "COMM FAIL") : "OK");
     }).join(""));
   }
-  // how often a device is read, in words: "live, every 2 s", "every 10 min", "every 1 h"
-  const rateOf = (d) => !d || !isNum(d.every_s) ? "" : d.live && isLive() ? `live, every ${fmt(d.every_s)} s` : `every ${everyText(d.every_s)}`;
+  // how often a device is read, in words: "live, every 5 s", "live, every 1 min", "every 10 min", "every 1 h"
+  const liveEvery = (s) => s >= 60 ? everyText(s) : `${fmt(s)} s`;
+  const rateOf = (d) => !d || !isNum(d.every_s) ? "" : d.live && isLive() ? `live, every ${liveEvery(d.every_s)}` : `every ${everyText(d.every_s)}`;
 
   // ================================================================== summary
   let summaryTimer = null;
   function summaryTick() {
     clearTimeout(summaryTimer);
-    loadSummary().finally(() => { summaryTimer = setTimeout(summaryTick, !document.hidden && isLive() ? 3000 : 10000); });
+    // live: as often as the master is read (3 s at the fastest, 10 s at the slowest); otherwise every 10 s
+    loadSummary().finally(() => { summaryTimer = setTimeout(summaryTick, !document.hidden && isLive() ? Math.min(10000, Math.max(3000, (summary.live.every_s || 2) * 1000)) : 10000); });
   }
   async function loadSummary() {
     try { summary = await getJSON("/api/v1/local/summary"); }
@@ -1838,8 +1860,8 @@ a.rcard:hover { border-color: var(--xc); }
     const every = pi >= 3600 ? (pi / 3600) + " h" : pi >= 60 ? (pi / 60) + " min" : pi + " s";
     const nx = summary.collector.next_poll ? Math.max(0, Math.round((new Date(summary.collector.next_poll) - new Date(summary.time)) / 60000)) : null;
     if (isLive()) {        // the master every few seconds; the rest (and the Turkey feed) at the site read
-      $("#liveSub").textContent = `master every ${fmt(summary.live.every_s)} s · site read ${hm(lr)}`;
-      $("#flowTime").textContent = `live · master every ${fmt(summary.live.every_s)} s · site read ${hm(lr)}:${p2(parts(lr).s)}, every ${every}`;
+      $("#liveSub").textContent = `master every ${liveEvery(summary.live.every_s)} · site read ${hm(lr)}`;
+      $("#flowTime").textContent = `live · master every ${liveEvery(summary.live.every_s)} · site read ${hm(lr)}:${p2(parts(lr).s)}, every ${every}`;
       return;
     }
     $("#liveSub").textContent = `last read ${hm(lr)}:${p2(parts(lr).s)}` + (ago < 3600 ? ` · ${ago < 60 ? ago + " s" : Math.floor(ago / 60) + " min"} ago` : "");
@@ -1926,8 +1948,13 @@ a.rcard:hover { border-color: var(--xc); }
     // the mix bar: every source's share of what is produced now; the hatched end is what goes out to the grid
     const total = srcs.reduce((a, x) => a + x[2], 0);
     const pct = (v) => total > 0 ? 100 * v / total : 0;
-    const bar = total > 1 ? `<div class="mix" role="img" aria-label="power mix">${srcs.map(([, c, v], n) => `<i style="--c:${c};width:${pct(v).toFixed(2)}%;animation-delay:${n * 90}ms"></i>`).join("")}`
-      + (exporting ? `<i class="exp" style="width:${Math.min(100, pct(exp)).toFixed(2)}%"></i>` : "") + `</div>` : "";
+    // drawn again on every change: a share already shown starts where it was and slides to its new width (it
+    // grew in from 0 only the first time); a source that just appeared grows in from 0
+    const el = $("#hero"), had = el.querySelector(".mix"), was = {};
+    if (had) had.querySelectorAll("i[data-k]").forEach((i) => { was[i.dataset.k] = i.style.width; });
+    const seg = (k, w, extra) => `<i data-k="${k}" data-w="${w}" style="${extra}width:${had ? (was[k] || "0%") : w}"></i>`;
+    const bar = total > 1 ? `<div class="mix${had ? " kept" : ""}" role="img" aria-label="power mix">${srcs.map(([n, c, v], i) => seg(n, `${pct(v).toFixed(2)}%`, `--c:${c};animation-delay:${i * 90}ms;`)).join("")}`
+      + (exporting ? seg("exp", `${Math.min(100, pct(exp)).toFixed(2)}%`, "").replace("<i ", `<i class="exp" `) : "") + `</div>` : "";
     const legend = total > 1 ? `<div class="mixl">${srcs.map(([n, c, v]) => `<span style="--c:${c}"><i class="d"></i><span>${n}</span> <b>${fmt(v)} kW</b> <em>${fmt(pct(v))} %</em></span>`).join("")}`
       + (exporting ? `<span><i class="d hatch"></i><span>To the grid</span> <b>${fmt(exp)} kW</b></span>` : "")
       + (isNum(k.load_kw) ? `<span><span>Site load</span> <b>${fmt(k.load_kw)} kW</b></span>` : "") + `</div>` : "";
@@ -1938,12 +1965,17 @@ a.rcard:hover { border-color: var(--xc); }
       brk ? `<span>breakers:</span> <b>${esc(brk)}</b>` : null].filter(Boolean).join(" · ");
     const price = k.fuel_price_per_l, saved = k.fuel_saved_l_today, money = isNum(saved) && isNum(price) ? saved * price : null;
     const kpi = (label, val, unit, sub, col) => `<div class="kpi"><small>${label}</small><b style="${col ? `color:${col}` : ""}">${val}<span>${unit}</span></b><em>${sub}</em></div>`;
-    const el = $("#hero"); el.style.setProperty("--mode", color);
+    el.style.setProperty("--mode", color);
     redraw(el, `<div class="in"><div class="mode"><div class="orb"><svg viewBox="0 0 24 24"><path d="${icon}"/></svg></div><div style="min-width:0"><h2>${title}${chips.join("")}</h2>${bar}${legend}<div class="meta">${meta}</div></div></div>`
       + `<div class="kpis">${kpi("Fuel cost avoided", fmt(money), "", `today · at ${fmt(price, 2)} per litre`, C("--ok"))}`
       + kpi("Diesel avoided", fmt(saved), "L", "today, thanks to solar", "")
       + kpi("CO₂ avoided", fmt(isNum(saved) ? saved * 2.68 / 1000 : null, 2), "t", "2.68 kg per litre of diesel", "#56a64b")
       + kpi("Solar share today", fmt(k.pv_share_pct_today), "%", `${fmt(k.pv_kwh_today)} of ${fmt(k.load_kwh_today)} kWh`, C("--c-pv")) + `</div></div>`);
+    const mix = el.querySelector(".mix.kept");
+    if (mix) {
+      void mix.offsetWidth;                                   // the old widths are laid out first ...
+      mix.querySelectorAll("i[data-w]").forEach((i) => { if (i.style.width !== i.dataset.w) i.style.width = i.dataset.w; });   // ... then they move
+    }
   }
 
   // ---------------------------------------------------------------- live power flow: single-line diagram
@@ -2896,10 +2928,64 @@ a.rcard:hover { border-color: var(--xc); }
       : `on · ${pb.bind}:${pb.port} unit ${pb.unit_id} · ${pb.tags} tags · ${pb.reads} reads` + (pb.rejected_writes ? ` · ${pb.rejected_writes} writes refused` : "");
     $("#footVer").textContent = `Version ${st.version} · All rights reserved`;
     renderUpdate(st.update);
+    if (!$$("#rdgList .rrow.changed").length) renderReading(st.reading);       // never over a choice not saved yet
     $("#aboutList").innerHTML = [["Modbus server for Turkey", pubText], ["Config", st.config], ["Database", st.database], ["Settings file", st.settings_file], ["Version", st.version],
       ["Polls since start", summary ? summary.collector.polls : "—"], ["Rows stored", summary ? summary.collector.rows.toLocaleString() : "—"],
       ["Running since", summary ? stamp(Date.now() - summary.collector.uptime_s * 1000) : "—"]].map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
   }
+  // ---- reading the devices (the master's live rate; each other device or gateway)
+  let rdgData = null;
+  function renderReading(r) {
+    if (!r) return;
+    rdgData = r;
+    const box = $("#rdgList");
+    if (box.contains(document.activeElement) && document.activeElement.tagName === "SELECT") return;   // not while choosing
+    const opt = (os, v) => os.map((o) => `<option value="${o.value}"${o.value === v ? " selected" : ""}>${esc(o.label)}</option>`).join("");
+    const L = r.live, rows = [];
+    if (L.available || L.running) {
+      const actual = L.actual_every_s && L.every_s && L.actual_every_s > L.every_s ? ` · now every ${everyText(L.actual_every_s)} (the master needs more requests)` : "";
+      rows.push(`<div class="rsec">Live view</div><div class="rrow"><div><b>Master controller</b><small>${esc((L.names || []).join(", "))} · who powers the plant, gensets, mains, solar${actual}</small></div>`
+        + `<select data-live aria-label="Master controller">${opt(L.options, L.every_s)}</select></div>`);
+    }
+    if (r.groups.length) rows.push(`<div class="rsec">The other devices</div>`);
+    r.groups.forEach((g) => {
+      const cur = g.choice !== null && g.choice !== undefined ? g.choice : g.every_s > r.site_every_s ? g.every_s : 0;
+      const os = g.options.some((o) => o.value === cur) ? g.options : g.options.concat([{ value: cur, label: `every ${everyText(cur)}` }]);
+      rows.push(`<div class="rrow"><div><b>${esc(g.name)}</b><small>${esc(g.what)}</small>`
+        + (g.slowed ? `<em>slowed automatically: the master lost it right after our reads</em>` : "") + `</div>`
+        + `<select data-row="${esc(g.key)}" aria-label="${esc(g.name)}">${opt(os, cur)}</select></div>`);
+    });
+    redraw(box, rows.join(""));
+    const locked = r.simulated;
+    $$("#rdgList select").forEach((sel) => { sel.disabled = locked; sel.dataset.was = sel.value; });
+    $("#rdgSave").disabled = true;
+    $("#rdgNote").textContent = locked ? "demo: the rates of the real plant are set on the plant PC" : "";
+  }
+  $("#rdgList").addEventListener("change", (e) => {
+    const sel = e.target.closest("select"); if (!sel) return;
+    sel.closest(".rrow").classList.toggle("changed", sel.value !== sel.dataset.was);
+    $("#rdgSave").disabled = !$$("#rdgList select").some((x) => x.value !== x.dataset.was);
+  });
+  $("#rdgSave").addEventListener("click", async () => {
+    const b = $("#rdgSave"), body = {}, dev = {};
+    $$("#rdgList select").forEach((sel) => {
+      if (sel.value === sel.dataset.was) return;
+      if (sel.hasAttribute("data-live")) body.live_every_s = Number(sel.value); else dev[sel.dataset.row] = Number(sel.value);
+    });
+    if (Object.keys(dev).length) body.device_every = dev;
+    if (!Object.keys(body).length) return;
+    b.classList.add("busy");
+    try {
+      const st = await getJSON("/api/v1/local/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      $$("#rdgList .rrow.changed").forEach((x) => x.classList.remove("changed"));
+      if (document.activeElement && $("#rdgList").contains(document.activeElement)) document.activeElement.blur();
+      renderReading(st.reading);
+      toast("Saved: the new reading rates apply now.");
+      await loadSummary(); loadLive();
+    } catch (e) { toast(`Not saved: ${why(e)}.`, true); }
+    b.classList.remove("busy");
+  });
+
   // ---- updates (scripts\updater.ps1 does the work; the collector only passes the request on)
   const ON_THIS_PC = ["localhost", "127.0.0.1", "[::1]", "::1"].includes(location.hostname);
   let updWatch = null;

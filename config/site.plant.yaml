@@ -26,7 +26,9 @@ site:
                                     # dashboard's Settings page offers 10 min / 30 min / 1 h / 2 h and saves its choice
                                     # in data\settings.json, which overrides this value.
 
-# --- LIVE: the master controller every 2 s, for the dashboard only ------------------------------------------
+# --- LIVE: the master controller every minute, for the dashboard only -------------------------------------
+# Settings > Reading the devices changes the rate (5 s ... 5 min, or off) and remembers it in data\settings.json
+# (live_every_s), which overrides every_s below. Each other device's rate is set there too (device_every_s).
 # The InteliNeo already knows what feeds the plant (gensets P over CAN, mains import P, PV actual P from its own
 # reads of the SAU, breakers, mode, which genset is on the bus), so the dashboard is live without one extra
 # request to the SAU or the InteliMains. One kept connection, 3 requests per cycle (at most 2 requests a second:
@@ -38,13 +40,13 @@ site:
 live:
   enabled: true
   devices: [neo-01]
-  every_s: 2
+  every_s: 60                     # the master for the live view: every minute (Settings > Reading the devices changes it)
   max_requests_per_s: 2
   store_every_s: 60
   # The master's own comm-fail bits for the devices it reads (ECU order from the Values export, to verify at the
   # next alarm): every fail and its end go to the event log, with "N s after this program read <device>" when it
   # follows one of our reads. A device in back_off that the master loses right after our read twice is read
-  # only hourly from then on (kept in data\settings.json under slowed_devices; delete that entry to undo).
+  # only hourly from then on (kept in data\settings.json under slowed_devices; Settings > Reading the devices undoes it).
   links:
     ecu1_comm_fail: [MAIN 1 (IM210 G2), main-01]
     ecu2_comm_fail: [PV logger group 1, pv-array]

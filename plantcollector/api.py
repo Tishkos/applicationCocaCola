@@ -5,7 +5,7 @@ HTTP API + dashboard. Nothing here can write to a device; the one POST triggers 
   /api/v1/health                  collector status
   /api/v1/local/summary           live values, KPIs, device comms, active faults
   POST /api/v1/local/poll         read every device now (a read, not a write)
-  GET/POST /api/v1/local/settings polling rate (30 min / 1 h / 2 h), saved in data/settings.json
+  GET/POST /api/v1/local/settings site read rate, the master's live reading, each device's rate (data/settings.json)
   /api/v1/tags/registers          the Modbus register map published for the Turkey platform
   /api/v1/local/series            time series (hours= | from= to=, step=, keys=)
   /api/v1/local/alarms            event log (hours=)
@@ -71,8 +71,9 @@ def create_app(c: Collector) -> FastAPI:
                 "devices": {d: views.device_comms(c, d) for d in c.registry.devices}}
 
     @app.get("/api/v1/local/live")
-    def live(minutes: float = Query(15, gt=0, le=15)):
-        """What feeds the plant now and the last minutes of it, from the live reader (master every 2 s)."""
+    def live(minutes: float | None = Query(None, gt=0, le=60)):
+        """What feeds the plant now and the last minutes of it (15, or 60 when the master is read every 30 s or
+        slower), from the live reader."""
         return views.live_view(c, minutes)
 
     @app.get("/api/v1/local/summary")
@@ -85,8 +86,24 @@ def create_app(c: Collector) -> FastAPI:
 
     @app.post("/api/v1/local/settings")
     def set_settings(body: dict):
+        """Any of: poll_interval_s (the site read), live_every_s (the master's live reading, 0 = off),
+        device_every: {row key: seconds} (0 = with every site read; the keys of GET .reading.groups)."""
+        known = ("poll_interval_s", "live_every_s", "device_every")
+        if not any(k in body for k in known):
+            raise HTTPException(400, f"nothing to change: send one of {', '.join(known)}")
         try:
-            c.set_poll_interval(int(body.get("poll_interval_s", 0)))
+            if "poll_interval_s" in body:
+                c.set_poll_interval(int(body.get("poll_interval_s") or 0))
+            if "live_every_s" in body:
+                c.set_live_every(int(body.get("live_every_s")))
+            if "device_every" in body:
+                if not isinstance(body["device_every"], dict):
+                    raise ValueError("device_every must be {row key: seconds}")
+                rows = {g["key"]: g["devices"] for g in views.reading_settings(c)["groups"]}
+                for key, sec in body["device_every"].items():
+                    if key not in rows:
+                        raise ValueError(f"unknown row {key}")
+                    c.set_device_every(rows[key], int(sec))
         except (TypeError, ValueError) as exc:
             raise HTTPException(400, str(exc))
         return _settings()
@@ -101,7 +118,7 @@ def create_app(c: Collector) -> FastAPI:
                 "options": [{"value": v, "label": f"{v // 3600} h" if v >= 3600 and v % 3600 == 0 else f"{v // 60} min"} for v in POLL_OPTIONS_S],
                 "source": c.settings_source, "simulated": c.simulated, "config": os.path.basename(c.config_path),
                 "settings_file": c.settings_path, "database": c.db_path, "version": updates.installed_version(),
-                "update": updates.status(c.data_dir)}
+                "update": updates.status(c.data_dir), "reading": views.reading_settings(c)}
 
     @app.get("/api/v1/local/version")
     def version():
