@@ -2,7 +2,7 @@
 # 10 minutes after Windows starts, and at once when "Check for updates" / "Install now" is clicked in the dashboard
 # (Settings > About: the collector drops now.flag in the update folder and starts this task).
 #
-#   1. asks GitHub for the newest published release of the program (Releases of the repository in update\settings.json)
+#   1. asks GitHub for the newest published release of the program (Releases of Tishkos/applicationCocaCola)
 #   2. newer than the installed version (version.txt)?
 #        - installs it when "Install now" was clicked, or automatically at night (01:00-05:00, the PC's own clock)
 #          when automatic updates are on; otherwise only reports "available" in the dashboard
@@ -25,6 +25,25 @@ $Flag = Join-Path $UpdDir "now.flag"
 $SetupNow = Join-Path $UpdDir "installed-setup.exe"       # the Setup of the installed version (the Setup copies itself here)
 $SetupPrev = Join-Path $UpdDir "previous-setup.exe"       # the one before: the way back if an update does not start
 $Port = 8080
+$Repo = "Tishkos/applicationCocaCola"                    # fixed here, never read from a file
+$Link = [IO.FileAttributes]::ReparsePoint
+
+function Remove-Tree($path) {
+    # deletes a folder without ever following a junction or symbolic link inside it (they are deleted as links)
+    $item = Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    if (-not $item) { return }
+    if ($item.Attributes -band $Link) {
+        if ($item.PSIsContainer) { [IO.Directory]::Delete($item.FullName, $false) } else { [IO.File]::Delete($item.FullName) }
+        return
+    }
+    if ($item.PSIsContainer) {
+        foreach ($c in @(Get-ChildItem -LiteralPath $item.FullName -Force -ErrorAction SilentlyContinue)) { Remove-Tree $c.FullName }
+        [IO.Directory]::Delete($item.FullName, $false)
+    } else {
+        $item.Attributes = "Normal"
+        [IO.File]::Delete($item.FullName)
+    }
+}
 
 function Say($m) {
     try {
@@ -34,7 +53,7 @@ function Say($m) {
     Write-Output $m
 }
 
-$cfg = @{ auto = $true; window_start_hour = 1; window_end_hour = 5; repo = "Tishkos/applicationCocaCola"; skip = "" }
+$cfg = @{ auto = $true; window_start_hour = 1; window_end_hour = 5; skip = "" }
 try {
     $j = Get-Content (Join-Path $UpdDir "settings.json") -Raw | ConvertFrom-Json
     foreach ($k in @($cfg.Keys)) { if ($null -ne $j.$k) { $cfg[$k] = $j.$k } }
@@ -53,7 +72,10 @@ function Save-Status($state, $message, $extra = @{}) {
     foreach ($k in "latest", "available", "last_install") { $old[$k] = $s[$k] }
     $tmp = "$StatusFile.tmp"
     ($s | ConvertTo-Json) | Set-Content -Path $tmp -Encoding UTF8
-    Move-Item $tmp $StatusFile -Force
+    for ($i = 0; $i -lt 10; $i++) {                       # the collector may be reading it this very moment
+        try { Move-Item $tmp $StatusFile -Force -ErrorAction Stop; return } catch { Start-Sleep -Milliseconds 300 }
+    }
+    try { Copy-Item $tmp $StatusFile -Force -ErrorAction Stop; Remove-Item $tmp -Force -ErrorAction SilentlyContinue } catch {}
 }
 
 function Get-Installed {
@@ -88,18 +110,21 @@ $mode = "timer"
 if ($Install) { $mode = "install" } elseif ($Now) { $mode = "check" }
 if (Test-Path $Flag) {
     $f = (Get-Content $Flag -TotalCount 1 -ErrorAction SilentlyContinue)
-    $mode = if ("$f" -like "install*") { "install" } else { "check" }
+    $age = ((Get-Date) - (Get-Item $Flag).LastWriteTime).TotalMinutes
+    # "Install now" counts only when it was clicked in the last 15 minutes; an older one is a check (never an
+    # install in the middle of the day hours after the click)
+    $mode = if ("$f" -like "install*" -and $age -le 15) { "install" } else { "check" }
     Remove-Item $Flag -Force -ErrorAction SilentlyContinue
 }
 $installed = Get-Installed
-Say "--- check ($mode), installed $installed, repository $($cfg.repo)"
+Say "--- check ($mode), installed $installed, repository $Repo"
 
 # ---- 1. the newest release on GitHub ----------------------------------------------------------------------------
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 $ProgressPreference = "SilentlyContinue"
 $headers = @{ "User-Agent" = "CCI-Plant-Monitoring-Updater/$installed"; "Accept" = "application/vnd.github+json" }
 try {
-    $rel = Invoke-RestMethod "https://api.github.com/repos/$($cfg.repo)/releases/latest" -Headers $headers -TimeoutSec 30 -UseBasicParsing
+    $rel = Invoke-RestMethod "https://api.github.com/repos/$Repo/releases/latest" -Headers $headers -TimeoutSec 30 -UseBasicParsing
 } catch {
     $code = $null
     try { $code = [int]$_.Exception.Response.StatusCode } catch {}
@@ -148,7 +173,7 @@ if (-not $asset -or -not $sums) {
     exit 1
 }
 $dl = Join-Path $UpdDir "download"
-if (Test-Path $dl) { Remove-Item -Recurse -Force $dl }
+Remove-Tree $dl
 New-Item -ItemType Directory -Force $dl | Out-Null
 $exe = Join-Path $dl $asset.name
 Save-Status "downloading" "Downloading version $latestText..." @{ latest = $latestText; available = $latestText }
@@ -184,10 +209,11 @@ $p = Start-Process $exe -ArgumentList "/S", "/UPDATE" -Wait -PassThru
 $rc = $p.ExitCode
 $now = Get-Installed
 $up = Wait-Up 180
-if ($rc -eq 0 -and $up -and (Get-Ver $now) -eq $latest) {
+# the Setup ends with 3 when the service needed more than its 2 minutes to answer: fine if it answers now
+if (($rc -eq 0 -or $rc -eq 3) -and $up -and (Get-Ver $now) -eq $latest) {
     Save-Status "up to date" "Version $latestText installed $(Get-Date -Format 'yyyy-MM-dd HH:mm')." @{ latest = $latestText; available = $null; last_install = "$latestText at $(Get-Date -Format 'yyyy-MM-dd HH:mm')" }
     Say "installed $latestText, the service answers"
-    Remove-Item -Recurse -Force $dl -ErrorAction SilentlyContinue
+    try { Remove-Tree $dl } catch {}
     exit 0
 }
 Say "the update did not come up (Setup exit code $rc, service answers: $up, version now $now)"

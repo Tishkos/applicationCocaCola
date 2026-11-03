@@ -11,6 +11,27 @@ $ErrorActionPreference = "Continue"
 if (-not $InstallDir) { $InstallDir = Split-Path -Parent $PSScriptRoot }
 $Pd = Join-Path $env:ProgramData "CCI Plant Monitoring"
 function Say($m) { Write-Output $m }
+$Link = [IO.FileAttributes]::ReparsePoint
+
+function Remove-Tree($path) {
+    # deletes a folder without ever following a junction or symbolic link inside it (they are deleted as links):
+    # Remove-Item -Recurse in Windows PowerShell 5.1 would delete what a junction points to
+    $item = Get-Item -LiteralPath $path -Force -ErrorAction SilentlyContinue
+    if (-not $item) { return }
+    try {
+        if ($item.Attributes -band $Link) {
+            if ($item.PSIsContainer) { [IO.Directory]::Delete($item.FullName, $false) } else { [IO.File]::Delete($item.FullName) }
+            return
+        }
+        if ($item.PSIsContainer) {
+            foreach ($c in @(Get-ChildItem -LiteralPath $item.FullName -Force -ErrorAction SilentlyContinue)) { Remove-Tree $c.FullName }
+            [IO.Directory]::Delete($item.FullName, $false)
+        } else {
+            $item.Attributes = "Normal"
+            [IO.File]::Delete($item.FullName)
+        }
+    } catch {}
+}
 
 foreach ($t in "PlantDataCollector", "PlantCollectorUpdater") {
     try { Stop-ScheduledTask -TaskName $t -ErrorAction Stop } catch {}
@@ -35,14 +56,15 @@ foreach ($d in $dirs) {
     if ($d -and (Test-Path $l)) { Remove-Item $l -Force; Say "removed $l" }
 }
 
-Get-ChildItem $InstallDir -Recurse -Directory -Filter "__pycache__" -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
-
-# the window's own browser data in each user's profile
-Get-ChildItem "C:\Users\*\AppData\Local\CCI Plant Monitoring" -Directory -ErrorAction SilentlyContinue |
-    ForEach-Object { Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+# the window's own browser data in each user's profile (each user owns that folder: never followed if it is a link)
+foreach ($u in @(Get-ChildItem "C:\Users" -Directory -Force -ErrorAction SilentlyContinue)) {
+    if ($u.Attributes -band $Link) { continue }
+    $d = Join-Path $u.FullName "AppData\Local\CCI Plant Monitoring"
+    if (Test-Path -LiteralPath $d) { Remove-Tree $d }
+}
 
 if ($DeleteData) {
-    if (Test-Path $Pd) { Remove-Item -Recurse -Force $Pd -ErrorAction SilentlyContinue }
+    if (Test-Path $Pd) { Remove-Tree $Pd }
     if (Test-Path $Pd) { Say "note: some of $Pd could not be deleted (in use)" } else { Say "deleted the settings and the collected data ($Pd)" }
 } else {
     Say "kept the settings and the collected data in $Pd (a new Setup carries on with them)"

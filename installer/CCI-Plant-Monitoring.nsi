@@ -139,7 +139,7 @@ Function .onInit
     MessageBox MB_ICONSTOP "${APPNAME} needs 64-bit Windows 10 or 11." /SD IDOK
     Abort
   ${EndIf}
-  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "CCIPlantMonitoringSetup") p .r1 ?e'
+  System::Call 'kernel32::CreateMutexW(p 0, i 0, w "Global\CCIPlantMonitoringSetup") p .r1 ?e'
   Pop $R0
   ${If} $R0 == 183
     MessageBox MB_ICONEXCLAMATION "The ${APPNAME} Setup is already running." /SD IDOK
@@ -176,6 +176,14 @@ Function .onInit
   !insertmacro OptArg "/DESKTOP=" $Desk
   !insertmacro OptArg "/IMPORT=" $ImportDir
   !insertmacro OptArg "/SOURCE=" $SrcAddr
+FunctionEnd
+
+Function .onVerifyInstDir
+  ; never a drive's root (C:\) or a too short path: the uninstaller removes the folder's contents
+  StrLen $R0 "$INSTDIR"
+  ${If} $R0 < 4
+    Abort
+  ${EndIf}
 FunctionEnd
 
 Function SkipIfUpdate

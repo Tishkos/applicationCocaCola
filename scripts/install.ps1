@@ -1,12 +1,13 @@
 # Run by the Setup (installer\CCI-Plant-Monitoring.nsi), as administrator. Two phases:
 #
-#   -Phase Stop      before the files are copied: stops the background service and every program process
+#   -Phase Stop      before the files are copied: marks "updating" (the exes then refuse to start), disables and
+#                    stops the background service and every program process
 #   -Phase Install   after the files are copied (the program brings its own Python: nothing is downloaded or installed
 #                    besides what is listed here):
 #       1. settings and data in C:\ProgramData\CCI Plant Monitoring (never in the program folder, never overwritten:
 #          an update keeps them; the first install can bring them over from an earlier copy)
 #       2. the background service: Windows task "PlantDataCollector" runs "CCI Plant Monitoring Service.exe"
-#          (at startup, as SYSTEM, restarted every minute if it stops)
+#          (at startup and every 5 minutes if it is not running, as SYSTEM)
 #       3. the updater: Windows task "PlantCollectorUpdater" (scripts\updater.ps1, GitHub Releases)
 #       4. firewall rules for Turkey's Modbus port and the dashboard (optional)
 #       5. the "CCI Plant Monitoring" shortcut (Start Menu, Desktop) to "CCI Plant Monitoring.exe": the window
@@ -14,6 +15,8 @@
 #
 # Everything is safe to run again (the Setup does it on every update). Output goes to the Setup's window and to
 # C:\ProgramData\CCI Plant Monitoring\install.log.
+# C:\ProgramData\CCI Plant Monitoring is made readable, not writable, for users (SYSTEM and administrators only may
+# change it): the service and the updater run as SYSTEM from what is in there.
 param(
     [ValidateSet("Stop", "Install")] [string]$Phase = "Install",
     [string]$InstallDir = "",
@@ -37,8 +40,36 @@ $Pd = Join-Path $env:ProgramData "CCI Plant Monitoring"
 $CfgDir = Join-Path $Pd "config"
 $DataDir = Join-Path $Pd "data"
 $UpdDir = Join-Path $Pd "update"
-foreach ($d in $Pd, $CfgDir, $DataDir, $UpdDir) { New-Item -ItemType Directory -Force $d | Out-Null }
+$Marker = Join-Path $UpdDir "installing.flag"             # while it exists (and is recent) the two exes do not start
 $LogFile = Join-Path $Pd "install.log"
+$Link = [IO.FileAttributes]::ReparsePoint
+
+function Remove-Links($dir) {
+    # junctions and symbolic links inside $dir are deleted as links, never followed
+    foreach ($i in @(Get-ChildItem -LiteralPath $dir -Force -ErrorAction SilentlyContinue)) {
+        if ($i.Attributes -band $Link) {
+            try { if ($i.PSIsContainer) { [IO.Directory]::Delete($i.FullName, $false) } else { [IO.File]::Delete($i.FullName) } } catch {}
+        } elseif ($i.PSIsContainer) { Remove-Links $i.FullName }
+    }
+}
+
+function Protect-Data {
+    # owner Administrators; full control for SYSTEM and Administrators; read for Users; nothing else (an earlier
+    # permission, or a folder someone created before the Setup, is replaced)
+    $ErrorActionPreference = "Continue"
+    $item = Get-Item -LiteralPath $Pd -Force -ErrorAction SilentlyContinue
+    if ($item -and ($item.Attributes -band $Link)) { [IO.Directory]::Delete($Pd, $false) }
+    New-Item -ItemType Directory -Force $Pd | Out-Null
+    & icacls.exe $Pd /setowner "*S-1-5-32-544" /C /Q | Out-Null
+    & icacls.exe $Pd /inheritance:r /grant:r "*S-1-5-18:(OI)(CI)F" "*S-1-5-32-544:(OI)(CI)F" "*S-1-5-32-545:(OI)(CI)RX" /C /Q | Out-Null
+    Remove-Links $Pd
+    if (@(Get-ChildItem -LiteralPath $Pd -Force -ErrorAction SilentlyContinue).Count) {
+        & icacls.exe "$Pd\*" /setowner "*S-1-5-32-544" /T /C /Q | Out-Null
+        & icacls.exe "$Pd\*" /reset /T /C /Q | Out-Null
+    }
+    foreach ($d in $CfgDir, $DataDir, $UpdDir) { New-Item -ItemType Directory -Force $d | Out-Null }
+}
+Protect-Data
 
 function Say($m) {
     $line = "{0} {1}" -f (Get-Date -Format "yyyy-MM-dd HH:mm:ss"), $m
@@ -49,6 +80,7 @@ function Say($m) {
 function Stop-Collector {
     # the service task, then any program process left over: this copy's exes, and the collector or window of an
     # earlier copy (python with plantcollector.cli / app\desktop.py on its command line)
+    try { Disable-ScheduledTask -TaskName $TaskName -ErrorAction Stop | Out-Null } catch {}   # no restart while files change
     try { Stop-ScheduledTask -TaskName $TaskName -ErrorAction Stop; Say "background service stopped" } catch {}
     $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
         ($_.Name -eq "CCI Plant Monitoring Service.exe") -or ($_.Name -eq "CCI Plant Monitoring.exe") -or
@@ -63,9 +95,21 @@ function Stop-Collector {
     }
 }
 
+function Done($code) {
+    # every way out of the Install phase: the service task enabled again, the "updating" mark removed
+    try { Enable-ScheduledTask -TaskName $TaskName -ErrorAction Stop | Out-Null } catch {}
+    Remove-Item $Marker -Force -ErrorAction SilentlyContinue
+    exit $code
+}
+trap {
+    Say "ERROR: $($_.Exception.Message) (line $($_.InvocationInfo.ScriptLineNumber))"
+    if ($Phase -eq "Install") { Done 1 } else { exit 1 }
+}
+
 # ======================================================================== Phase Stop
 if ($Phase -eq "Stop") {
     Say "=== CCI Plant Monitoring: stopping before the files are copied ==="
+    Set-Content -Path $Marker -Value (Get-Date -Format "yyyy-MM-dd HH:mm:ss") -Encoding ASCII
     # remember where an earlier copy ran from, before its task is replaced (the Install phase may bring its data over)
     try {
         $old = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
@@ -73,6 +117,19 @@ if ($Phase -eq "Stop") {
         if ($wd -and ($wd -ne $InstallDir)) { Set-Content -Path (Join-Path $Pd "previous-copy.txt") -Value $wd -Encoding UTF8; Say "an earlier copy ran from $wd" }
     } catch {}
     Stop-Collector
+    # an earlier copy in this very folder: its settings and data are taken now, before the Setup replaces its config\
+    $oldCfg = Join-Path $InstallDir "config\site.plant.yaml"
+    $newCfg = Join-Path $CfgDir "site.plant.yaml"
+    if ((Test-Path (Join-Path $InstallDir "scripts\run.ps1")) -and (Test-Path $oldCfg) -and -not (Test-Path $newCfg)) {
+        Copy-Item $oldCfg $newCfg
+        Say "settings taken from the earlier copy in this folder: $oldCfg"
+        if (-not (Test-Path (Join-Path $DataDir "telemetry.sqlite"))) {
+            foreach ($f in "telemetry.sqlite", "telemetry.sqlite-wal", "telemetry.sqlite-shm", "settings.json") {
+                $src = Join-Path $InstallDir "data\$f"
+                if (Test-Path $src) { Copy-Item $src (Join-Path $DataDir $f); Say "data brought over: $f" }
+            }
+        }
+    }
     exit 0
 }
 
@@ -81,7 +138,7 @@ Say "=== CCI Plant Monitoring $($Version): setting up in $InstallDir ==="
 Set-Location $InstallDir
 if (-not (Test-Path $ServiceExe) -or -not (Test-Path (Join-Path $InstallDir "runtime\python313.dll"))) {
     Say "ERROR: the program files are incomplete in $InstallDir (no service exe or runtime). Run the Setup again."
-    exit 10
+    Done 10
 }
 
 # ---- 1. settings and data in ProgramData ---------------------------------------------------------------------
@@ -143,11 +200,11 @@ if ($cfgText -notmatch "(?m)^network:") {
 
 # the updater's settings (kept on an update; the Setup's choice wins only for 'auto')
 $us = Join-Path $UpdDir "settings.json"
-$u = [ordered]@{ auto = ($AutoUpdate -eq "1"); window_start_hour = 1; window_end_hour = 5; repo = "Tishkos/applicationCocaCola"; skip = "" }
+$u = [ordered]@{ auto = ($AutoUpdate -eq "1"); window_start_hour = 1; window_end_hour = 5; skip = "" }
 if (Test-Path $us) {
     try {
         $j = Get-Content $us -Raw | ConvertFrom-Json
-        foreach ($k in "window_start_hour", "window_end_hour", "repo", "skip") { if ($null -ne $j.$k) { $u[$k] = $j.$k } }
+        foreach ($k in "window_start_hour", "window_end_hour", "skip") { if ($null -ne $j.$k) { $u[$k] = $j.$k } }
     } catch {}
 }
 if ($Version -and "$($u.skip)" -eq $Version) { $u.skip = "" }   # this version is being installed now: no longer skipped
@@ -160,13 +217,16 @@ $log = Join-Path $DataDir "collector.log"
 Remove-Item (Join-Path $DataDir "dashboard.url") -Force -ErrorAction SilentlyContinue
 $argLine = "--config `"$cfg`" --data `"$DataDir`" run --port $Port --log `"$log`""
 $action = New-ScheduledTaskAction -Execute "`"$ServiceExe`"" -Argument $argLine -WorkingDirectory $InstallDir
-$trigger = New-ScheduledTaskTrigger -AtStartup
+# at start-up, and every 5 minutes: a collector that ended (or crashed) is started again within 5 minutes; while it
+# runs, the 5-minute trigger does nothing (IgnoreNew)
+$trigger = @((New-ScheduledTaskTrigger -AtStartup),
+             (New-ScheduledTaskTrigger -Once -At (Get-Date).Date -RepetitionInterval (New-TimeSpan -Minutes 5)))
 $settings = New-ScheduledTaskSettingsSet -RestartCount 100 -RestartInterval (New-TimeSpan -Minutes 1) `
     -ExecutionTimeLimit ([TimeSpan]::Zero) -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -MultipleInstances IgnoreNew
 $principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings -Principal $principal `
     -Description "CCI Plant Monitoring: the read-only collector, the dashboard and the Turkey feed (installed by the Setup)" -Force | Out-Null
-Say "background service '$TaskName' registered: starts with Windows, restarts if it stops"
+Say "background service '$TaskName' registered: starts with Windows, started again within 5 minutes if it stops"
 # Users without administrator rights may START it (the window does that when Windows had stopped it); only
 # administrators can change or delete it. Read + execute for "Authenticated Users" on the task.
 try {
@@ -206,7 +266,7 @@ if ($Firewall -eq "1") {
         -LocalPort $Port -Action Allow -Profile Any | Out-Null
     Say "firewall: TCP 502 (Turkey's Modbus) and $Port (dashboard) open for incoming connections"
 } else {
-    Say "firewall: not changed"
+    Say "firewall: no rules from this Setup (the box was not ticked); Turkey's Modbus needs TCP 502 open"
 }
 
 # ---- 5. the application window: shortcuts -----------------------------------------------------------------------
@@ -220,7 +280,17 @@ try {
     & $sc @p | ForEach-Object { Say $_ }
 } catch { Say "WARNING: shortcut not written: $($_.Exception.Message)" }
 
+$wv = $false
+foreach ($k in "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+               "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}") {
+    try { $pv = (Get-ItemProperty -Path $k -Name pv -ErrorAction Stop).pv; if ($pv -and [int]($pv.Split(".")[0]) -ge 86) { $wv = $true } } catch {}
+}
+if ($wv) { Say "window: Microsoft Edge WebView2 Runtime found" }
+else { Say "NOTE: no Microsoft Edge WebView2 Runtime found for all users. The service and Turkey's feed do not need it; the window does (it says so and offers a browser instead). Install it from Microsoft: 'WebView2 Runtime' (Evergreen)." }
+
 # ---- 6. start and wait -------------------------------------------------------------------------------------------
+Remove-Item $Marker -Force -ErrorAction SilentlyContinue
+Enable-ScheduledTask -TaskName $TaskName | Out-Null
 Start-ScheduledTask -TaskName $TaskName
 Say "starting the background service..."
 $url = "http://127.0.0.1:$Port/"
@@ -235,8 +305,8 @@ if ($up) {
     if (-not $running) {                                  # let Settings > Updates show the newest release at once
         try { Set-Content -Path (Join-Path $UpdDir "now.flag") -Value "check" -Encoding ASCII; Start-ScheduledTask -TaskName $UpdaterTask } catch {}
     }
-    exit 0
+    Done 0
 }
 Say "WARNING: the background service did not answer within 2 minutes. Last lines of $log :"
 if (Test-Path $log) { Get-Content $log -Tail 15 | ForEach-Object { Say "  $_" } }
-exit 20
+Done 20

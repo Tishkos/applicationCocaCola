@@ -2927,12 +2927,12 @@ a.rcard:hover { border-color: var(--xc); }
   }
   async function askUpdater(install) {
     const b = install ? $("#updInstall") : $("#updCheck");
-    if (install && !confirm("Install the new version now? The collector stops for about a minute (Turkey's feed included); settings and history stay.")) return;
+    if (install && !confirm("Install the new version now? The collector stops for about a minute (Turkey's feed included) and this window closes; settings and history stay.")) return;
     b.classList.add("busy");
     try {
-      const r = await getJSON(install ? "/api/v1/local/update/install" : "/api/v1/local/update/check", { method: "POST" });
+      const r = await getJSON(install ? "/api/v1/local/update/install" : "/api/v1/local/update/check", { method: "POST", headers: { "X-CCI-Request": "update" } });
       renderUpdate(r.status);
-      toast(install ? "Installing: the window reconnects by itself when the collector is back." : (r.started ? "Asked GitHub for the newest version…" : "The request is waiting for the updater (it starts within a few minutes)."));
+      toast(install ? "Installing: this window closes in a moment. Open CCI Plant Monitoring again from the Start Menu in about two minutes." : (r.started ? "Asked GitHub for the newest version…" : "The request is waiting for the updater (it starts within a few minutes)."));
       clearInterval(updWatch);
       const t0 = Date.now();
       updWatch = setInterval(async () => {

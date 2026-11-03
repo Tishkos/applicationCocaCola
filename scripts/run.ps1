@@ -195,7 +195,16 @@ if ($Foreground) {
 }
 
 # ---- 4c. BACKGROUND: Windows scheduled task, starts with Windows ------------------------------
-$isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+# On a PC where the Setup installed CCI Plant Monitoring, its background service owns the task: this folder never
+# replaces it (that would quietly switch the plant over to this copy).
+$setupTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+if ($setupTask -and "$($setupTask.Actions[0].Execute)" -like "*CCI Plant Monitoring Service.exe*") {
+    Warn "CCI Plant Monitoring is installed on this PC by the Setup and runs as its background service."
+    Warn "Use the 'CCI Plant Monitoring' window from the Start Menu. This folder does not replace that service."
+    Warn "(To try this copy anyway: RUN-IN-WINDOW.bat after stopping the service, or uninstall the Setup's copy.)"
+    exit 2
+}
+$isAdmin =([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
     Say "Asking for administrator rights to register the collector as a Windows task..."
     $flags = @("-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "`"$PSCommandPath`"", "-Elevated", "-NoBrowser", "-Port", $Port)

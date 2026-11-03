@@ -56,10 +56,12 @@ own Python 3.13 and every package, so the PC needs nothing else (no Python, no i
 - the program in `C:\Program Files\CCI Plant Monitoring`: `CCI Plant Monitoring.exe` (the window),
   `CCI Plant Monitoring Service.exe` (the collector), `runtime\` (the program's own Python and packages);
 - **the background service**: the Windows task `PlantDataCollector` runs `CCI Plant Monitoring Service.exe`
-  as SYSTEM at start-up and restarts it every minute if it stops. It runs whether the window is open or not,
-  and whether anybody is signed in;
+  as SYSTEM at start-up, and starts it again within 5 minutes if it ever stops. It runs whether the window is
+  open or not, and whether anybody is signed in;
 - **the window** "CCI Plant Monitoring" in the Start Menu (and on the Desktop): the dashboard as an
-  application, no browser and no address. Closing it does not stop anything;
+  application, no browser and no address. Closing it does not stop anything. It needs the Microsoft Edge
+  WebView2 Runtime (part of Windows 11 and of an up-to-date Windows 10); without it the window says so and
+  opens the dashboard in Edge or Chrome instead, and the service is not affected;
 - **the updater**: the Windows task `PlantCollectorUpdater` asks GitHub for the newest release every
   4 hours. With automatic updates on, it installs it at night (01:00-05:00, the PC's clock), after
   checking the file's SHA-256. If the new version does not answer within 3 minutes, it puts the previous
@@ -75,7 +77,9 @@ every value at least every 5 minutes. With the plant config (15 devices, 688 poi
 100,000 site rows and up to 130,000 live rows a day, about 30-35 MB a day.
 
 Settings and history live in `C:\ProgramData\CCI Plant Monitoring` (`config\`, `data\`, `update\`,
-`install.log`); an update never overwrites them. If an earlier copy of this folder ran as the Windows
+`install.log`); an update never overwrites them. Only SYSTEM and administrators may change that folder (users
+may read it), because the service and the updater run as SYSTEM from what is in it. While the Setup replaces
+the files, both exes refuse to start ("being updated"). If an earlier copy of this folder ran as the Windows
 task, the Setup finds it and brings its `config\site.plant.yaml`, database and `settings.json` over
 (the first time only). The wizard can also be pointed at such a folder.
 

@@ -109,9 +109,21 @@ def create_app(c: Collector) -> FastAPI:
         return updates.status(c.data_dir)
 
     def _from_this_pc(request: Request):
+        """The update buttons work only from the dashboard on this PC itself: the request must come from this PC,
+        to this PC's own address, from this dashboard's page (its own header, which another web site cannot send
+        without the browser asking first, and an Origin of this dashboard when the browser sends one)."""
         host = request.client.host if request.client else ""
         if host not in ("127.0.0.1", "::1", "localhost", "testclient"):
             raise HTTPException(403, "only from the PC the collector runs on")
+        local = ("localhost", "127.0.0.1", "[::1]", "testserver")
+        if request.headers.get("x-cci-request") != "update":
+            raise HTTPException(403, "only from the dashboard's own Updates panel")
+        hostname = (request.headers.get("host") or "").rsplit(":", 1)[0].lower()
+        if hostname not in local:
+            raise HTTPException(403, "only through this PC's own address")
+        origin = request.headers.get("origin")
+        if origin and origin.split("://", 1)[-1].rsplit(":", 1)[0].lower() not in local:
+            raise HTTPException(403, "not from another web site")
 
     @app.post("/api/v1/local/update/check")
     def update_check(request: Request):

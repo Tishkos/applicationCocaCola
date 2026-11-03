@@ -197,17 +197,71 @@ def start_collector(port, demo):
     subprocess.Popen(args, cwd=ROOT, creationflags=flags)
 
 
+WEBVIEW2_KEYS = ("{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",   # Microsoft Edge WebView2 Runtime (and the preview channels)
+                 "{2CD8A007-E189-409D-A2C8-9AF4EF3C72AA}", "{0D50BFEC-CD6A-4F9A-964C-C7416E3ACB10}",
+                 "{65C35B14-6C1D-4122-AC46-7148CC9D6497}")
+
+
+def webview2_ready():
+    """The same test pywebview makes before it chooses Edge WebView2: .NET Framework 4.6.2 or newer and a WebView2
+    Runtime of version 86 or newer. Without them pywebview falls back to Internet Explorer's engine, which cannot
+    show this dashboard (the window would stay blank)."""
+    if not WINDOWS:
+        return True
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full") as k:
+            if winreg.QueryValueEx(k, "Release")[0] < 394802:
+                return False
+        for key in WEBVIEW2_KEYS:
+            for hive, path in ((winreg.HKEY_LOCAL_MACHINE, rf"SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{key}"),
+                               (winreg.HKEY_LOCAL_MACHINE, rf"SOFTWARE\Microsoft\EdgeUpdate\Clients\{key}"),
+                               (winreg.HKEY_CURRENT_USER, rf"SOFTWARE\Microsoft\EdgeUpdate\Clients\{key}")):
+                try:
+                    with winreg.OpenKey(hive, path) as k:
+                        pv = str(winreg.QueryValueEx(k, "pv")[0])
+                    if int(pv.split(".")[0]) >= 86:
+                        return True
+                except (OSError, ValueError):
+                    pass
+    except Exception:
+        return False
+    return False
+
+
+def message(text, ok_cancel=False):
+    """A plain Windows message box (the window cannot show anything itself here). True for OK."""
+    if not WINDOWS:
+        return True
+    try:
+        flags = (0x01 if ok_cancel else 0x00) | 0x40            # MB_OKCANCEL | MB_ICONINFORMATION
+        return ctypes.windll.user32.MessageBoxW(None, text, TITLE, flags) == 1
+    except Exception:
+        return True
+
+
 def app_mode_browser(port):
-    """Fallback when the native window cannot start (no WebView2 / .NET on this PC): the dashboard in Edge's
-    app mode, a window without tabs or an address bar. Edge is part of Windows 10 and 11."""
+    """Fallback when the native window cannot start: the dashboard in Edge's or Chrome's app mode (a window
+    without tabs or an address bar), else in the default browser."""
     url = dashboard_url(port)
-    for exe in (os.path.join(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)"), r"Microsoft\Edge\Application\msedge.exe"),
-                os.path.join(os.environ.get("ProgramFiles", r"C:\Program Files"), r"Microsoft\Edge\Application\msedge.exe")):
-        if os.path.exists(exe):
+    pf86 = os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")
+    pf = os.environ.get("ProgramFiles", r"C:\Program Files")
+    local = os.environ.get("LOCALAPPDATA", "")
+    for exe in (os.path.join(pf86, r"Microsoft\Edge\Application\msedge.exe"), os.path.join(pf, r"Microsoft\Edge\Application\msedge.exe"),
+                os.path.join(pf, r"Google\Chrome\Application\chrome.exe"), os.path.join(pf86, r"Google\Chrome\Application\chrome.exe"),
+                os.path.join(local, r"Google\Chrome\Application\chrome.exe") if local else ""):
+        if exe and os.path.exists(exe):
             subprocess.Popen([exe, "--app=" + url, "--new-window"], creationflags=NO_WINDOW if WINDOWS else 0)
             return 0
-    os.startfile(url) if WINDOWS else None    # the default browser, as the last way
+    if WINDOWS:
+        os.startfile(url)                     # the default browser, as the last way
     return 0
+
+
+NO_WEBVIEW2 = ("This PC has no Microsoft Edge WebView2 Runtime, which the CCI Plant Monitoring window needs.\n\n"
+               "The background service and Turkey's feed are not affected: they keep running.\n\n"
+               "To get the window: install the free 'Microsoft Edge WebView2 Runtime' (Evergreen) from Microsoft, "
+               "then open CCI Plant Monitoring again.\n\nClick OK to open the dashboard in a browser now.")
 
 
 def main():
@@ -228,12 +282,17 @@ def main():
     if not single_instance():
         return 0                              # the open window has the focus now
 
+    if installed and not webview2_ready():
+        if message(NO_WEBVIEW2, ok_cancel=True):
+            return app_mode_browser(port)
+        return 0
     try:
         import webview  # pywebview; if it is missing this ends with an error and launch.ps1 opens the browser window
     except Exception:
         if not installed:
             raise
-        return app_mode_browser(port)          # the Setup's copy has no launch.ps1: open Edge's app window instead
+        message("The CCI Plant Monitoring window could not start on this PC. The dashboard opens in a browser instead.")
+        return app_mode_browser(port)          # the Setup's copy has no launch.ps1
 
     url = dashboard_url(port)
     up = alive(url)
@@ -274,7 +333,14 @@ def main():
     # the window's own browser data: the user's profile when installed (ProgramData belongs to the service)
     store = os.path.join(os.environ.get("LOCALAPPDATA") or DATA, "CCI Plant Monitoring", "appwindow") if installed \
         else os.path.join(DATA, "appwindow")
-    webview.start(icon=ICON, private_mode=False, storage_path=store)
+    try:
+        webview.start(icon=ICON, private_mode=False, storage_path=store)
+    except Exception:
+        if not installed:
+            raise
+        message("The CCI Plant Monitoring window could not start on this PC (.NET or WebView2 problem). "
+                "The dashboard opens in a browser instead; the background service is not affected.")
+        return app_mode_browser(port)
     return 0
 
 

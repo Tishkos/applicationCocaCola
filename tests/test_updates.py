@@ -32,8 +32,11 @@ def setup_copy(tmp_path, monkeypatch):
     return tmp_path
 
 
+H = {"X-CCI-Request": "update"}           # the header the dashboard's Updates panel sends
+
+
 def test_not_installed_by_the_setup(collector):
-    api = TestClient(create_app(collector))
+    api = TestClient(create_app(collector), headers=H)
     st = api.get("/api/v1/local/version").json()
     assert st["installed"] is False and st["version"] == updates.installed_version()
     assert api.post("/api/v1/local/update/check").status_code == 409
@@ -42,7 +45,7 @@ def test_not_installed_by_the_setup(collector):
 
 
 def test_status_from_the_updater(collector, setup_copy):
-    api = TestClient(create_app(collector))
+    api = TestClient(create_app(collector), headers=H)
     st = api.get("/api/v1/local/version").json()
     assert st["installed"] is True and st["version"] == "1.2.3" and st["state"] == "never checked"
     d = updates.update_dir(collector.data_dir)
@@ -59,7 +62,7 @@ def test_status_from_the_updater(collector, setup_copy):
 
 
 def test_check_and_install_requests(collector, setup_copy):
-    api = TestClient(create_app(collector))
+    api = TestClient(create_app(collector), headers=H)
     flag = os.path.join(updates.update_dir(collector.data_dir), "now.flag")
     r = api.post("/api/v1/local/update/check")
     assert r.status_code == 200 and r.json()["status"]["check_requested"] is True
@@ -71,12 +74,22 @@ def test_check_and_install_requests(collector, setup_copy):
 
 
 def test_only_from_this_pc(collector, setup_copy):
-    other = TestClient(create_app(collector), client=("192.168.0.20", 50000))
+    other = TestClient(create_app(collector), client=("192.168.0.20", 50000), headers=H)
     assert other.post("/api/v1/local/update/check").status_code == 403
     assert other.post("/api/v1/local/update/install").status_code == 403
     assert other.get("/api/v1/local/version").status_code == 200        # reading the state is fine
-    local = TestClient(create_app(collector), client=("127.0.0.1", 50000))
+    local = TestClient(create_app(collector), client=("127.0.0.1", 50000), headers=H)
     assert local.post("/api/v1/local/update/check").status_code == 200
+
+
+def test_not_from_another_web_site(collector, setup_copy):
+    """A page of another web site open in a browser on this PC cannot start an install."""
+    plain = TestClient(create_app(collector), client=("127.0.0.1", 50000))
+    assert plain.post("/api/v1/local/update/install").status_code == 403                 # no dashboard header
+    api = TestClient(create_app(collector), client=("127.0.0.1", 50000), headers=H)
+    assert api.post("/api/v1/local/update/install", headers={"Origin": "https://evil.example"}).status_code == 403
+    assert api.post("/api/v1/local/update/install", headers={"Host": "evil.example:8080"}).status_code == 403
+    assert api.post("/api/v1/local/update/check", headers={"Origin": "http://localhost:8080"}).status_code == 200
 
 
 def test_broken_status_file(collector, setup_copy):
