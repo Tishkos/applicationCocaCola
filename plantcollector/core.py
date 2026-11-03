@@ -4,6 +4,7 @@ Collector core: registry + adapters + store + a few health checks + daily totals
 
 from __future__ import annotations
 
+import bisect
 import json
 import os
 import threading
@@ -23,6 +24,36 @@ LIVE_OPTIONS_S = (0, 5, 10, 30, 60, 120, 300, 600)
 # ... and each other device: 0 = with every site read, or less often (never more often than the site read)
 DEVICE_OPTIONS_S = (0, 1800, 3600, 7200)
 SAME_HOST_PAUSE_S = 0.2                             # between two devices behind the same gateway in a site read
+
+# Grid import, checked against the incomers. The site master's Mains Import P is the sum of what MAIN 1-3
+# measure (its history shows P Site = IM1 + IM2 + IM3). Since a configuration change on 3 Nov 2026 it reads 0
+# while the three incomers import about 2 MW. When the master reads about nothing while the incomers together
+# carry power, the master's reading is not believed: grid import is taken from the incomers and the site load
+# (gensets + grid + solar on the master) is corrected by the difference. The incomers are read at the site
+# read, so a reading of theirs counts for one read interval and a half, plus 2 min - and not once the master
+# has seen the grid go since (its Mains Fail alarm coming on, or its mains-available bit going off).
+MAINS_ZERO_KW = 5.0                                 # the master's Mains Import P at or below this ...
+INCOMERS_ON_KW = 50.0                               # ... while the incomers together carry at least this
+STATE_LOOKBACK_S = 900                              # a state bit that does not change is still stored every 5 min
+
+
+def mains_suspect(master_kw, incomers_kw) -> bool:
+    """True when the master's grid reading is about zero while the incomers carry power."""
+    num = lambda v: isinstance(v, (int, float)) and not isinstance(v, bool)
+    return num(master_kw) and num(incomers_kw) and abs(master_kw) <= MAINS_ZERO_KW and abs(incomers_kw) >= INCOMERS_ON_KW
+
+
+def carry_forward(rows: list[tuple[float, float]], at: list[float], hold_s: float) -> list[tuple[float, float] | None]:
+    """For each time in `at` (ascending), the last of `rows` ((epoch s, value), ascending) at or before it,
+    if no older than `hold_s`; else None."""
+    out: list[tuple[float, float] | None] = []
+    j, last = 0, None
+    for t in at:
+        while j < len(rows) and rows[j][0] <= t:
+            last = rows[j]
+            j += 1
+        out.append(last if last is not None and t - last[0] <= hold_s else None)
+    return out
 
 
 class Collector:
@@ -329,7 +360,124 @@ class Collector:
             xs = [self.store.value(d, p) for d, p in specs.get(key, ("sum", []))[1]]
             xs = [float(x) for x in xs if isinstance(x, (int, float)) and not isinstance(x, bool)]
             out.append(round(sum(xs), 1) if xs else None)
+        out[4], out[1], _src = self.mains_checked(out[4], out[1])
         return out
+
+    # --- grid import checked against the incomers (see MAINS_ZERO_KW) -------------------------
+
+    def mains_pairs(self) -> tuple[list[tuple[str, str]], list[tuple[str, str]]]:
+        """(the master's Mains Import P, the incomers' power) - both empty unless the site has both."""
+        reg = self.registry
+        master = [(d.id, "mains_power_kw") for d in reg.devices.values() if d.point("mains_power_kw")]
+        inc = [(d.id, "power_kw") for d in reg.by_kind("grid") if d.point("power_kw")]
+        return (master, inc) if master and inc else ([], [])
+
+    def incomer_hold_s(self, did: str) -> float:
+        """How long a stored reading of `did` counts: its read interval and a half, plus 2 min (the live reader
+        stores a value that does not change only every few minutes: for its devices, that interval)."""
+        lv = self.live
+        every = max(lv.every_s, lv.idle_store_s) if lv is not None and did in lv.device_ids else self.device_every_s(did)
+        return every * 1.5 + 120.0
+
+    def grid_went(self, since: datetime, until: datetime) -> list[float]:
+        """When (epoch s, ascending) the master saw the grid go: its Mains Fail alarm coming on, or its
+        mains-available bit going off."""
+        out = []
+        for did, _p in self.mains_pairs()[0]:
+            dev = self.registry.devices[did]
+            for pid, gone_when in (("alarm_mains_fail", True), ("mains_available", False)):
+                if not dev.point(pid):
+                    continue
+                prev = None
+                for t, v in self.store.history(did, pid, since, until):
+                    if v is None:
+                        continue
+                    gone = (float(v) >= 0.5) == gone_when
+                    if gone and prev is False:
+                        out.append(datetime.fromisoformat(t).timestamp())
+                    prev = gone
+        return sorted(out)
+
+    def _went_between(self, went: list[float], a: float, b: float) -> bool:
+        i = bisect.bisect_right(went, a)
+        return i < len(went) and went[i] <= b
+
+    def incomers_now(self) -> tuple[float | None, int, int, float | None]:
+        """(the incomers added up from their last good readings that still count, how many counted, how many,
+        the age in s of the oldest counted) - (None, 0, n, None) when none counts."""
+        _m, inc = self.mains_pairs()
+        now, xs, oldest = self.now(), [], None
+        for did, pid in inc:
+            r = self.store.latest(did).get(pid)
+            if r is None or r.quality != Quality.GOOD or isinstance(r.value, bool) or not isinstance(r.value, (int, float)):
+                continue
+            if (now - r.source_ts).total_seconds() > self.incomer_hold_s(did):
+                continue
+            xs.append(float(r.value))
+            oldest = r.source_ts if oldest is None or r.source_ts < oldest else oldest
+        if not xs:
+            return None, 0, len(inc), None
+        if self._went_between(self.grid_went(oldest - timedelta(seconds=STATE_LOOKBACK_S), now), oldest.timestamp(), now.timestamp()):
+            return None, 0, len(inc), None
+        return round(sum(xs), 1), len(xs), len(inc), round((now - oldest).total_seconds())
+
+    def incomers_at(self, at: list[float]) -> list[float | None]:
+        """The incomers' sum as it stood at each time in `at` (epoch s, ascending), from the stored readings,
+        by the same rules as incomers_now; None where no reading counts."""
+        _m, inc = self.mains_pairs()
+        if not at or not inc:
+            return [None] * len(at)
+        a, b = datetime.fromtimestamp(at[0], timezone.utc), datetime.fromtimestamp(at[-1], timezone.utc)
+        back = max(self.incomer_hold_s(did) for did, _p in inc)
+        per = []
+        for did, pid in inc:
+            hold = self.incomer_hold_s(did)
+            rows = [(datetime.fromisoformat(t).timestamp(), float(v))
+                    for t, v in self.store.history(did, pid, a - timedelta(seconds=hold), b) if v is not None]
+            per.append(carry_forward(rows, at, hold))
+        went = self.grid_went(a - timedelta(seconds=back + STATE_LOOKBACK_S), b)
+        out: list[float | None] = []
+        for i, t in enumerate(at):
+            got = [p[i] for p in per if p[i] is not None]
+            if not got or self._went_between(went, min(g[0] for g in got), t):
+                out.append(None)
+            else:
+                out.append(sum(g[1] for g in got))
+        return out
+
+    def mains_checked(self, mains: float | None, load: float | None) -> tuple[float | None, float | None, dict | None]:
+        """(grid import, site load, None) as read - or, when the master's grid reading is not believed, the
+        incomers' sum, the load corrected by the difference, and {"incomers": counted, "of": how many,
+        "age_s": age of the oldest counted reading}."""
+        if not self.mains_pairs()[0] or not mains_suspect(mains, INCOMERS_ON_KW):    # the master reads power: believed
+            return mains, load, None
+        inc, n, of, age = self.incomers_now()
+        if not mains_suspect(mains, inc):
+            return mains, load, None
+        if load is not None and self.load_from_master():
+            load = round(load - mains + inc, 1)
+        return inc, load, {"incomers": n, "of": of, "age_s": age}
+
+    def load_from_master(self) -> bool:
+        """The site load is the master's (gensets + grid + solar), not a site meter's."""
+        return not any(d.point("load_kw") for d in self.registry.by_kind("meter"))
+
+    def mains_correction_kwh(self, start: datetime, end: datetime) -> float:
+        """Energy the master's grid reading missed in [start, end): at each of its readings that is not believed,
+        the incomers' sum (as it stood then) in its place, integrated the same way as integrate_kwh."""
+        master, _inc = self.mains_pairs()
+        kwh = 0.0
+        for did, pid in master:
+            rows = self.store.history(did, pid, start, end)
+            if not any(mains_suspect(v, INCOMERS_ON_KW) for _t, v in rows):
+                continue
+            ts = [datetime.fromisoformat(t).timestamp() for t, _v in rows]
+            inc = self.incomers_at(ts)
+            fix = [None if v is None else (s - v if mains_suspect(v, s) else 0.0) for (_t, v), s in zip(rows, inc)]
+            for i in range(1, len(rows)):          # as integrate_kwh: a pair with a missing value counts nothing
+                if fix[i - 1] is not None and fix[i] is not None:
+                    kwh += (fix[i - 1] + fix[i]) / 2 * (ts[i] - ts[i - 1]) / 3600
+        return round(kwh, 1)
 
     # --- polling ----------------------------------------------------------------------
 
@@ -452,6 +600,7 @@ class Collector:
         end = start + timedelta(days=1)
         reg, st = self.registry, self.store
         load = sum(st.integrate_kwh(m.id, "load_kw", start, end) for m in reg.by_kind("meter"))
+        src = None
         if not reg.by_kind("meter"):              # no site meter (the real plant): the master's site load
             src = next((d for d in reg.devices.values() if d.point("load_kw")), None)
             load = st.integrate_kwh(src.id, "load_kw", start, end) if src else 0.0
@@ -482,6 +631,12 @@ class Collector:
         master_mains = [d for d in reg.devices.values() if d.point("mains_power_kw")]
         grid_kwh = (sum(st.integrate_kwh(d.id, "mains_power_kw", start, end) for d in master_mains) if master_mains else
                     sum(st.integrate_kwh(g.id, "power_kw", start, end) for g in reg.by_kind("grid")))
+        # ... with the incomers in place of the master's reading where that is not believed (see MAINS_ZERO_KW)
+        missed = self.mains_correction_kwh(start, end)
+        if missed:
+            grid_kwh += missed
+            if src is not None and src.point("mains_power_kw"):     # the master's site load counts its grid reading in
+                load += missed
         grid_hours = 0.0
         for d in reg.devices.values():               # several devices see the same grid: the longest, not the sum
             pid = "available" if d.kind == "grid" else ("mains_available" if d.point("mains_available") else None)

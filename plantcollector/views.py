@@ -110,11 +110,13 @@ def pick_step(seconds: float, target_points: int = 420, floor: int = 30) -> int:
 
 def series(c: Collector, since: datetime, until: datetime, step: int | None = None,
            keys: list[str] | None = None) -> dict:
-    specs = series_specs(c.registry)
+    specs = full = series_specs(c.registry)
     if keys:
         specs = {k: v for k, v in specs.items() if k in keys}
     step = step or pick_step((until - since).total_seconds(), floor=max(30, int(c.registry.site.poll_interval_s)))
     pairs = sorted({pr for _agg, prs in specs.values() for pr in prs})
+    master, incomers = c.mains_pairs()
+    fix = bool(master) and set(full.get("mains_kw", ("", []))[1]) == set(master) and ("mains_kw" in specs or "load_kw" in specs)
     data = c.store.resample(since, until, step, pairs) if pairs else {}
     b0 = int(since.timestamp()) // step * step
     b1 = int(until.timestamp()) // step * step
@@ -131,8 +133,40 @@ def series(c: Collector, since: datetime, until: datetime, step: int | None = No
                 v = sum(xs) if agg == "sum" else sum(xs) / len(xs)
                 vals.append(round(v, 3))
         out[key] = vals
+    if fix and pairs:
+        # the master's grid reading from a little before the window: its last row before it still counts
+        back = max(c.incomer_hold_s(d) for d, _p in master)
+        _mains_fix(c, out, c.store.resample(since - timedelta(seconds=back), until, step, master), buckets, step, master)
     return {"from": since.isoformat(), "to": until.isoformat(), "step": step,
             "t": [b * 1000 for b in buckets], "series": out}
+
+
+def _mains_fix(c: Collector, out: dict, data: dict, buckets: list[int], step: int, master: list[tuple[str, str]]) -> None:
+    """Grid import and site load per bucket with the incomers in place of the master's grid reading where that
+    is not believed (core.MAINS_ZERO_KW): the incomers' sum as it stood in the middle of the bucket."""
+    from .core import INCOMERS_ON_KW, carry_forward, mains_suspect
+    mains, load = out.get("mains_kw"), out.get("load_kw")
+    fix_load = load is not None and c.load_from_master()
+    # the master's grid reading per bucket; a value that does not change is stored only every few minutes,
+    # so a bucket without a row of its own has the last one before it (while that still counts)
+    ms: list[float | None] = [None] * len(buckets)
+    for did, pid in master:
+        col = data.get((did, pid), {})
+        got = carry_forward(sorted(col.items()), buckets, c.incomer_hold_s(did))
+        for i, g in enumerate(got):
+            if g is not None:
+                ms[i] = (ms[i] or 0.0) + g[1]
+    if not any(mains_suspect(m, INCOMERS_ON_KW) for m in ms):          # the master read power throughout
+        return
+    incs = c.incomers_at([b + step / 2 for b in buckets])
+    for i, b in enumerate(buckets):
+        m, inc = ms[i], incs[i]
+        if not mains_suspect(m, inc):
+            continue
+        if mains is not None:
+            mains[i] = round(inc, 3)
+        if fix_load and load[i] is not None:
+            load[i] = round(load[i] - m + inc, 3)
 
 
 # --- live summary --------------------------------------------------------------------------------
@@ -206,10 +240,15 @@ def summary(c: Collector) -> dict:
 
     today = _daily_cache.get(lambda: c.daily_totals())
     tot = today["totals"]
-    load_kw, pv_kw = live.get("load_kw"), live.get("pv_kw")
+    # the master's grid reading, or the incomers' when that is not believed (core.MAINS_ZERO_KW)
+    mains_kw, load_kw, from_inc = c.mains_checked(live.get("mains_kw"), live.get("load_kw"))
+    pv_kw = live.get("pv_kw")
     kpi = {
         "load_kw": load_kw, "pv_kw": pv_kw, "genset_kw": live.get("genset_kw"), "bess_kw": live.get("bess_kw"),
-        "mains_kw": live.get("mains_kw"), "soc_pct": live.get("soc_pct"), "frequency_hz": live.get("frequency_hz"),
+        "mains_kw": mains_kw, "mains_source": "incomers" if from_inc else "master",
+        "mains_incomers": from_inc["incomers"] if from_inc else None, "mains_incomers_of": from_inc["of"] if from_inc else None,
+        "mains_incomers_age_s": from_inc["age_s"] if from_inc else None,
+        "soc_pct": live.get("soc_pct"), "frequency_hz": live.get("frequency_hz"),
         "voltage_v": live.get("voltage_v"), "irradiance_wm2": live.get("irradiance_wm2"),
         "pv_share_now_pct": round(100 * pv_kw / load_kw, 1) if pv_kw is not None and load_kw else None,
         "gensets_running": running, "gensets_total": total,

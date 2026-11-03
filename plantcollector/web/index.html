@@ -1906,8 +1906,8 @@ a.rcard:hover { border-color: var(--xc); }
     stat($("#t-pv"), { title: "Solar PV", num: k.pv_kw, value: fmt(k.pv_kw), unit: "kW", color: C("--c-pv"), spark: sv("pv_kw"), sub: k.pv_kwh_today !== null ? `${fmt(k.pv_kwh_today)} kWh today` : "" });
     stat($("#t-gen"), { title: "Gensets", num: k.genset_kw, value: fmt(k.genset_kw), unit: "kW", color: C("--c-gen"), spark: sv("genset_kw"), sub: k.gensets_total ? `${k.gensets_running} of ${k.gensets_total} running` : "" });
     if (k.mains_kw === null && k.bess_kw !== null) stat($("#t-grid"), { title: "Battery", value: fmt(k.bess_kw), unit: "kW", color: C("--c-bess"), spark: sv("bess_kw"), sub: k.soc_pct !== null ? `${fmt(k.soc_pct)} % charged` : "" });
-    else stat($("#t-grid"), { title: k.mains_kw !== null && k.mains_kw < 0 ? "Grid export" : "Grid import", value: k.grid_available === false ? "OFF" : fmt(k.mains_kw === null ? null : Math.abs(k.mains_kw)), unit: k.grid_available === false ? "" : "kW",
-      color: k.grid_available === false ? C("--bad") : C("--c-grid"), spark: sv("mains_kw"), sub: k.grid_available === false ? "grid not available" : k.mains_kw !== null && k.mains_kw < -5 ? "solar flowing out to the grid" : k.grid_available ? "grid on" : "" });
+    else stat($("#t-grid"), { title: k.mains_kw !== null && k.mains_kw < 0 ? "Grid export" : "Grid import", info: k.mains_source === "incomers" ? INCOMERS_INFO : "", value: k.grid_available === false ? "OFF" : fmt(k.mains_kw === null ? null : Math.abs(k.mains_kw)), unit: k.grid_available === false ? "" : "kW",
+      color: k.grid_available === false ? C("--bad") : C("--c-grid"), spark: sv("mains_kw"), sub: k.grid_available === false ? "grid not available" : k.mains_source === "incomers" ? incomersNote(k) : k.mains_kw !== null && k.mains_kw < -5 ? "solar flowing out to the grid" : k.grid_available ? "grid on" : "" });
     const share = k.pv_share_now_pct;
     stat($("#t-share"), { title: "Solar share now", num: share, value: fmt(share), unit: "%", color: share === null ? C("--text-3") : share >= 40 ? C("--ok") : share >= 15 ? C("--c-pv") : C("--text-2"),
       spark: sv("load_kw").map((l, i) => l > 0 && isNum(sv("pv_kw")[i]) ? 100 * Math.max(0, sv("pv_kw")[i]) / l : null), info: "Solar power / site load, right now." });
@@ -1941,6 +1941,13 @@ a.rcard:hover { border-color: var(--xc); }
     return j > 0 ? T[j] : null;
   }
   const dur = (ms) => { const m = Math.round(ms / 60000), h = Math.floor(m / 60); return h ? `${h} h ${p2(m % 60)} min` : `${m} min`; };
+  // grid import taken from MAIN 1-3 because the Neo's own reading is about 0 while they carry power
+  // (they are read at the site read, so the figure is as old as their last read)
+  function incomersNote(k) {
+    const m = Math.max(1, Math.round((k.mains_incomers_age_s || 0) / 60));
+    return `from ${k.mains_incomers === k.mains_incomers_of ? "MAIN 1–" + k.mains_incomers_of : k.mains_incomers + " of " + k.mains_incomers_of + " incomers"} · ${m} min ago`;
+  }
+  const INCOMERS_INFO = "The Neo reports 0 for Mains Import P while MAIN 1–3 carry power, so grid import and site load are taken from the three incomers. They are read at every site read (every 10 min), so this figure can be up to 10 min old.";
   function renderHero(M) {
     // what feeds the plant right now. Sources can run together (grid + solar, gensets + solar, all three) and
     // with the grid on, solar above the load flows out to the grid (mains power below zero = export).
