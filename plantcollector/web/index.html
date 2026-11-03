@@ -2993,6 +2993,7 @@ a.rcard:hover { border-color: var(--xc); }
     if (!u) return;
     const inst = !!u.installed;
     const rows = [["Installed version", u.version]];
+    if (u.whats_new) rows.push(["What's new", u.whats_new]);
     if (inst) {
       rows.push(["Newest on GitHub", u.latest || "—"], ["Update state", u.message ? `${u.state} — ${u.message}` : u.state],
         ["Last check", u.last_check || "—"], ["Last update", u.last_install || "—"],

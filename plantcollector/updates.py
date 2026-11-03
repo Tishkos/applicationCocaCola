@@ -22,6 +22,12 @@ from . import __version__
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 UPDATER_TASK = "PlantCollectorUpdater"
 
+# shown in Settings > Updates for the installed version: one short line per version
+WHATS_NEW = {
+    "1.0.3": "The updater also takes new versions from the setup-download branch.",
+    "1.0.4": "This version arrived through the automatic updater: updates work on this PC.",
+}
+
 
 def installed_version() -> str:
     """The version the Setup wrote (version.txt in the program folder), else the package's own."""
@@ -44,7 +50,8 @@ def update_dir(data_dir: str) -> str:
 
 
 def status(data_dir: str) -> dict:
-    out = {"version": installed_version(), "installed": installed_by_setup(), "state": "not installed by the Setup"}
+    out = {"version": installed_version(), "installed": installed_by_setup(), "state": "not installed by the Setup",
+           "whats_new": WHATS_NEW.get(installed_version())}
     if not out["installed"]:
         return out
     out["state"] = "never checked"

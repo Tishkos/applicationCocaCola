@@ -48,6 +48,8 @@ def test_status_from_the_updater(collector, setup_copy):
     api = TestClient(create_app(collector), headers=H)
     st = api.get("/api/v1/local/version").json()
     assert st["installed"] is True and st["version"] == "1.2.3" and st["state"] == "never checked"
+    assert st["whats_new"] is None                      # no line for this version
+    assert updates.WHATS_NEW["1.0.4"]
     d = updates.update_dir(collector.data_dir)
     os.makedirs(d, exist_ok=True)
     with open(os.path.join(d, "status.json"), "w", encoding="utf-8-sig") as f:      # PowerShell 5 writes a BOM
