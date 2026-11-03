@@ -27,7 +27,7 @@ site:
                                     # in data\settings.json, which overrides this value.
 
 # --- LIVE: the master controller every minute, for the dashboard only -------------------------------------
-# Settings > Reading the devices changes the rate (5 s ... 5 min, or off) and remembers it in data\settings.json
+# Settings > Reading the devices changes the rate (5 s ... 10 min, or off) and remembers it in data\settings.json
 # (live_every_s), which overrides every_s below. Each other device's rate is set there too (device_every_s).
 # The InteliNeo already knows what feeds the plant (gensets P over CAN, mains import P, PV actual P from its own
 # reads of the SAU, breakers, mode, which genset is on the bus), so the dashboard is live without one extra

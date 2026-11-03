@@ -39,7 +39,7 @@ def test_rows_and_options(tmp_path, hosts):
     try:
         r = TestClient(create_app(c)).get("/api/v1/local/settings").json()["reading"]
         assert r["live"]["available"] and r["live"]["devices"] == ["neo-01"] and r["live"]["every_s"] == 1
-        assert [o["value"] for o in r["live"]["options"]] == [0, 5, 10, 30, 60, 120, 300]
+        assert [o["value"] for o in r["live"]["options"]] == [0, 5, 10, 30, 60, 120, 300, 600]
         rows = {g["key"]: g for g in r["groups"]}
         sau_row = rows[f"127.0.0.1:{sau.port}"]
         assert sau_row["devices"] == ["inv-01", "pv-array"] and sau_row["name"].startswith("Solar")
@@ -161,3 +161,75 @@ def test_demo_is_locked(tmp_path):
     r = api.get("/api/v1/local/settings").json()["reading"]
     assert r["simulated"] is True and r["live"]["available"] is False
     assert api.post("/api/v1/local/settings", json={"live_every_s": 60}).status_code == 400
+
+
+def test_slow_master_switches_the_guard_off(tmp_path, hosts):
+    """Read every 10 min, the master's fail is seen up to 10 min late: it must never be blamed on our reads."""
+    neo, sau, mains = hosts
+    c = plant(tmp_path, neo, sau, mains)
+    c.start_live()
+    try:
+        c.set_live_every(600)
+        assert c.live.every_s == 600 and not c.live.guard_active()
+        assert c.live.guard_window_s == 15 + 60
+        c.set_live_every(60)
+        assert c.live.guard_active()
+    finally:
+        c.close()
+
+
+def test_the_sau_is_read_only_at_the_site_read(tmp_path, hosts):
+    """However fast the master is read live, and whatever is changed in Settings, the SAU gateway is asked only
+    at the site read: once per device behind it, nothing in between; set slower, not at all until due."""
+    neo, sau, mains = hosts
+    c = plant(tmp_path, neo, sau, mains)
+    c.start_live()
+    api = TestClient(create_app(c))
+    try:
+        assert api.post("/api/v1/local/settings", json={"live_every_s": 5}).status_code == 200
+        assert _wait(lambda: c.live.cycles >= 2, 15)
+        assert sau.total_requests() == 0                     # the live reader never touches the SAU
+        c.poll()
+        per_read = sau.total_requests()
+        assert 0 < per_read <= 2 * 4                         # inv-01 and pv-array: a few blocks each, no retries
+        time.sleep(1.5)
+        assert sau.total_requests() == per_read              # nothing between site reads
+        n_neo = neo.total_requests()
+        c.poll()                                             # the site read leaves the live master to the live reader
+        assert sau.total_requests() == 2 * per_read and neo.total_requests() - n_neo <= 6
+        sau_key = f"127.0.0.1:{sau.port}"
+        assert api.post("/api/v1/local/settings", json={"device_every": {sau_key: 3600}}).status_code == 200
+        c.poll()
+        assert sau.total_requests() == 2 * per_read          # slowed: not due yet, not asked at all
+        assert api.post("/api/v1/local/settings", json={"device_every": {sau_key: 0}}).status_code == 200
+        c.poll()
+        assert sau.total_requests() == 3 * per_read          # back to every site read
+    finally:
+        c.close()
+
+
+def test_turkey_feed_does_not_follow_the_settings(tmp_path, hosts):
+    """Changing the master's live rate (or switching it off) does not move the Turkey feed: its values are those of
+    the last site read."""
+    neo, sau, mains = hosts
+    c = plant(tmp_path, neo, sau, mains)
+    c.start_live()
+    api = TestClient(create_app(c))
+    try:
+        c.poll()
+        before = api.get("/api/v1/tags/Psum3").json()["value"]
+        neo.set(NEO_UNIT, 1040, 777)                          # PV Actual P changes on the master
+        assert api.post("/api/v1/local/settings", json={"live_every_s": 5}).status_code == 200
+        assert _wait(lambda: c.store.value("neo-01", "pv_prod_kw") == 777, 15)       # the dashboard has it live
+        assert api.get("/api/v1/tags/Psum3").json()["value"] == before     # Turkey: still the site read's value
+        assert api.post("/api/v1/local/settings", json={"live_every_s": 0}).status_code == 200
+        assert api.get("/api/v1/tags/Psum3").json()["value"] == before
+        c.poll()
+        assert api.get("/api/v1/tags/Psum3").json()["value"] == 777        # changes at the next site read only
+    finally:
+        c.close()
+
+
+def test_one_collector_lock_is_a_no_op_off_windows():
+    from plantcollector.cli import one_collector
+    assert one_collector() is True and one_collector() is True

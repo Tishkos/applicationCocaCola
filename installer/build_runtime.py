@@ -157,7 +157,7 @@ def copy_program(version):
     for f in ("desktop.py", "PlantCollector.ico", "PlantCollector.png", "Install-DesktopShortcut.ps1"):
         shutil.copy2(os.path.join(ROOT, "app", f), os.path.join(STAGE, "app"))
     os.makedirs(os.path.join(STAGE, "scripts"))
-    for f in ("install.ps1", "updater.ps1", "uninstall.ps1"):
+    for f in ("install.ps1", "updater.ps1", "uninstall.ps1", "update-progress.ps1"):
         shutil.copy2(os.path.join(ROOT, "scripts", f), os.path.join(STAGE, "scripts"))
     for f in ("requirements.txt", "README.md"):
         shutil.copy2(os.path.join(ROOT, f), STAGE)

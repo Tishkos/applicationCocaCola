@@ -102,6 +102,18 @@ function Test-Up {
     try { Invoke-RestMethod ($url + "api/v1/health") -TimeoutSec 3 | Out-Null; return $true } catch { return $false }
 }
 
+function Run-Setup($path) {
+    # the Setup itself, waited for on its own: Start-Process -Wait would also wait for every process it started (and
+    # anything those leave running), which kept the updater from ever reporting back. 20 minutes at the most.
+    $psi = New-Object Diagnostics.ProcessStartInfo
+    $psi.FileName = $path
+    $psi.Arguments = "/S /UPDATE"
+    $psi.UseShellExecute = $false
+    $proc = [Diagnostics.Process]::Start($psi)
+    if (-not $proc.WaitForExit(20 * 60 * 1000)) { Say "the Setup did not end within 20 minutes" | Out-Null; return -1 }
+    return $proc.ExitCode
+}
+
 function Wait-Up($seconds) {
     for ($i = 0; $i -lt $seconds; $i += 3) { if (Test-Up) { return $true }; Start-Sleep -Seconds 3 }
     return $false
@@ -241,8 +253,7 @@ Say "SHA-256 ok ($got)"
 if (Test-Path $SetupNow) { Copy-Item $SetupNow $SetupPrev -Force }
 Save-Status "installing" "Installing version $latestText (the collector stops for about a minute)..." @{ latest = $latestText; available = $latestText }
 Say "installing $latestText"
-$p = Start-Process $exe -ArgumentList "/S", "/UPDATE" -Wait -PassThru
-$rc = $p.ExitCode
+$rc = Run-Setup $exe
 $now = Get-Installed
 $up = Wait-Up 180
 # the Setup ends with 3 when the service needed more than its 2 minutes to answer: fine if it answers now
@@ -255,7 +266,7 @@ if (($rc -eq 0 -or $rc -eq 3) -and $up -and (Get-Ver $now) -eq $latest) {
 Say "the update did not come up (Setup exit code $rc, service answers: $up, version now $now)"
 if (Test-Path $SetupPrev) {
     Say "putting the previous version back"
-    $p2 = Start-Process $SetupPrev -ArgumentList "/S", "/UPDATE" -Wait -PassThru
+    $rc2 = Run-Setup $SetupPrev
     $back = Wait-Up 180
     try {
         $us = Join-Path $UpdDir "settings.json"
@@ -265,7 +276,7 @@ if (Test-Path $SetupPrev) {
         ($h | ConvertTo-Json) | Set-Content -Path $us -Encoding UTF8
     } catch {}
     Save-Status "error" "Version $latestText did not start on this PC; version $(Get-Installed) was put back ($(if ($back) { 'it answers' } else { 'it does NOT answer yet: restart the PC' }))." @{ latest = $latestText; available = $latestText }
-    Say "previous version back (exit $($p2.ExitCode), answers: $back)"
+    Say "previous version back (exit $rc2, answers: $back)"
     exit 2
 }
 try { Start-ScheduledTask -TaskName "PlantDataCollector" } catch {}

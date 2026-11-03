@@ -65,7 +65,24 @@ def status(data_dir: str) -> dict:
     except (OSError, ValueError):
         pass
     out["check_requested"] = os.path.exists(os.path.join(update_dir(data_dir), "now.flag"))
+    # "downloading" / "installing" left behind (the updater was stopped before it could report back): the version
+    # that runs now says what happened
+    if out.get("state") in ("downloading", "installing"):
+        if out.get("latest") and out["latest"] == out["version"]:
+            out.update(state="up to date", message=f"Version {out['version']} is installed.", available=None)
+        elif _older_than(out.get("last_check"), 30 * 60):
+            out.update(state="error", message="The updater did not report back (see update\\updater.log); "
+                                               "'Check for updates' asks it again.")
     return out
+
+
+def _older_than(stamp, seconds: float) -> bool:
+    """The updater writes the PC's local time as "yyyy-MM-dd HH:mm"."""
+    try:
+        t = datetime.strptime(str(stamp), "%Y-%m-%d %H:%M")
+    except (TypeError, ValueError):
+        return False
+    return (datetime.now() - t).total_seconds() > seconds
 
 
 def request_check(data_dir: str, install: bool = False) -> dict:

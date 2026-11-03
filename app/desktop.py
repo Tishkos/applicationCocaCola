@@ -264,6 +264,48 @@ NO_WEBVIEW2 = ("This PC has no Microsoft Edge WebView2 Runtime, which the CCI Pl
                "then open CCI Plant Monitoring again.\n\nClick OK to open the dashboard in a browser now.")
 
 
+class WindowApi:
+    """What the dashboard page may ask of this window (window.pywebview.api.* in the page). Only these methods
+    are exposed; the window itself is kept in a private attribute."""
+
+    def __init__(self, installed):
+        self._window = None
+        self._installed = installed
+        self._full = False
+
+    def fullscreen(self, on=None):
+        """Fill the whole screen (on=True), back to a normal window (False), or switch (None). Returns the state.
+        The browser's own full screen does not work inside this window, so the page asks for it here."""
+        want = (not self._full) if on is None else bool(on)
+        if self._window is not None and want != self._full:
+            self._window.toggle_fullscreen()
+            self._full = want
+        return self._full
+
+    def start_update(self, version=""):
+        """'Install now' was clicked: show the update window (it follows the download and the installation and
+        opens the program again when it is done), then close this window so none of its files is in use."""
+        if not (self._installed and WINDOWS):
+            return False
+        script = os.path.join(ROOT, "scripts", "update-progress.ps1")
+        if not os.path.exists(script):
+            return False
+        try:
+            # a copy outside the program folder: the update replaces the folder while the window runs
+            tmp = os.path.join(os.environ.get("TEMP") or os.environ.get("TMP") or DATA, "CCI-Plant-Monitoring-update.ps1")
+            with open(script, "rb") as src, open(tmp, "wb") as dst:
+                dst.write(src.read())
+            subprocess.Popen(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-STA",
+                              "-File", tmp, "-InstallDir", ROOT, "-Version", str(version or "")],
+                             creationflags=NO_WINDOW, close_fds=True)
+        except Exception:
+            return False
+        w = self._window
+        if w is not None:
+            threading.Timer(0.8, w.destroy).start()
+        return True
+
+
 def main():
     global DATA, TITLE
     demo = "--demo" in sys.argv
@@ -297,10 +339,12 @@ def main():
     url = dashboard_url(port)
     up = alive(url)
 
+    api = WindowApi(installed)
     window = webview.create_window(
         TITLE, url if up else None, html=None if up else waiting_page(),
-        width=1400, height=900, min_size=(960, 600), text_select=True,
+        width=1400, height=900, min_size=(960, 600), text_select=True, js_api=api,
     )
+    api._window = window
 
     def wait_and_load():
         """Runs beside the window: starts the collector if needed, shows the dashboard when it answers."""

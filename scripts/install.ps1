@@ -95,10 +95,33 @@ function Stop-Collector {
     }
 }
 
+function Set-Installed {
+    # Settings > Updates shows this version as installed at once, whoever ran the Setup (the updater, or a person)
+    $sf = Join-Path $UpdDir "status.json"
+    try {
+        $o = $null
+        if (Test-Path $sf) { $o = Get-Content $sf -Raw | ConvertFrom-Json }
+        if ($null -eq $o) { $o = New-Object PSObject }
+        $at = Get-Date -Format "yyyy-MM-dd HH:mm"
+        $newer = $false
+        try { $newer = $o.latest -and ([version]"$($o.latest)" -gt [version]$Version) } catch {}
+        foreach ($kv in @(@("state", "up to date"), @("message", "Version $Version installed $at."), @("last_install", "$Version at $at"),
+                          @("installed", $Version), @("last_check", $at))) {
+            $o | Add-Member -NotePropertyName $kv[0] -NotePropertyValue $kv[1] -Force
+        }
+        if (-not $newer) {
+            $o | Add-Member -NotePropertyName latest -NotePropertyValue $Version -Force
+            $o | Add-Member -NotePropertyName available -NotePropertyValue $null -Force
+        }
+        [IO.File]::WriteAllText($sf, ($o | ConvertTo-Json -Depth 4), (New-Object Text.UTF8Encoding $false))
+    } catch {}
+}
+
 function Done($code) {
     # every way out of the Install phase: the service task enabled again, the "updating" mark removed
     try { Enable-ScheduledTask -TaskName $TaskName -ErrorAction Stop | Out-Null } catch {}
     Remove-Item $Marker -Force -ErrorAction SilentlyContinue
+    if ($Phase -eq "Install" -and ($code -eq 0 -or $code -eq 20) -and $Version) { Set-Installed }
     exit $code
 }
 trap {

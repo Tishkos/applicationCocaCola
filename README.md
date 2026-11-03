@@ -69,6 +69,12 @@ own Python 3.13 and every package, so the PC needs nothing else (no Python, no i
   one back and does not try that release again. Settings > Updates shows the state, with
   "Check for updates" and "Install now" (only in the window on that PC);
 - optional: the firewall rules for Turkey's Modbus (TCP 502) and the dashboard (TCP 8080).
+- **"Install now"** closes the window and opens a small update window (downloading, installing, starting); when the
+  new version answers, CCI Plant Monitoring opens again by itself. Night updates run without any window.
+- **One collector only:** the collector holds a machine-wide lock (`Global\CCI.PlantMonitoring.collector`); a second
+  one, however it is started, ends at once, so no device is ever read twice.
+- **Full screen** (the top-bar button, F, a panel's own button, TV mode) fills the screen with the program window;
+  Esc leaves. **Settings** shows one "Save settings" bar with what is about to change, and Discard.
 
 **The database** is SQLite, built into the program (no database server to install or look after):
 `C:\ProgramData\CCI Plant Monitoring\data\telemetry.sqlite`, in WAL mode, so a power cut does not damage it.
@@ -204,16 +210,18 @@ Changing the poll rate: the dashboard's **Settings** page (10 min / 30 min / 1 h
 | What | How often | Why |
 |---|---|---|
 | **Site read** - every device, then the **Turkey feed** (Modbus registers, `/api/v1/tags`, the tag files) | every 10 min | what Turkey was told; their values change only here |
-| **InteliNeo master** | every 1 min (Settings: 5 s ... 5 min, or off), one kept connection, 3 requests | it already knows gensets P (CAN), mains import P, PV actual P, breakers, mode, which genset is on the bus: the dashboard is live without one extra request to the SAU or the InteliMains |
+| **InteliNeo master** | every 1 min (Settings: 5 s ... 10 min, or off), one kept connection, 3 requests | it already knows gensets P (CAN), mains import P, PV actual P, breakers, mode, which genset is on the bus: the dashboard is live without one extra request to the SAU or the InteliMains |
 | SAU + 10 inverters, pv-array | at the site read (10 min), 0.2 s between devices (Settings: or 30 min / 1 h / 2 h) | no load on the SAU |
 | InteliMains MAIN 1-3 | at the site read (10 min) (Settings: or 30 min / 1 h / 2 h, each on its own) | see the guard below |
 
 **Settings > Reading the devices** sets all of these from the dashboard: the master's live rate (5 s, 10 s, 30 s,
-1 min, 2 min, 5 min, or off: then the master is read at the site read like the others), and for every other device or
+1 min, 2 min, 5 min, 10 min, or off: then the master is read at the site read like the others), and for every other device or
 gateway "with every site read" or less often. Applied at once, kept in `data\settings.json` (`live_every_s`,
 `device_every_s`) after restarts and updates. Devices behind one address (the inverters and the PV array behind the SAU
 logger) are one row. Choosing "with every site read" also undoes an automatic slow-down by the guard. With the master
-read every 30 s or slower, the live chart shows the last hour instead of 15 minutes. Turkey's feed is built at the site
+read every 30 s or slower, the live chart shows the last hour instead of 15 minutes. Read slower than once a minute, the guard
+is off: the master's comm fails are still logged, but nothing is slowed down automatically (a fail seen minutes
+late cannot be matched to one of our reads). Turkey's feed is built at the site
 read either way; a device read less often than the site read shows its Turkey values as stale between its reads.
 
 - The live reader never refreshes the Turkey feed. It never asks the master more than `max_requests_per_s` (2): if the

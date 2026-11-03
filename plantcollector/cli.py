@@ -75,12 +75,52 @@ def _choose_port(host: str, wanted: int, wait_s: int = 15, tries: int = 10) -> i
     return wanted
 
 
+_ONE_COLLECTOR = None      # the machine-wide lock of the running collector, held for the life of the process
+
+
+def one_collector(name: str = "Global\\CCI.PlantMonitoring.collector") -> bool:
+    """Only one collector on this PC, whoever starts it (the background service, a second click, an old copy
+    of this version): a second one would read every device twice. True when this process may run. Windows only;
+    elsewhere (tests, the demo on a laptop) always True."""
+    global _ONE_COLLECTOR
+    if os.name != "nt":
+        return True
+    try:
+        import ctypes
+        k = ctypes.WinDLL("kernel32", use_last_error=True)
+        k.CreateMutexW.restype = ctypes.c_void_p
+        k.CreateMutexW.argtypes = (ctypes.c_void_p, ctypes.c_int, ctypes.c_wchar_p)
+        k.OpenMutexW.restype = ctypes.c_void_p
+        k.OpenMutexW.argtypes = (ctypes.c_uint32, ctypes.c_int, ctypes.c_wchar_p)
+        # first only look: one that exists (also one the background service made as SYSTEM, which a user may not
+        # even open: access denied) means another collector runs
+        o = k.OpenMutexW(0x00100000, 0, name)                  # SYNCHRONIZE
+        if o:
+            k.CloseHandle(ctypes.c_void_p(o))
+            return False
+        if ctypes.get_last_error() == 5:                       # ERROR_ACCESS_DENIED: it exists
+            return False
+        h = k.CreateMutexW(None, 0, name)
+        if not h:
+            return True                          # cannot make one (no right to): never block the collector over it
+        if ctypes.get_last_error() == 183:       # ERROR_ALREADY_EXISTS: another collector started at the same moment
+            k.CloseHandle(ctypes.c_void_p(h))
+            return False
+        _ONE_COLLECTOR = h
+        return True
+    except Exception:
+        return True
+
+
 def cmd_run(a) -> int:
     import uvicorn
     from .api import create_app
 
     if a.log:
         _log_to_file(a.log)
+    if not one_collector():
+        print("[collector] another collector is already running on this PC; this one stops (no double reads)")
+        return 0
     try:
         c = _collector(a, seed=a.seed_hours if not a.no_seed else 0.0, fresh=True, initial_poll=False)
     except Exception as exc:

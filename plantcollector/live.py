@@ -93,8 +93,13 @@ class LiveReader:
         self.last_cycle_at: datetime | None = None
         self.last_ms: float | None = None
 
+    GUARD_MAX_EVERY_S = 60.0          # the guard judges only while the master is read at least once a minute
+
+    def guard_active(self) -> bool:
+        return self.every_s <= self.GUARD_MAX_EVERY_S
+
     def _guard_window(self) -> float:
-        return self._guard_base if self.every_s <= 5 else self._guard_base + self.every_s
+        return self._guard_base if self.every_s <= 5 else self._guard_base + min(self.every_s, self.GUARD_MAX_EVERY_S)
 
     def _history_len(self) -> int:
         """Points kept for the live chart: 15 minutes, or an hour when the master is read every 30 s or slower."""
@@ -260,7 +265,9 @@ class LiveReader:
                 continue
             if r.value and not was:
                 self._link_state[pid] = (True, now)
-                after = self._our_recent_read(devs, now)
+                # read slower than once a minute, the master's fail is seen too late to tell whether it followed one
+                # of our reads: no "N s after" and no automatic slow-down then (the fail itself is still logged)
+                after = self._our_recent_read(devs, now) if self.guard_active() else None
                 msg = f"{did}: {name} comm fail on the master"
                 if after is not None:
                     msg += f", {after[1]:.0f} s after this program read {after[0]}"

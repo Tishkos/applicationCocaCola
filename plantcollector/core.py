@@ -19,7 +19,7 @@ from .store import TelemetryStore
 POLL_MIN_S = 600                                    # never read the plant more often than this (10 min)
 POLL_OPTIONS_S = (600, 1800, 3600, 7200)            # what the dashboard offers: 10 min, 30 min, 1 h, 2 h
 # Settings > Reading the devices: the master's live reading (0 = off: the master is then read at the site read)
-LIVE_OPTIONS_S = (0, 5, 10, 30, 60, 120, 300)
+LIVE_OPTIONS_S = (0, 5, 10, 30, 60, 120, 300, 600)
 # ... and each other device: 0 = with every site read, or less often (never more often than the site read)
 DEVICE_OPTIONS_S = (0, 1800, 3600, 7200)
 SAME_HOST_PAUSE_S = 0.2                             # between two devices behind the same gateway in a site read

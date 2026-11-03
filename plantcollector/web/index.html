@@ -309,7 +309,16 @@ input[aria-invalid="true"] { border-color: var(--bad); }
 .rdg .rrow small { display: block; color: var(--text-3); font-size: calc(11.5px * var(--zoom)); margin-top: 2px; overflow-wrap: anywhere; }
 .rdg .rrow em { display: block; font-style: normal; color: var(--warn); font-size: calc(11.5px * var(--zoom)); margin-top: 2px; }
 .rdg .rrow select { flex: 0 0 auto; min-width: 210px; }
-.rdg .rrow.changed select { border-color: var(--primary); }
+.rdg .rrow.changed select, #setInterval.changed { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
+.savebar { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 70; display: flex; align-items: center; gap: 12px;
+  width: min(760px, calc(100vw - 32px)); box-sizing: border-box; padding: 10px 12px 10px 16px; border-radius: 8px; background: var(--panel-2);
+  border: 1px solid var(--primary); box-shadow: 0 18px 50px rgba(0,0,0,.45); animation: sbIn .3s cubic-bezier(.2, .9, .3, 1.2); }
+.savebar > svg { width: 20px; height: 20px; flex: none; fill: none; stroke: var(--primary); stroke-width: 2; stroke-linecap: round; }
+.savebar .sbt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.savebar .sbt b { color: var(--text); font-size: calc(13px * var(--zoom)); }
+.savebar .sbt span { color: var(--text-2); font-size: calc(12px * var(--zoom)); overflow-wrap: anywhere; }
+@keyframes sbIn { from { opacity: 0; transform: translate(-50%, 14px); } }
+@media (max-width: 560px) { .savebar { flex-wrap: wrap; } .savebar .sbt { flex-basis: calc(100% - 40px); } }
 .rdg .rsec { padding: 12px 0 2px; color: var(--text-2); font-size: calc(11px * var(--zoom)); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 dl.about { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 0; padding: 6px 12px 12px; font-size: calc(12.5px * var(--zoom)); }
 dl.about dt { color: var(--text-2); } dl.about dd { margin: 0; font-family: var(--mono); word-break: break-all; }
@@ -339,6 +348,9 @@ dialog.sheet .tablewrap { max-height: 40vh; }
 .ph:has(.pz) { padding-inline-end: 34px; }
 .panel.zoomed { position: fixed; top: calc(64px * var(--zoom)); inset-inline-start: 252px; inset-inline-end: 24px; bottom: 24px; z-index: 45; overflow: auto; box-shadow: 0 30px 80px rgba(0,0,0,.6); border-color: var(--border-2); }
 .navmini .panel.zoomed, .kiosk .panel.zoomed { inset-inline-start: 24px; }
+.panel.zoomed.wfs { inset: 0; border-radius: 0; border: 0; z-index: 60; --zoom: 1.25; padding: 14px 22px; }
+.panel.zoomed.wfs .chart, .panel.zoomed.wfs .chart.short, .panel.zoomed.wfs .chart.tall { height: calc(100vh - 140px); }
+.panel.zoomed.wfs .flow, .panel.zoomed.wfs .sld { height: calc(100vh - 90px); }
 .panel.zoomed .chart, .panel.zoomed .chart.short, .panel.zoomed .chart.tall { height: calc(100vh - 230px); }
 .panel.zoomed .flow { height: calc(100vh - 150px); }
 .panel.zoomed.stat .v { font-size: calc(120px * var(--zoom)); }
@@ -1281,13 +1293,13 @@ a.rcard:hover { border-color: var(--xc); }
           <div class="panel w12">
             <div class="ph"><h3>Polling</h3><span class="r">how often every device is read</span></div>
             <div class="form"><label>Read the devices every <select id="setInterval"></select></label></div>
-            <div class="actions"><button class="btn primary" id="setSave">Save</button><span class="note" id="setNote" role="status"></span></div>
+            <div class="actions"><span class="note" id="setNote" role="status"></span></div>
             <div class="hint">Every 10 minutes at the most. Every reading is saved in the database the moment it is read. For a one-off read at any time use "Read devices now" at the top. The setting is kept in <code>data\settings.json</code> and survives restarts.</div>
           </div>
           <div class="panel w12" id="p-reading">
             <div class="ph"><h3>Reading the devices</h3><span class="r">how often each one is asked</span></div>
             <div class="rdg" id="rdgList"></div>
-            <div class="actions"><button class="btn primary" type="button" id="rdgSave" disabled>Save</button><span class="note" id="rdgNote" role="status"></span></div>
+            <div class="actions"><span class="note" id="rdgNote" role="status"></span></div>
             <div class="hint">The master controller gives the live view: who powers the plant, the gensets, the mains and the solar. Reading it less often means less load on it, and the live view moves less often. Every other device is read at the site read, or less often to give it more rest. Turkey's feed is built at the site read either way; the values of a device read less often than the site read show as stale to Turkey in between. Applied at once, kept in <code>settings.json</code> after restarts and updates.</div>
           </div>
           <div class="panel w12" id="p-upd">
@@ -1310,6 +1322,13 @@ a.rcard:hover { border-color: var(--xc); }
       <div class="fr">© 2026 CCI Plant Monitoring · <span id="footVer">All rights reserved</span></div>
     </footer>
   </div>
+</div>
+
+<div class="savebar" id="saveBar" hidden role="region" aria-label="Settings not saved yet">
+  <svg viewBox="0 0 24 24"><path d="M12 8v5M12 16v.5"/><circle cx="12" cy="12" r="9"/></svg>
+  <div class="sbt"><b>Settings not saved yet</b><span id="saveWhat"></span></div>
+  <button class="btn" type="button" id="saveDiscard">Discard</button>
+  <button class="btn primary" type="button" id="saveAll"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg><span>Save settings</span></button>
 </div>
 
 <dialog class="sheet" id="hourDlg" aria-labelledby="hdTitle">
@@ -1609,6 +1628,8 @@ a.rcard:hover { border-color: var(--xc); }
   const kWake = () => { if (!document.body.classList.contains("kiosk")) return; kPill.classList.remove("idle"); clearTimeout(kIdle); kIdle = setTimeout(() => kPill.classList.add("idle"), 3000); };
   function setKiosk(k) {
     document.body.classList.toggle("kiosk", k); kPill.hidden = !k; clearTimeout(kIdle);
+    // TV mode in the CCI Plant Monitoring window: the window fills the screen too (and is a normal window again after)
+    if (typeof setWinFull === "function") { if (k && !winFull) setWinFull(true, "tv"); else if (!k && winFull && winFullBy === "tv") setWinFull(false); }
     if (k) { scrollTo({ top: 0 }); requestAnimationFrame(kWake); } else kPill.classList.add("idle");
     setTimeout(() => Object.values(charts).forEach((c) => c.resize()), 50);
   }
@@ -2916,12 +2937,13 @@ a.rcard:hover { border-color: var(--xc); }
   async function loadSettings() {
     let st; try { st = await getJSON("/api/v1/local/settings"); } catch (e) { return; }
     const sel = $("#setInterval");
-    if (document.activeElement !== sel) {
+    if (document.activeElement !== sel && !sel.classList.contains("changed")) {     // never over a choice not saved yet
       sel.innerHTML = st.options.map((o) => `<option value="${o.value}">${o.label}</option>`).join("");
       sel.value = String(st.poll_interval_s);
       if (![...sel.options].some((o) => o.value === sel.value)) sel.add(new Option(everyText(st.poll_interval_s) + " (from config)", String(st.poll_interval_s), true, true));
+      sel.dataset.was = sel.value;
     }
-    sel.disabled = st.simulated; $("#setSave").disabled = st.simulated;
+    sel.disabled = st.simulated;
     $("#setNote").textContent = st.simulated ? "demo: refreshes every 30 s regardless" : `now every ${everyText(st.poll_interval_s)} (${st.source === "settings.json" ? "saved from here" : "from " + st.config})`;
     const pb = st.publish || {};
     const pubText = !pb.enabled ? "off (publish.modbus_tcp.enabled in the config)" : !pb.running ? `enabled but not running — ${pb.error || "see data\\collector.log"} (retrying every minute)`
@@ -2944,8 +2966,10 @@ a.rcard:hover { border-color: var(--xc); }
     const L = r.live, rows = [];
     if (L.available || L.running) {
       const actual = L.actual_every_s && L.every_s && L.actual_every_s > L.every_s ? ` · now every ${everyText(L.actual_every_s)} (the master needs more requests)` : "";
+      // the rate in use, also when it is not one of the choices (a config from an earlier copy: every 2 s)
+      const lo = L.options.some((o) => o.value === L.every_s) ? L.options : L.options.concat([{ value: L.every_s, label: `every ${liveEvery(L.every_s)} (from the config)` }]);
       rows.push(`<div class="rsec">Live view</div><div class="rrow"><div><b>Master controller</b><small>${esc((L.names || []).join(", "))} · who powers the plant, gensets, mains, solar${actual}</small></div>`
-        + `<select data-live aria-label="Master controller">${opt(L.options, L.every_s)}</select></div>`);
+        + `<select data-live aria-label="Master controller">${opt(lo, L.every_s)}</select></div>`);
     }
     if (r.groups.length) rows.push(`<div class="rsec">The other devices</div>`);
     r.groups.forEach((g) => {
@@ -2958,32 +2982,47 @@ a.rcard:hover { border-color: var(--xc); }
     redraw(box, rows.join(""));
     const locked = r.simulated;
     $$("#rdgList select").forEach((sel) => { sel.disabled = locked; sel.dataset.was = sel.value; });
-    $("#rdgSave").disabled = true;
     $("#rdgNote").textContent = locked ? "demo: the rates of the real plant are set on the plant PC" : "";
+    paintSaveBar();
   }
-  $("#rdgList").addEventListener("change", (e) => {
-    const sel = e.target.closest("select"); if (!sel) return;
-    sel.closest(".rrow").classList.toggle("changed", sel.value !== sel.dataset.was);
-    $("#rdgSave").disabled = !$$("#rdgList select").some((x) => x.value !== x.dataset.was);
+  // ---- one save bar for every setting on the page: what is about to change, Save settings or Discard
+  const pendingSelects = () => [$("#setInterval"), ...$$("#rdgList select")].filter((x) => x && x.dataset.was !== undefined && x.value !== x.dataset.was);
+  function paintSaveBar() {
+    const ch = pendingSelects();
+    $$("#rdgList .rrow").forEach((r) => { const x = r.querySelector("select"); r.classList.toggle("changed", !!x && ch.includes(x)); });
+    $("#setInterval").classList.toggle("changed", ch.includes($("#setInterval")));
+    $("#saveBar").hidden = !ch.length;
+    $("#saveWhat").textContent = ch.map((x) => {
+      const what = x.id === "setInterval" ? "Read the devices" : (x.closest(".rrow").querySelector("b") || {}).textContent || "";
+      return `${what}: ${x.options[x.selectedIndex].text}`;
+    }).join(" · ");
+  }
+  document.addEventListener("change", (e) => { if (e.target.matches("#setInterval, #rdgList select")) paintSaveBar(); });
+  $("#saveDiscard").addEventListener("click", () => {
+    pendingSelects().forEach((x) => { x.value = x.dataset.was; });
+    paintSaveBar();
   });
-  $("#rdgSave").addEventListener("click", async () => {
-    const b = $("#rdgSave"), body = {}, dev = {};
-    $$("#rdgList select").forEach((sel) => {
-      if (sel.value === sel.dataset.was) return;
-      if (sel.hasAttribute("data-live")) body.live_every_s = Number(sel.value); else dev[sel.dataset.row] = Number(sel.value);
+  $("#saveAll").addEventListener("click", async () => {
+    const b = $("#saveAll"), body = {}, dev = {};
+    pendingSelects().forEach((x) => {
+      if (x.id === "setInterval") body.poll_interval_s = Number(x.value);
+      else if (x.hasAttribute("data-live")) body.live_every_s = Number(x.value);
+      else dev[x.dataset.row] = Number(x.value);
     });
     if (Object.keys(dev).length) body.device_every = dev;
-    if (!Object.keys(body).length) return;
-    b.classList.add("busy");
+    if (!Object.keys(body).length) { paintSaveBar(); return; }
+    b.classList.add("busy"); b.disabled = true;
     try {
       const st = await getJSON("/api/v1/local/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-      $$("#rdgList .rrow.changed").forEach((x) => x.classList.remove("changed"));
-      if (document.activeElement && $("#rdgList").contains(document.activeElement)) document.activeElement.blur();
+      if (document.activeElement && document.activeElement.tagName === "SELECT") document.activeElement.blur();
+      $("#setInterval").classList.remove("changed"); $$("#rdgList .rrow.changed").forEach((r) => r.classList.remove("changed"));
+      $("#setInterval").dataset.was = String(st.poll_interval_s); $("#setInterval").value = String(st.poll_interval_s);
       renderReading(st.reading);
-      toast("Saved: the new reading rates apply now.");
-      await loadSummary(); loadLive();
+      toast("Saved: the new settings apply now.");
+      await loadSummary(); loadLive(); loadSettings();
     } catch (e) { toast(`Not saved: ${why(e)}.`, true); }
-    b.classList.remove("busy");
+    b.classList.remove("busy"); b.disabled = false;
+    paintSaveBar();
   });
 
   // ---- updates (scripts\updater.ps1 does the work; the collector only passes the request on)
@@ -3014,11 +3053,18 @@ a.rcard:hover { border-color: var(--xc); }
   }
   async function askUpdater(install) {
     const b = install ? $("#updInstall") : $("#updCheck");
-    if (install && !confirm("Install the new version now? The collector stops for about a minute (Turkey's feed included) and this window closes; settings and history stay.")) return;
+    if (install && !confirm("Install the new version now?\n\nThis window closes and an update window shows the download and the installation; the program opens again by itself when it is done. The collector stops for about a minute (Turkey's feed included). Settings and history stay.")) return;
     b.classList.add("busy");
     try {
       const r = await getJSON(install ? "/api/v1/local/update/install" : "/api/v1/local/update/check", { method: "POST", headers: { "X-CCI-Request": "update" } });
       renderUpdate(r.status);
+      // in the CCI Plant Monitoring window: the update window takes over (download, installation, opening again) and
+      // this window closes, so none of the program's files is in use while they are replaced
+      const wa = window.pywebview && window.pywebview.api;
+      if (install && wa && wa.start_update) {
+        let ok = false; try { ok = await wa.start_update(String((r.status && (r.status.available || r.status.latest)) || "")); } catch (e) { ok = false; }
+        if (ok) { toast("The update window takes over; this window closes now."); b.classList.remove("busy"); return; }
+      }
       toast(install ? "Installing: this window closes in a moment. Open CCI Plant Monitoring again from the Start Menu in about two minutes." : (r.started ? "Asked GitHub for the newest version…" : "The request is waiting for the updater (it starts within a few minutes)."));
       clearInterval(updWatch);
       const t0 = Date.now();
@@ -3032,16 +3078,6 @@ a.rcard:hover { border-color: var(--xc); }
   }
   $("#updCheck").addEventListener("click", () => askUpdater(false));
   $("#updInstall").addEventListener("click", () => askUpdater(true));
-  $("#setSave").addEventListener("click", async () => {
-    const b = $("#setSave"); b.classList.add("busy");
-    try {
-      const st = await getJSON("/api/v1/local/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ poll_interval_s: Number($("#setInterval").value) }) });
-      toast(`Saved: devices are read every ${everyText(st.poll_interval_s)}.`);
-      await loadSummary(); loadSettings();
-    } catch (e) { toast(`Not saved: ${why(e)}.`, true); }
-    b.classList.remove("busy");
-  });
-
   // ================================================================== read now
   $("#pollBtn").addEventListener("click", async () => {
     const b = $("#pollBtn"); b.classList.add("busy");
@@ -3053,8 +3089,23 @@ a.rcard:hover { border-color: var(--xc); }
     b.classList.remove("busy");
   });
 
-  // ================================================================== full screen (the browser's own)
+  // ================================================================== full screen
+  // In the CCI Plant Monitoring window (Windows) the browser's own full screen does nothing, so the window itself
+  // fills the screen (window.pywebview.api.fullscreen); in a browser it is the browser's full screen as before.
+  const winApi = () => window.pywebview && window.pywebview.api && window.pywebview.api.fullscreen ? window.pywebview.api : null;
+  let winFull = false, winFullBy = null;           // the window fills the screen; for what: "page", "panel" or "tv"
+  async function setWinFull(on, by) {
+    const a = winApi(); if (!a) return false;
+    try { winFull = !!(await a.fullscreen(!!on)); } catch (e) { return false; }
+    winFullBy = winFull ? by : null;
+    document.documentElement.classList.toggle("is-fs", winFull && by === "page");
+    $("#fsBtn").title = winFull ? "Leave full screen (F or Esc)" : "Full screen (F)";
+    setTimeout(() => Object.values(charts).forEach((c) => c.resize()), 250);
+    return true;
+  }
+  const isFs = () => winFull || !!document.fullscreenElement;
   function toggleFs() {
+    if (winApi()) { setWinFull(!winFull, "page"); return; }
     if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
     else document.documentElement.requestFullscreen().catch(() => toast("This window cannot go full screen.", true));
   }
@@ -3086,7 +3137,11 @@ a.rcard:hover { border-color: var(--xc); }
   // ================================================================== panel view (full screen)
   $$(".panel .ph").forEach((ph) => { if (!ph.querySelector(".pz")) ph.insertAdjacentHTML("beforeend", PZ); });
   const zoomBack = $("#zoomBack");
-  function unzoom() { const z = $(".panel.zoomed"); if (z) z.classList.remove("zoomed"); zoomBack.hidden = true; setTimeout(() => Object.values(charts).forEach((c) => c.resize()), 30); }
+  function unzoom() {
+    const z = $(".panel.zoomed"); if (z) z.classList.remove("zoomed", "wfs"); zoomBack.hidden = true;
+    if (winFull && winFullBy === "panel") setWinFull(false);          // the window filled the screen for this panel
+    setTimeout(() => Object.values(charts).forEach((c) => c.resize()), 30);
+  }
   // the panel itself goes full screen (the browser's own, Esc to leave); where the browser does not allow it the
   // panel opens large over the page instead
   const paintFsa = () => { const p = $(".panel.pfs"); if (p) p.classList.toggle("fsa", !$("#alarmBar").hidden); };
@@ -3099,6 +3154,7 @@ a.rcard:hover { border-color: var(--xc); }
     if (p.classList.contains("zoomed")) { unzoom(); return; }
     unzoom();
     const fallback = () => { p.classList.add("zoomed"); zoomBack.hidden = false; setTimeout(() => Object.values(charts).forEach((c) => c.resize()), 30); };
+    if (winApi()) { fallback(); p.classList.add("wfs"); if (!winFull) setWinFull(true, "panel"); return; }    // the window fills the screen, the panel fills the window
     if (p.requestFullscreen && document.fullscreenEnabled) p.requestFullscreen({ navigationUI: "hide" }).catch(fallback); else fallback();
   }, true);
   zoomBack.addEventListener("click", unzoom);
@@ -3112,7 +3168,7 @@ a.rcard:hover { border-color: var(--xc); }
     (summary ? summary.devices : []).forEach((d) => out.push({ k: "Device", t: d.id, h: `${d.vendor} ${d.model}`.slice(0, 44), run: () => openDetail(d.id, null, null) }));
     RANGES.forEach(([k, l]) => out.push({ k: "Range", t: l, run: () => setRange(k) }));
     out.push({ k: "Range", t: "Custom range…", run: () => { rMenu.hidden = false; paintRange(); fitMenu(); } });
-    out.push({ k: "Action", t: document.fullscreenElement ? "Leave full screen" : "Full screen", h: "F", run: () => toggleFs() });
+    out.push({ k: "Action", t: isFs() ? "Leave full screen" : "Full screen", h: "F", run: () => toggleFs() });
     out.push({ k: "Action", t: "Alarms", h: "active alarms, acknowledge, history", run: () => openDrawer() },
       { k: "Action", t: "Read devices now", run: () => $("#pollBtn").click() },
       { k: "Action", t: "Refresh every panel", h: "R", run: () => $("#refreshBtn").click() },
@@ -3152,6 +3208,7 @@ a.rcard:hover { border-color: var(--xc); }
     const typing = e.target.matches && e.target.matches("input, select, textarea");
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); cmdk.hidden ? openCmdk() : closeCmdk(); return; }
     if (e.key === "Escape" && $(".panel.zoomed")) { unzoom(); return; }
+    if (e.key === "Escape" && winFull && winFullBy === "page") { setWinFull(false); return; }
     if (typing || e.ctrlKey || e.metaKey || e.altKey || !cmdk.hidden || $("#detail").open) return;
     if (e.key === "/") { e.preventDefault(); openCmdk(); }
     else if (e.key === "t") setKiosk(!document.body.classList.contains("kiosk"));

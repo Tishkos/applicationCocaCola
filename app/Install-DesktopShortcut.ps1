@@ -145,7 +145,10 @@ foreach ($pl in $places) {
     if ($tagged) { Write-Output "[app] shortcut written: $path  (taskbar: $appId)" } else { Write-Output "[app] shortcut written: $path" }
 }
 if (-not $Remove) {
-    # Refresh the icon cache so the new icon shows at once (harmless if it fails).
-    try { & "$env:SystemRoot\System32\ie4uinit.exe" -show } catch {}
+    # Refresh the icon cache so the new icon shows at once (harmless if it fails). Not as SYSTEM (an update by the
+    # updater): there is no desktop to refresh, and the tool may stay behind there.
+    if (-not [Security.Principal.WindowsIdentity]::GetCurrent().IsSystem) {
+        try { & "$env:SystemRoot\System32\ie4uinit.exe" -show } catch {}
+    }
     Write-Output "[app] Done. Double-click '$name' on the Desktop or in the Start Menu."
 }

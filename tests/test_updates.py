@@ -101,3 +101,22 @@ def test_broken_status_file(collector, setup_copy):
         f.write("{half")
     st = updates.status(collector.data_dir)
     assert st["installed"] is True and st["state"] == "never checked"
+
+
+def test_a_stuck_installing_state_is_corrected(collector, setup_copy):
+    """The updater stopped before it reported back: the running version says what happened."""
+    d = updates.update_dir(collector.data_dir)
+    os.makedirs(d, exist_ok=True)
+    path = os.path.join(d, "status.json")
+    with open(path, "w", encoding="utf-8") as f:            # the new version (1.2.3) runs: it was installed
+        json.dump({"state": "installing", "latest": "1.2.3", "available": "1.2.3", "last_check": "2026-11-03 17:17"}, f)
+    st = updates.status(collector.data_dir)
+    assert st["state"] == "up to date" and st["available"] is None
+    with open(path, "w", encoding="utf-8") as f:            # still the old version, long after: an error, buttons free
+        json.dump({"state": "downloading", "latest": "9.0.0", "available": "9.0.0", "last_check": "2026-01-01 01:00"}, f)
+    st = updates.status(collector.data_dir)
+    assert st["state"] == "error" and "did not report back" in st["message"]
+    from datetime import datetime
+    with open(path, "w", encoding="utf-8") as f:            # just started: left as it is
+        json.dump({"state": "downloading", "latest": "9.0.0", "last_check": datetime.now().strftime("%Y-%m-%d %H:%M")}, f)
+    assert updates.status(collector.data_dir)["state"] == "downloading"
