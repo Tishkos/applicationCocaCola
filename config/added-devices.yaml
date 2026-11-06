@@ -1,0 +1,33 @@
+# Devices an update adds to a plant's settings that do not have them yet.
+#
+# An update keeps the plant's own settings (C:\ProgramData\CCI Plant Monitoring\config\site.plant.yaml) as they are,
+# so a device added to the shipped config/site.plant.yaml would never reach a PC that is already installed. The
+# collector therefore adds the devices below when it loads the settings of this site (site_id) and they are not
+# there yet - in memory, the settings file itself is not changed. A device already in the settings (same id, or the
+# same host and unit id) is left as the settings have it. To leave one of these devices out on purpose, list its id
+# in the settings under  skip_added_devices: [analyzer-2]
+#
+# The `meters` block is used when the settings have none.
+
+site_id: erbil-cc-01
+configs: [site.plant.yaml]   # the plant PC's settings file (not site.eth1.yaml: a PC on the SAU's second network)
+
+devices:
+  # --- the two power meters (Schneider PowerLogic PM800) behind the serial gateways, added in 1.0.7 ------------------
+  # "GATEWAY TR" meter modems in Modbus mode, TCP port 502. They serve one connection at a time and ignore a new one
+  # for a few minutes after the last one closed, so each is read on one kept connection (keep_open, see
+  # plantcollector/meters.py), 16 registers per request. The PC needs an address in 192.168.141.x (192.168.141.99).
+  # Unit ids found by a read-only search on 2026-11-06: 17 behind gateway 1, 1 behind gateway 2.
+  - id: analyzer-1
+    profile: pm800_meter.yaml
+    adapter: modbus_tcp
+    connection: {host: 192.168.141.1, port: 502, unit_id: 17, timeout: 5, max_block: 16, keep_open: true}
+  - id: analyzer-2
+    profile: pm800_meter.yaml
+    adapter: modbus_tcp
+    connection: {host: 192.168.141.3, port: 502, unit_id: 1, timeout: 5, max_block: 16, keep_open: true}
+
+meters:
+  every_s: 15              # each meter read every 15 s on its kept connection (7 small requests, about 0.1 s each;
+                           # never slower than 240 s, so the gateway never drops the connection for being idle)
+  store_every_s: 300       # every value written to the database every 5 minutes

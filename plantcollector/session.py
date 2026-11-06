@@ -149,7 +149,7 @@ class Session:
         skip_hosts = skip_hosts or set()
         for d in self.registry.devices.values():            # one probe per host:port (the ten inverter unit ids
             c = d.connection                                 # behind the SAU would be eleven connections for nothing)
-            if d.adapter == "modbus_tcp" and "host" in c and c["host"] not in skip_hosts:
+            if d.adapter == "modbus_tcp" and "host" in c and c["host"] not in skip_hosts and not c.get("keep_open"):
                 key = (c["host"], int(c.get("port", 502)))
                 if key in seen_hosts:
                     continue

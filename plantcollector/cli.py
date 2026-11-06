@@ -23,8 +23,8 @@ from datetime import datetime, timedelta, timezone
 from .core import Collector, run_loop
 
 
-def _collector(a, *, seed: float = 0.0, fresh: bool = False, initial_poll: bool = True) -> Collector:
-    return Collector(a.config, a.data, seed_hours=seed, fresh=fresh, initial_poll=initial_poll)
+def _collector(a, *, seed: float = 0.0, fresh: bool = False, initial_poll: bool = True, read_kept: bool = True) -> Collector:
+    return Collector(a.config, a.data, seed_hours=seed, fresh=fresh, initial_poll=initial_poll, read_kept=read_kept)
 
 
 def _log_to_file(path: str) -> None:
@@ -134,10 +134,16 @@ def cmd_run(a) -> int:
         print(f"[collector] DEMO mode: simulated plant, {a.seed_hours:.0f} h of history generated")
     else:
         n = len(c.registry.devices)
-        reqs = sum(len(getattr(ad, "_blocks", [])) or 1 for ad in c.adapters.values())
+        reqs = sum(len(getattr(ad, "_blocks", [])) or 1 for ad in c.adapters.values() if not getattr(ad, "keep_open", False))
         print(f"[collector] READ-ONLY polling of {n} devices every {a.interval:.0f} s "
               f"({reqs} Modbus requests per cycle); data in {c.db_path}")
     stop = threading.Event()
+    # the meter reader first: the meters' gateways must only ever see its one kept connection, so it is running before
+    # the first site read (which then leaves those meters to it)
+    if c.start_meters():
+        mr = c.meters
+        print(f"[collector] meters: {', '.join(mr.device_ids)} every {mr.every_s:g} s on one kept connection each "
+              f"(stored every {mr.store_every_s:g} s)")
     t = threading.Thread(target=run_loop, args=(c, forced, stop), daemon=True, name="poller")
     t.start()
     # the live reader: the master every few seconds for the dashboard (never for the Turkey feed)
@@ -200,11 +206,17 @@ def cmd_run(a) -> int:
 
 
 def cmd_check(a) -> int:
-    """One poll of every device, printed as a table. The commissioning tool for the plant PC."""
-    c = _collector(a)
+    """One poll of every device, printed as a table. The commissioning tool for the plant PC. The meters on a kept
+    connection are read only with --kept (and only while the service is stopped: their gateways serve one connection)."""
+    kept = bool(getattr(a, "kept", False))
+    c = _collector(a, read_kept=kept)
     bad = 0
     for d in c.registry.devices.values():
         rows = c.store.latest(d.id)
+        if not kept and (d.connection or {}).get("keep_open"):
+            print(f"\n== {d.id}  ({d.kind}, {d.model})  {d.connection.get('host', '')}: not read here - the running service "
+                  "reads it on its kept connection (CHECK with --kept while the service is stopped)")
+            continue
         conn = d.connection
         where = f"{conn.get('host', '')}:{conn.get('port', '')} unit {conn.get('unit_id', '')}" if d.adapter == "modbus_tcp" else d.adapter
         print(f"\n== {d.id}  ({d.kind}, {d.model})  {where}")
@@ -219,7 +231,8 @@ def cmd_check(a) -> int:
             val = "" if r.value is None else (f"{r.value:.3f}" if isinstance(r.value, float) else str(r.value))
             addr = p.raw.get("address", "")
             print(f"   {p.id:<28} {val:>12} {p.unit:<6} {q:<6} addr={addr!s:<6} {r.error or ''}")
-    print(f"\n{sum(len(d.points) for d in c.registry.devices.values()) - bad} good, {bad} not good")
+    counted = [d for d in c.registry.devices.values() if kept or not (d.connection or {}).get("keep_open")]
+    print(f"\n{sum(len(d.points) for d in counted) - bad} good, {bad} not good")
     c.close()
     return 0 if bad == 0 else 1
 
@@ -236,7 +249,7 @@ def _range(a, c: Collector):
 
 def cmd_export(a) -> int:
     from . import export
-    c = _collector(a)
+    c = _collector(a, read_kept=False)
     since, until = _range(a, c)
     headers, rows = export.wide_table(c, since, until, a.step)
     out = a.out or f"export_{since.strftime('%Y%m%d%H%M')}_{until.strftime('%Y%m%d%H%M')}.{a.format}"
@@ -249,7 +262,7 @@ def cmd_export(a) -> int:
 
 def cmd_report(a) -> int:
     from . import export
-    c = _collector(a)
+    c = _collector(a, read_kept=False)
     day = datetime.fromisoformat(a.date).replace(tzinfo=timezone.utc) if a.date else c.now()
     out = a.out or f"daily_{day.strftime('%Y-%m-%d')}.xlsx"
     with open(out, "wb") as f:
@@ -310,7 +323,7 @@ def cmd_probe(a) -> int:
     if not targets:
         for d in reg.devices.values():
             c = d.connection
-            if d.adapter == "modbus_tcp" and "host" in c:
+            if d.adapter == "modbus_tcp" and "host" in c and not c.get("keep_open"):   # the meters: left to the service
                 t = (c["host"], int(c.get("port", 502)), int(c.get("unit_id", 1)))
                 if t not in targets:
                     targets.append(t)
@@ -385,6 +398,7 @@ def main(argv=None) -> int:
     r.set_defaults(fn=cmd_run)
 
     k = sub.add_parser("check", help="poll once and print every point")
+    k.add_argument("--kept", action="store_true", help="also read the meters on a kept connection (only with the service stopped)")
     k.set_defaults(fn=cmd_check)
 
     e = sub.add_parser("export", help="write the wide table to csv/xlsx")

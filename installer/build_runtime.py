@@ -152,7 +152,8 @@ def copy_program(version):
         shutil.copytree(os.path.join(ROOT, d), os.path.join(STAGE, d),
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "index.classic.html"))
     os.makedirs(os.path.join(STAGE, "config"))
-    shutil.copy2(os.path.join(ROOT, "config", "site.plant.yaml"), os.path.join(STAGE, "config"))
+    for f in ("site.plant.yaml", "added-devices.yaml"):     # added-devices: what an update adds to installed settings
+        shutil.copy2(os.path.join(ROOT, "config", f), os.path.join(STAGE, "config"))
     os.makedirs(os.path.join(STAGE, "app"))
     for f in ("desktop.py", "PlantCollector.ico", "PlantCollector.png", "Install-DesktopShortcut.ps1"):
         shutil.copy2(os.path.join(ROOT, "app", f), os.path.join(STAGE, "app"))

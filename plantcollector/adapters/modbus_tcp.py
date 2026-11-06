@@ -9,8 +9,10 @@ Connections are shared per host:port and closed after every poll (close_all): th
 gateway allows only 5 Modbus TCP links in total, and the InteliNeo already uses some of
 them. Ten inverters behind one SAU therefore cost one connection, and none between polls.
 
-point.raw: {address, kind: uint16|int16|uint32|int32|float32, scale, fn: holding|input|coil|discrete,
+point.raw: {address, kind: uint16|int16|uint32|int32|float32|mod10x4, scale, fn: holding|input|coil|discrete,
             word_order: big|little,
+            na: <raw value>  the device's "no value" code (PM800: 32768 = 0x8000): the point reads as bad, not as a number
+            mod10x4: four registers of 0-9999, lowest first (PM800 energy counters): r0 + r1*1e4 + r2*1e8 + r3*1e12
             bit: <n>        one bit of a status word (0 = least significant)
             mask: <int>     true when any of these bits is set
             invert: true    negate a bit/mask boolean
@@ -18,6 +20,10 @@ point.raw: {address, kind: uint16|int16|uint32|int32|float32, scale, fn: holding
             derived: sum, of: [point, ...]   sum of sibling points (all must be good)}
 connection.address_offset: added to every address before the request (0 by default; -1 if a
             device's table turns out to be 1-based).
+connection.max_block: the largest read in registers (100 by default; 16 for the meters behind the serial gateways).
+connection.keep_open: true for a device whose connection must never be closed between reads (a gateway that ignores a
+            new connection for minutes after the last one closed): close_all leaves it open and plantcollector.meters
+            reads it on its own, often enough that the gateway never drops it for being idle.
 """
 
 from __future__ import annotations
@@ -53,6 +59,11 @@ def set_source_address(ip: str | None) -> None:
     _SOURCE = str(ip).strip() if ip else None
 
 
+def _same_net(a: str, b: str) -> bool:
+    """True when the two IPv4 addresses share the first three numbers (the plant's networks are all /24)."""
+    return str(a).split(".")[:3] == str(b).split(".")[:3]
+
+
 def shared_client(host: str, port: int, timeout: float) -> ModbusTcpClient:
     with _POOL_LOCK:
         key = (host, port)
@@ -60,8 +71,11 @@ def shared_client(host: str, port: int, timeout: float) -> ModbusTcpClient:
             # retries=0: one request, one answer or one timeout. The library's default re-sends a timed-out
             # request three times, which quadruples our load on a stalled gateway at the worst moment and
             # hides the stall's real length.
+            # The source address applies only to hosts in its own network: the meters' gateways sit in 192.168.141.x,
+            # reached through a second address of the PC, and a request sent from 192.168.0.x would never be answered.
+            src = _SOURCE if _SOURCE and _same_net(_SOURCE, host) else None
             _POOL[key] = ModbusTcpClient(host=host, port=port, timeout=timeout, retries=0,
-                                         source_address=(_SOURCE, 0) if _SOURCE else None)
+                                         source_address=(src, 0) if src else None)
             _CONN_LOCKS[key] = threading.RLock()
         return _POOL[key]
 
@@ -86,6 +100,11 @@ def close_all(keep: set | frozenset = frozenset()) -> None:
 
 
 def _decode(regs: list[int], kind: str, scale: float, word_order: str) -> float | int:
+    if kind == "mod10x4":
+        if len(regs) < 4 or any(not 0 <= int(r) <= 9999 for r in regs[:4]):
+            raise ValueError(f"not a MOD10 counter: {list(regs[:4])}")
+        total = sum(int(r) * 10 ** (4 * i) for i, r in enumerate(regs[:4]))
+        return round(total * scale, 3)
     if kind in ("uint16", "int16"):
         raw = regs[0]
         if kind == "int16" and raw >= 0x8000:
@@ -106,7 +125,7 @@ class Refused(RuntimeError):
 
 
 def _size(kind: str) -> int:
-    return 2 if "32" in kind else 1
+    return 4 if kind == "mod10x4" else 2 if "32" in kind else 1
 
 
 class ModbusTcpAdapter(Adapter):
@@ -119,7 +138,9 @@ class ModbusTcpAdapter(Adapter):
         self.address_offset = int(c.get("address_offset", 0))
         self._client = shared_client(c["host"], int(c.get("port", 502)), float(c.get("timeout", 3)))
         self._lock = connection_lock(c["host"], int(c.get("port", 502)))
-        self._blocks = self._plan_blocks(device.points)
+        self.max_block = max(1, min(MAX_BLOCK, int(c.get("max_block", MAX_BLOCK))))
+        self.keep_open = bool(c.get("keep_open"))
+        self._blocks = self._plan_blocks(device.points, self.max_block)
         self.last_ok_blocks = 0                 # statistics of the last read(), for the trace
         self.last_failed_blocks = 0
         self.last_io_failed = 0                 # of those: no answer at all (timeout, no connection, broken link)
@@ -128,8 +149,8 @@ class ModbusTcpAdapter(Adapter):
         self.last_wait_ms = 0.0
 
     @staticmethod
-    def _plan_blocks(points: list[PointDefinition]) -> list[tuple[str, int, int, list[PointDefinition]]]:
-        """Group mapped points by function code into contiguous blocks."""
+    def _plan_blocks(points: list[PointDefinition], max_block: int = MAX_BLOCK) -> list[tuple[str, int, int, list[PointDefinition]]]:
+        """Group mapped points by function code into contiguous blocks of at most max_block registers."""
         mapped = [p for p in points if "address" in p.raw]
         blocks: list[tuple[str, int, int, list[PointDefinition]]] = []
         for fn in ("holding", "input", "coil", "discrete"):
@@ -139,7 +160,7 @@ class ModbusTcpAdapter(Adapter):
             for p in pts:
                 a = int(p.raw["address"])
                 n = _size(p.raw.get("kind", "uint16"))
-                if cur and (a + n - start > MAX_BLOCK):
+                if cur and (a + n - start > max_block):
                     blocks.append((fn, start, end - start, cur))
                     cur, start, end = [], None, None
                 if start is None:
@@ -281,6 +302,14 @@ class ModbusTcpAdapter(Adapter):
                     io_failed += 1
                 for p in pts:
                     out[p.id] = reading(p, None, Quality.BAD, f"modbus: {exc}", now)
+                if self.keep_open and not isinstance(exc, Refused):
+                    # a kept connection that got no answer: the rest waits for the next cycle (a meters' gateway that
+                    # ignores this connection for a few minutes gets one request a cycle, not one per block)
+                    for _fn, _s, _n, rest in queue:
+                        for p in rest:
+                            out[p.id] = reading(p, None, Quality.BAD, f"modbus: {exc}", now)
+                    failed_blocks += len(queue)
+                    queue.clear()
                 continue
             for p in pts:
                 raw = p.raw
@@ -288,6 +317,9 @@ class ModbusTcpAdapter(Adapter):
                 kind = raw.get("kind", "uint16")
                 try:
                     chunk = regs[off:off + _size(kind)]
+                    if raw.get("na") is not None and any(int(x) == int(raw["na"]) for x in chunk):
+                        out[p.id] = reading(p, None, Quality.BAD, "no value from the device", now)
+                        continue
                     if "bit" in raw:
                         val = bool((int(chunk[0]) >> int(raw["bit"])) & 1)
                     elif "mask" in raw:

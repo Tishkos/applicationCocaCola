@@ -756,15 +756,17 @@
     bess: [["soc_pct", "State of charge"], ["power_kw", "Power"], ["cell_temp_max_c", "Cell temp max"], ["alarm_active", "Alarm"]],
     meter: [["load_kw", "Load"], ["frequency_hz", "Frequency"], ["voltage_v", "Voltage"]],
     grid: [["available", "Available"], ["power_kw", "Import"], ["voltage_v", "Voltage"], ["frequency_hz", "Frequency"], ["energy_import_kwh", "Imported total"]],
+    // a power meter on one feeder (third value: decimals shown)
+    analyzer: [["p_total_kw", "Power"], ["i_avg_a", "Current"], ["v_ll_avg_v", "Voltage L-L"], ["pf_total", "Power factor", 2], ["f_hz", "Frequency", 2]],
   };
   const comms = (c) => c === "ok" ? "online" : c === "stale" ? "stale" : c === "reading" ? "reading…" : c === "unmapped" ? "registers pending" : "no data";
   function renderDevices(devs) {
     redraw($("#devGrid"), devs.map((d) => {
-      const rows = (KEYS[d.kind] || []).filter(([k]) => d.points[k]).slice(0, 5).map(([k, l]) => {
+      const rows = (KEYS[d.kind] || []).filter(([k]) => d.points[k]).slice(0, 5).map(([k, l, dec]) => {
         const p = d.points[k];
-        return `<dt>${l}</dt><dd class="${p.q === "good" ? "" : p.q}">${p.q === "bad" ? "n/a" : fmt(p.v, typeof p.v === "number" && !Number.isInteger(p.v) ? 1 : 0)}${p.q === "bad" || !p.unit ? "" : " " + p.unit}</dd>`;
+        return `<dt>${l}</dt><dd class="${p.q === "good" ? "" : p.q}">${p.q === "bad" ? "n/a" : fmt(p.v, dec !== undefined ? dec : typeof p.v === "number" && !Number.isInteger(p.v) ? 1 : 0)}${p.q === "bad" || !p.unit ? "" : " " + p.unit}</dd>`;
       }).join("");
-      return `<div class="panel dev" data-src="summary" data-dev="${esc(d.id)}" tabindex="0" role="button" aria-label="${esc(d.id)}: all values and trend"><div class="head"><b>${esc(d.id)}</b><span class="kind">${d.kind}</span><span class="pill ${d.comms}">${comms(d.comms)}</span></div>
+      return `<div class="panel dev" data-src="summary" data-dev="${esc(d.id)}" tabindex="0" role="button" aria-label="${esc(d.name || d.id)}: all values and trend"><div class="head"><b>${esc(d.name || d.id)}</b><span class="kind">${d.kind}</span><span class="pill ${d.comms}">${comms(d.comms)}</span></div>
         <div class="model" title="${esc(d.vendor + " " + d.model)}">${esc(d.vendor)} ${esc(d.model)}</div><dl>${rows}</dl></div>`;
     }).join(""), "data-dev");
   }
@@ -1017,7 +1019,7 @@
       dt.pt = (pref || rows.find(numeric) || rows[0] || {}).point || null;
     }
     const sel = rows.find((p) => p.point === dt.pt);
-    $("#dtTitle").textContent = d.id; $("#dtModel").textContent = `${d.kind} · ${d.vendor} ${d.model}`;
+    $("#dtTitle").textContent = d.name ? `${d.name} (${d.id})` : d.id; $("#dtModel").textContent = `${d.kind} · ${d.vendor} ${d.model}`;
     const pill = $("#dtPill"); pill.className = `pill ${d.comms}`; pill.textContent = comms(d.comms);
     $("#dtPoint").textContent = dt.pt || ""; $("#dtUnit").textContent = sel && sel.unit ? sel.unit : "";
     redraw($("#dtBody"), rows.map((p) => `<tr data-pt="${esc(p.point)}"${p.point === dt.pt ? ' class="sel"' : ""}><td><button type="button" class="ptlink" title="Trend of ${esc(p.point)}">${esc(p.point)}</button></td><td class="num">${val(p)}</td><td>${esc(p.unit || "")}</td><td class="q-${p.quality}">${p.quality}</td><td>${ago(p.age_s)}</td><td class="note">${esc(p.error || p.description || "")}</td></tr>`).join(""), "data-pt");

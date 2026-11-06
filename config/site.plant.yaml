@@ -99,6 +99,10 @@ devices:
   - {id: main-02, profile: im210_mains.yaml, adapter: modbus_tcp, connection: {host: 192.168.0.111, port: 502, unit_id: 1, timeout: 3}}
   - {id: main-03, profile: im210_mains.yaml, adapter: modbus_tcp, connection: {host: 192.168.0.110, port: 502, unit_id: 1, timeout: 3}}
 
+  # --- the two power meters behind the serial gateways (192.168.141.1 and .3) -------------------------------------
+  # They come from config/added-devices.yaml (analyzer-1, analyzer-2), which an update also adds to settings that
+  # were installed before them. To leave one out: skip_added_devices: [analyzer-2]
+
   # No PV-side meter and no irradiance / panel-temperature sensor were found on site (the SAU's
   # meters M1 and M3 are the generator and grid feeders). The Turkey tags that need them stay
   # "not mapped" until such devices exist.

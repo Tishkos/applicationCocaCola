@@ -27,6 +27,7 @@ WHATS_NEW = {
     "1.0.3": "The updater also takes new versions from the setup-download branch.",
     "1.0.4": "This version arrived through the automatic updater: updates work on this PC.",
     "1.0.6": "When the Neo reports 0 grid import while MAIN 1–3 carry power, grid import and site load come from the three incomers.",
+    "1.0.7": "A Power analyzers tab: the two meters behind the gateways at 192.168.141.1 and .3, read every 15 s. The gensets have animated cards and a generator bus panel.",
 }
 
 

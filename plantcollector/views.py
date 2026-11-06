@@ -93,6 +93,10 @@ def series_specs(reg: Registry) -> dict[str, tuple[str, list[tuple[str, str]]]]:
             for pid in ("power_kw", "available"):
                 if d.point(pid):
                     specs[f"{d.id}/{pid}"] = ("avg", [(d.id, pid)])
+    for d in reg.by_kind("analyzer"):                       # power meters: their own panels (never in the site totals)
+        for pid in ("p_total_kw", "i_avg_a", "v_ll_avg_v", "f_hz", "pf_total"):
+            if d.point(pid):
+                specs[f"{d.id}/{pid}"] = ("avg", [(d.id, pid)])
     for d in reg.devices.values():                          # device links (dashboard timeline)
         if d.point("comm_error"):
             specs[f"{d.id}/comm_error"] = ("avg", [(d.id, "comm_error")])
@@ -264,7 +268,8 @@ def summary(c: Collector) -> dict:
     for d in reg.devices.values():
         rows = st.latest(d.id)
         devices.append({
-            "id": d.id, "kind": d.kind, "vendor": d.vendor, "model": d.model, "adapter": d.adapter,
+            "id": d.id, "name": d.name, "kind": d.kind, "vendor": d.vendor, "model": d.model, "adapter": d.adapter,
+            "host": (d.connection or {}).get("host"), "unit_id": (d.connection or {}).get("unit_id"),
             "profile_status": d.profile_status, "comms": device_comms(c, d.id),
             "every_s": c.device_every_s(d.id), "live": lv is not None and d.id in lv.device_ids,
             "points": {pid: {"v": r.value, "q": r.quality.value, "unit": r.unit, "ts": r.source_ts.isoformat(),
@@ -283,6 +288,7 @@ def summary(c: Collector) -> dict:
                       "database": c.db_path},
         "kpi": kpi,
         "live": lv.status() if lv is not None else {"enabled": False, "running": False},
+        "meters": c.meters.status() if c.meters is not None else {"running": False},
         "active_faults": [f"{i['code']}:{i['device']}" for i in c.active_issues()],
         "devices": devices,
     }
@@ -371,9 +377,13 @@ def reading_settings(c: Collector) -> dict:
     def every_text(s):
         return f"{s // 3600} h" if s >= 3600 and s % 3600 == 0 else f"{s // 60} min" if s >= 60 else f"{s} s"
 
+    from .meters import kept_device_ids
+    kept = set(kept_device_ids(reg))            # the meters on a kept connection: read every minute by their own reader
     groups: dict[str, list] = {}
     for d in reg.devices.values():
         if lv is not None and d.id in lv.device_ids:
+            continue
+        if d.id in kept and not c.simulated:
             continue
         conn = d.connection or {}
         key = f"{conn.get('host')}:{conn.get('port', 502)}" if conn.get("host") else d.id

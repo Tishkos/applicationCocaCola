@@ -60,3 +60,18 @@ The SAU-100 on site shows the same web application and protocol set as the SAU-2
 | **Indications (not verified) that the gensets are run outside automatic power management**, 14 Oct: Running Nominal Power *In PM* = 0 while 3,851 kW of gensets run; 4 gensets loaded for 1,482 kW (~38 %) where PM with a 400 kW stop reserve would keep two; User Buttons 1-4 latched on and a user-defined "Wrn Production Mode" warning, whose meaning is in the PLC program (not read). A site contact also said the gensets are started manually | to be confirmed on the IG4 200 panels (MAN/AUTO) or by the site before it goes into any report; if true it is a large fuel item |
 
 | **Controller archive read (2026-10-14)**: the Neo's Modbus-master definitions give the SAU virtual-array registers (1000 AP, 1093 max available, 1009/1011 yields, inverter counts; writes at 2100+) and the InteliMains registers (1001 import P, 1046 load P, coil 0 MCB); connection table .128 ×2, .107, .111, .110 (+ a leftover .1); PLC sheet names; 750 history records incl. daily group link/unlink at sunrise/sunset, OFF→AUTO mode toggles, Gen P Min trials on 1 Oct | see docs/NEO_CONFIGURATION.md; new profiles pv_array_sau.yaml and im210_mains.yaml |
+
+## Power meters behind the serial gateways (read-only session of 2026-11-06)
+
+Two "GATEWAY TR" meter modems in 192.168.141.x pass Modbus TCP (port 502) on to one power meter each over their serial
+port (operating mode "Communication with Devices (MODBUS)", TCP connection mode "Presenter", Statute of Limitations
+480 s, Keep Alive 300 s / 3 tries). Found with read-only tools from the plant PC (address 192.168.141.99); nothing on
+the gateways or the meters was changed.
+
+| Fact | Consequence |
+|---|---|
+| Gateway 1 at **192.168.141.1**: a meter answers at **unit 17** (units 1-32 searched). Gateway 2 at **192.168.141.3**: a meter answers at **unit 1** | `analyzer-1` and `analyzer-2` in `config/added-devices.yaml` |
+| A new TCP connection for each read: the first read answered (about 0.1 s), then every new connection was ignored for minutes. One kept connection: 10 reads of 10, then all 10,000 registers 0-9999 in blocks of 16 without a miss | read on one kept connection each (`keep_open`, `plantcollector/meters.py`), every minute, 16 registers per request (`max_block`) |
+| Both meters name themselves "PM8 POWER METER" (registers 2999-3008); display texts "EN50160", "Digital Out KY", "Digital In S1"; layout of the Schneider PowerLogic PM800 series: currents 1099-1104, voltages 1119-1127, power 1139-1150, PF 1159-1162 (x1000), frequency 1179 (x100), energy 1699-1706 (4 registers 0-9999 each, lowest first, Wh); scale factors 0; 0x8000 = no value | `profiles/pm800_meter.yaml`. Checked: on the meter behind .1, sqrt(3) x 416 V x 39 A x 0.981 = 27.6 kW against 27 kW read, and its energy counter 2,922,359,513 Wh equals its display (2.9223592 GWh) |
+| CT primary 450 A (meter behind .1) and 1000 A (behind .3), secondary 5 A, 50 Hz, 3-phase 4-wire | |
+| At 02:35 plant time: behind .1 about 40 A, 416 V L-L, 27 kW, PF 0.98, 50.81 Hz, 2,922 MWh in and 250 MWh out; behind .3 about 0 A, 412 V, 0 kW, 2,227 MWh in and 2,355 MWh out | what each meter measures (which feeder) is still to be confirmed on site |

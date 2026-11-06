@@ -36,7 +36,7 @@
   --text: #ccccdc; --text-2: rgba(204,204,220,.65); --text-3: rgba(204,204,220,.42); --strong: #ffffff;
   --primary: #6e9fff; --primary-bg: #3d71d9; --focus: #6e9fff;
   --ok: #73bf69; --ok-d: #37872d; --bad: #f2495c; --bad-d: #c4162a; --warn: #ff9830; --info: #5794f2; --idle: #464c54; --cci: #e02f44;
-  --c-pv: #fade2a; --c-gen: #ff9830; --c-grid: #5794f2; --c-bess: #b877d9; --c-load: #ccccdc; --c-avail: #fff899;
+  --c-pv: #fade2a; --c-gen: #ff9830; --c-grid: #5794f2; --c-bess: #b877d9; --c-load: #ccccdc; --c-avail: #fff899; --c-an: #6ed0e0;
   --grid-line: rgba(204,204,220,.07); --grid-day: rgba(204,204,220,.2); --tick: rgba(204,204,220,.55);
   --shadow: 0 8px 28px rgba(0,0,0,.45);
 }
@@ -46,7 +46,7 @@
   --text: #24292e; --text-2: rgba(36,41,46,.72); --text-3: rgba(36,41,46,.5); --strong: #000000;
   --primary: #3d71d9; --primary-bg: #3d71d9; --focus: #3d71d9;
   --ok: #56a64b; --ok-d: #37872d; --bad: #e02f44; --warn: #e5730b; --info: #3274d9; --idle: #c7d0d9;
-  --c-pv: #e0b400; --c-gen: #fa6400; --c-grid: #3274d9; --c-bess: #8f3bb8; --c-load: #464c54; --c-avail: #b9a200;
+  --c-pv: #e0b400; --c-gen: #fa6400; --c-grid: #3274d9; --c-bess: #8f3bb8; --c-load: #464c54; --c-avail: #b9a200; --c-an: #1592a8;
   --grid-line: rgba(36,41,46,.08); --grid-day: rgba(36,41,46,.25); --tick: rgba(36,41,46,.6);
   --shadow: 0 8px 28px rgba(36,41,46,.18);
 }
@@ -843,6 +843,90 @@ a.rcard:hover { border-color: var(--xc); }
   .bar { padding: 8px 12px; } .content { padding: 10px 12px 50px; } .hide-sm { display: none !important; }
 }
 @media (max-width: 520px) { .w2, .w3, .w4, .w5, .w6, .w7 { grid-column: span 24; } }
+/* ---------------------------------------------------------------- animated widgets: gensets and power analyzers */
+.ag { position: relative; }
+.ag svg { width: 100%; height: auto; display: block; max-height: calc(160px * var(--zoom)); }
+.ag .trk { stroke: var(--panel-3); }
+.ag .val { transition: stroke-dashoffset 1s cubic-bezier(.2, .8, .2, 1), stroke .5s; }
+.ag .ndl { transform-origin: 60px 60px; transition: transform 1s cubic-bezier(.2, .8, .2, 1); }
+.ag .ndl path, .ag .ndl circle { fill: var(--strong); }
+.ag .ndl circle.hub { fill: var(--panel); stroke: var(--strong); stroke-width: 2; }
+.ag .gv { font-family: var(--mono); font-weight: 500; transition: fill .5s; }
+.ag .tk { fill: var(--text-3); font-size: 8px; font-family: var(--mono); }
+.ag .cap { text-align: center; color: var(--text-3); font-size: calc(11.5px * var(--zoom)); margin-top: -2px; min-height: 1.3em; }
+.gcards { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(190px * var(--zoom)), 1fr)); gap: 10px; }
+.gcard { background: var(--panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; position: relative; overflow: hidden; transition: border-color .5s, box-shadow .5s; }
+.gcard::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--idle); transition: background .5s; }
+.gcard:hover { border-color: var(--border-2); }
+.gcard.on { border-color: color-mix(in srgb, var(--ok) 42%, var(--border)); box-shadow: 0 10px 28px -20px var(--ok); }
+.gcard.on::before { background: var(--ok); } .gcard.miss::before { background: var(--bad); } .gcard.lost::before { background: var(--warn); }
+.gcard.miss { border-color: color-mix(in srgb, var(--bad) 50%, var(--border)); }
+.gcard .hd { display: flex; align-items: center; gap: 8px; }
+.gcard .hd b { font-size: calc(15px * var(--zoom)); color: var(--strong); font-weight: 600; }
+.gcard .hd .chip { margin-inline-start: auto; }
+.gcard .fan { width: calc(20px * var(--zoom)); height: calc(20px * var(--zoom)); color: var(--text-3); flex: none; }
+.gcard.on .fan { color: var(--ok); animation: pcSpin 1.4s linear infinite; }
+.gcard.on .ag::after { content: ""; position: absolute; inset: 8% 20% 22%; border-radius: 50%; box-shadow: 0 0 34px -6px color-mix(in srgb, var(--ok) 55%, transparent); animation: pcPulse 2.6s ease-in-out infinite; pointer-events: none; }
+.lamps { display: flex; gap: 6px; flex-wrap: wrap; }
+.lamp { display: inline-flex; align-items: center; gap: 6px; font-size: calc(11.5px * var(--zoom)); color: var(--text-2); background: var(--panel-3); border-radius: 10px; padding: 2px 9px 2px 7px; white-space: nowrap; }
+.lamp i { width: 8px; height: 8px; border-radius: 50%; background: var(--idle); flex: none; transition: background .4s, box-shadow .4s; }
+.lamp.ok i { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+.lamp.bad i { background: var(--bad); box-shadow: 0 0 6px var(--bad); animation: pcBlink 1.2s steps(2, start) infinite; }
+.lamp.warn i { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+.gcard .foot { font-size: calc(11.5px * var(--zoom)); color: var(--text-3); min-height: 1.3em; }
+.busstrip { display: grid; grid-template-columns: minmax(calc(230px * var(--zoom)), 1.3fr) repeat(3, minmax(calc(130px * var(--zoom)), 1fr)); gap: 16px; align-items: center; }
+.busstrip .ctl { display: flex; flex-direction: column; gap: 10px; }
+.busstrip .ah, .anb .ah { font-size: calc(11.5px * var(--zoom)); color: var(--text-3); text-transform: uppercase; letter-spacing: .4px; }
+.modes { display: inline-flex; border: 1px solid var(--border-2); border-radius: 3px; overflow: hidden; width: fit-content; }
+.modes span { padding: 4px 11px; font-size: calc(12px * var(--zoom)); font-weight: 600; color: var(--text-3); background: var(--panel-2); border-inline-end: 1px solid var(--border); transition: background .4s, color .4s; cursor: default; }
+.modes span:last-child { border-inline-end: 0; }
+.modes span.on { color: #fff; }
+.busstrip .brk { font-size: calc(17px * var(--zoom)); color: var(--strong); font-weight: 500; }
+.estop { display: none; background: var(--bad-d); color: #fff; font-weight: 700; letter-spacing: 1px; text-align: center; padding: 5px 8px; border-radius: 3px; animation: pcBlink 1s steps(2, start) infinite; }
+.estop.on { display: block; }
+.anb { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(205px * var(--zoom)), 1fr)); gap: 18px 22px; align-items: start; }
+.anb > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.anb .pq { display: flex; justify-content: space-between; gap: 10px; font-size: calc(12px * var(--zoom)); color: var(--text-2); }
+.anb .pq b, .anb .ec b { font-family: var(--mono); color: var(--strong); font-weight: 500; }
+.phb b, .vb b, .anb .pq b, .anb .ec b, .anm .meta b, .gcard .foot { unicode-bidi: plaintext; }
+.phb b, .vb b, .anb .pq b, .anb .ec b, .anm .meta b { direction: ltr; unicode-bidi: isolate; }
+.anb .dials { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.anm .meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-inline-start: auto; font-size: calc(12px * var(--zoom)); color: var(--text-3); }
+.anm .meta b { color: var(--text); font-weight: 500; font-family: var(--mono); }
+.anm .ph .chip { margin-inline-start: 8px; }
+.anm .ph h3 { cursor: pointer; }
+.phb, .vb { display: grid; grid-template-columns: calc(44px * var(--zoom)) 1fr calc(64px * var(--zoom)); align-items: center; gap: 8px; font-size: calc(12px * var(--zoom)); }
+.phb .l, .vb .l { color: var(--text-2); font-family: var(--mono); }
+.phb b, .vb b { text-align: end; font-family: var(--mono); color: var(--strong); font-weight: 500; }
+.phb .tr, .vb .tr { position: relative; height: calc(10px * var(--zoom)); background: var(--panel-3); border-radius: 5px; overflow: hidden; }
+.phb .tr i { position: absolute; top: 0; bottom: 0; inset-inline-start: 0; width: 0; border-radius: 5px; background: var(--c-an); transition: width 1s cubic-bezier(.2, .8, .2, 1), background .5s; }
+.phb .tr i::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,.28), transparent); background-size: 60px 100%; animation: pcSheen 2.4s linear infinite; }
+.vb .tr { overflow: visible; direction: ltr; }
+.vb .tr s { position: absolute; top: 0; bottom: 0; background: color-mix(in srgb, var(--ok) 38%, transparent); border-radius: 5px; }
+.vb .tr i { position: absolute; top: 50%; width: calc(12px * var(--zoom)); height: calc(12px * var(--zoom)); margin: calc(-6px * var(--zoom)) 0 0 calc(-6px * var(--zoom)); border-radius: 50%; background: var(--strong); box-shadow: 0 0 0 3px color-mix(in srgb, var(--strong) 20%, transparent); left: 0; transition: left 1s cubic-bezier(.2, .8, .2, 1), background .5s; }
+.vgrp { display: flex; flex-direction: column; gap: 7px; }
+.vgrp + .vgrp { margin-top: 6px; }
+.aflow { display: flex; align-items: center; gap: 8px; font-size: calc(11.5px * var(--zoom)); color: var(--text-2); }
+.aflow svg { flex: 1; height: 12px; }
+.aflow .base { stroke: var(--panel-3); stroke-width: 4; stroke-linecap: round; }
+.aflow .dash { stroke: var(--c-an); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 2 10; animation: pcFlow var(--dur, 2s) linear infinite; }
+.aflow.rev .dash { animation-direction: reverse; stroke: var(--warn); }
+.aflow.idle .dash { animation: none; opacity: .2; }
+.ec { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: calc(12px * var(--zoom)); color: var(--text-2); }
+.ec b { font-size: calc(19px * var(--zoom)); }
+.ec em { font-style: normal; font-size: calc(11px * var(--zoom)); color: var(--text-3); margin-inline-start: 4px; font-family: var(--mono); }
+.anb .spk { height: calc(54px * var(--zoom)); position: relative; }
+.anb .spk .spark { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 1; }
+@keyframes pcSpin { to { transform: rotate(360deg); } }
+@keyframes pcPulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+@keyframes pcBlink { 50% { opacity: .3; } }
+@keyframes pcFlow { to { stroke-dashoffset: -24; } }
+@keyframes pcSheen { from { background-position: -60px 0; } to { background-position: 400px 0; } }
+@media (max-width: 900px) { .busstrip { grid-template-columns: 1fr 1fr; } .busstrip .ctl { grid-column: span 2; } }
+@media (prefers-reduced-motion: reduce) {
+  .ag .val, .ag .ndl, .phb .tr i, .vb .tr i { transition: none !important; }
+  .gcard.on .fan, .gcard.on .ag::after, .lamp.bad i, .estop, .aflow .dash, .phb .tr i::after { animation: none !important; }
+}
 </style>
 </head>
 <body>
@@ -858,6 +942,7 @@ a.rcard:hover { border-color: var(--xc); }
       <a href="#master" data-sec="master"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg><span>Master controller</span></a>
       <a href="#solar" data-sec="solar"><svg viewBox="0 0 24 24"><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg><span>Solar PV</span></a>
       <a href="#mains" data-sec="mains"><svg viewBox="0 0 24 24"><path d="M12 2v20M6 7l6-3 6 3M6 13l6-3 6 3M8 22h8"/></svg><span>Mains &amp; grid</span></a>
+      <a href="#analyzers" data-sec="analyzers" hidden><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M7.5 13.5a4.5 4.5 0 0 1 9 0M12 13.5l2.2-2.4M8 17.5h8"/></svg><span>Power analyzers</span></a>
       <a href="#quality"><svg viewBox="0 0 24 24"><path d="M2 12c2-6 4-6 6 0s4 6 6 0 4-6 6 0"/></svg><span>Power quality</span></a>
       <div class="grp">Operate</div>
       <a href="#devices"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>Devices</span></a>
@@ -990,9 +1075,13 @@ a.rcard:hover { border-color: var(--xc); }
       <section class="row" id="gensets" hidden>
         <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Gensets</h2><span class="sub" id="genSub"></span><span class="sub rate" id="genRate"></span><span class="upd" data-upd="summary"></span></button>
         <div class="grid">
+          <div class="panel w24" data-src="summary" id="p-genbus" hidden>
+            <div class="ph"><h3>Generator bus</h3><span class="info" title="From the master controller: its mode, the breaker state, all gensets together and the bus. Shown only: this program reads the controllers and cannot change anything."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span></div>
+            <div class="pb"><div class="busstrip" id="genBus"></div></div>
+          </div>
           <div class="panel w24" data-src="summary">
             <div class="ph"><h3 id="genTilesTitle">Gensets now</h3><span class="info" title="Click a genset for all its values and a trend."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span></div>
-            <div class="pb"><div class="gens" id="genTiles"></div></div>
+            <div class="pb"><div class="gcards" id="genCards" hidden></div><div class="gens" id="genTiles"></div></div>
           </div>
           <div class="panel w14" data-src="series" id="p-gencap">
             <div class="ph"><h3 id="genChartTitle">Gensets - power</h3><span class="r" data-upd="series"></span></div>
@@ -1100,6 +1189,12 @@ a.rcard:hover { border-color: var(--xc); }
       </section>
 
       <!-- ========================================================== power quality -->
+      <!-- ========================================================== power analyzers -->
+      <section class="row" id="analyzers" hidden>
+        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Power analyzers</h2><span class="sub" id="anSub"></span><span class="sub rate" id="anRate"></span><span class="upd" data-upd="summary"></span></button>
+        <div class="grid" id="anGrid"></div>
+      </section>
+
       <section class="row" id="quality">
         <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Power quality</h2><span class="sub">bus frequency and voltage</span><span class="upd" data-upd="series"></span></button>
         <div class="grid">
@@ -1593,6 +1688,85 @@ a.rcard:hover { border-color: var(--xc); }
   const sig = (label, state, text) => `<div class="sig ${state}"><small>${esc(label)}</small><b>${esc(text)}</b></div>`;
   const bigBox = (text, color) => `<div class="big" style="background:linear-gradient(135deg, ${color}cc, ${color})">${esc(text)}</div>`;
 
+  // ---------------------------------------------------------------- animated widgets (gensets, power analyzers)
+  // Built once per element; a new reading only moves the value (CSS transitions and a short number tween), so it
+  // glides there instead of the widget being redrawn.
+  const RM = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function tweenNum(node, to, dec = 0, o = {}) {
+    if (!node) return;
+    const show = (v) => { node.textContent = isNum(v) ? fmt(v, dec) : "—"; };
+    if (!isNum(to)) { node.__v = null; show(null); return; }
+    const from = isNum(node.__v) ? node.__v : o.fromZero ? 0 : to; node.__v = to;
+    if (from === to || RM()) { show(to); return; }
+    const t0 = performance.now(), d = o.ms || 900;
+    const step = (t) => { if (node.__v !== to) return; const k = Math.min(1, (t - t0) / d), e = 1 - Math.pow(1 - k, 3); show(from + (to - from) * e); if (k < 1) requestAnimationFrame(step); };
+    requestAnimationFrame(step);
+  }
+  const later = (f) => requestAnimationFrame(() => requestAnimationFrame(f));   // after the first paint: transitions run
+  function niceMax(x) {
+    const st = x <= 100 ? 10 : x <= 500 ? 50 : x <= 2000 ? 100 : x <= 5000 ? 250 : 500;
+    return Math.max(st, Math.ceil(x / st) * st);
+  }
+  // a 240° gauge with a needle; o: {min, max, steps: [[from, colour], ...], unit, dec, cap, labels: [left, right]}
+  function agauge(host, v, o) {
+    const { min = 0, max = 100, steps, unit = "", dec = 0, cap = "" } = o;
+    const sig = [min, max, unit, steps.map((x) => x.join(":")).join(",")].join("|");
+    let g = host.__ag;
+    if (!g || g.sig !== sig || !host.contains(g.el)) {
+      const A0 = -120, A1 = 120, ang = (x) => A0 + (Math.min(max, Math.max(min, x)) - min) / (max - min) * (A1 - A0);
+      let ring = "";
+      steps.forEach(([t, col], i) => { const a = ang(Math.max(min, i ? t : min)), b = ang(i + 1 < steps.length ? steps[i + 1][0] : max); if (b > a) ring += `<path d="${arc(60, 60, 54, a, b)}" stroke="${col}" stroke-width="3" fill="none" opacity=".85"/>`; });
+      const lab = o.labels || [fmt(min, Number.isInteger(min) ? 0 : 1), fmt(max, Number.isInteger(max) ? 0 : 1)];
+      host.innerHTML = `<div class="ag"><svg viewBox="0 0 120 108" aria-hidden="true">${ring}`
+        + `<path class="trk" d="${arc(60, 60, 44, A0, A1)}" stroke-width="12" fill="none"/>`
+        + `<path class="val" d="${arc(60, 60, 44, A0, A1)}" pathLength="100" stroke-dasharray="100 100" stroke-dashoffset="100" stroke-width="12" fill="none"/>`
+        + `<g class="ndl" style="transform:rotate(-120deg)"><path d="M58.4 60 L60 24 L61.6 60 Z"/><circle class="hub" cx="60" cy="60" r="4.5"/></g>`
+        + `<text class="tk" x="21" y="101" text-anchor="middle">${esc(lab[0])}</text><text class="tk" x="99" y="101" text-anchor="middle">${esc(lab[1])}</text>`
+        + `<text class="gv" x="60" y="90" text-anchor="middle" font-size="16"><tspan class="n">—</tspan><tspan font-size="9" dx="2" class="u">${esc(unit)}</tspan></text></svg>`
+        + `<div class="cap"></div></div>`;
+      const el = host.firstElementChild;
+      g = host.__ag = { sig, el, val: el.querySelector(".val"), ndl: el.querySelector(".ndl"), num: el.querySelector(".n"), txt: el.querySelector(".gv"), cap: el.querySelector(".cap") };
+    }
+    const frac = isNum(v) ? (Math.min(max, Math.max(min, v)) - min) / (max - min) : 0;
+    const col = !isNum(v) ? css("--text-3") : o.idle ? css("--idle") : colorAt(v, steps);
+    later(() => { g.val.style.stroke = col; g.val.style.strokeDashoffset = String(100 - frac * 100); g.ndl.style.transform = `rotate(${-120 + frac * 240}deg)`; });
+    g.txt.style.fill = col;
+    g.num.setAttribute("font-size", String(fmt(v, dec)).length > 5 ? "14" : "16");
+    tweenNum(g.num, isNum(v) ? v : null, dec);
+    setText(g.cap, cap);
+  }
+  const setText = (el, t) => { if (el && el.__t !== t) { el.__t = t; el.textContent = t; } };
+  // horizontal bars, one per row: [[label, value, max, colour]]
+  function abars(host, rows, unit, dec = 0) {
+    const sig = rows.map((r) => r[0]).join("|") + unit;
+    if (host.__sig !== sig) {
+      host.__sig = sig;
+      host.innerHTML = rows.map((r) => `<div class="phb"><span class="l" data-no-i18n>${esc(r[0])}</span><div class="tr"><i></i></div><b><span class="n">—</span> ${esc(unit)}</b></div>`).join("");
+    }
+    [...host.children].forEach((el, i) => {
+      const [, v, max, col] = rows[i], f = isNum(v) && max > 0 ? Math.max(0, Math.min(1, v / max)) : 0;
+      const bar = el.querySelector("i");
+      later(() => { bar.style.width = (f * 100).toFixed(1) + "%"; bar.style.background = col; });
+      tweenNum(el.querySelector(".n"), v, dec);
+    });
+  }
+  // a value on a scale with its normal band: [[label, value]], scale [lo, hi], band [okLo, okHi]
+  function bands(host, rows, lo, hi, okLo, okHi, unit) {
+    const sig = rows.map((r) => r[0]).join("|") + [lo, hi, okLo, okHi, unit].join(",");
+    const pos = (x) => (Math.max(lo, Math.min(hi, x)) - lo) / (hi - lo) * 100;
+    if (host.__sig !== sig) {
+      host.__sig = sig;
+      host.innerHTML = rows.map((r) => `<div class="vb"><span class="l" data-no-i18n>${esc(r[0])}</span><div class="tr"><s style="left:${pos(okLo)}%;width:${pos(okHi) - pos(okLo)}%"></s><i></i></div><b><span class="n">—</span> ${esc(unit)}</b></div>`).join("");
+    }
+    [...host.children].forEach((el, i) => {
+      const v = rows[i][1], dot = el.querySelector("i");
+      const col = !isNum(v) ? css("--idle") : v < okLo || v > okHi ? css("--warn") : css("--ok");
+      later(() => { dot.style.left = (isNum(v) ? pos(v) : 0).toFixed(1) + "%"; dot.style.background = col; });
+      tweenNum(el.querySelector(".n"), v, 0);
+    });
+  }
+  const FAN = `<svg class="fan" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.2" fill="currentColor"/><path fill="currentColor" opacity=".9" d="M12 9.8c.4-3.4 2.4-6.3 5-6.3 1.6 0 2.3 1.4 1.4 2.7-1.2 1.8-3.6 2.9-6.4 3.6zM14.1 13.2c3.1 1.4 5.2 4.2 4.4 6.7-.5 1.5-2 1.7-3 .5-1.5-1.6-1.9-4.3-1.4-7.2zM9.9 13.1c-2.7 2-6.2 2.6-7.8.6-1-1.3-.3-2.7 1.2-2.8 2.2-.2 4.5 1 6.6 2.2z"/></svg>`;
+
   // ================================================================== nav, theme, size, range, rows, kiosk
   function redrawCharts() { flowKey = null; Object.values(charts).forEach((c) => c.destroy()); charts = {}; renderSeries(); renderHourly(); renderEvents(); if (summary) renderAll(); renderLive(); }
   $("#themeBtn").addEventListener("click", () => {
@@ -1798,7 +1972,8 @@ a.rcard:hover { border-color: var(--xc); }
     const arrays = pv.filter((d) => !inverters.includes(d));
     const grids = devs.filter((d) => d.kind === "grid");
     const bess = devs.filter((d) => d.kind === "bess");
-    return { devs, master: masters[0] || null, units, pv, inverters, arrays, grids, bess };
+    const analyzers = devs.filter((d) => d.kind === "analyzer");
+    return { devs, master: masters[0] || null, units, pv, inverters, arrays, grids, bess, analyzers };
   }
   const sv = (k) => (S && S[k]) || [];
   const hasS = (k) => sv(k).some((v) => v !== null);
@@ -1892,7 +2067,7 @@ a.rcard:hover { border-color: var(--xc); }
     if (!summary) return;
     renderClock();
     const M = model();
-    renderOverview(M); renderGensets(M); renderMaster(M); renderSolar(M); renderMains(M); renderQuality(M);
+    renderOverview(M); renderGensets(M); renderMaster(M); renderSolar(M); renderMains(M); renderAnalyzers(M); renderQuality(M);
     renderDevices(M.devs); renderActive(summary.active_faults);
     const loadSettingsOnce = !renderAll.done; renderAll.done = true; if (loadSettingsOnce) loadSettings();
   }
@@ -2176,16 +2351,14 @@ a.rcard:hover { border-color: var(--xc); }
     $("#genSub").textContent = k.gensets_total ? `${k.gensets_running} of ${k.gensets_total} running · ${fmt(k.genset_kw)} kW` : "";
     $("#genRate").textContent = M.master && rateOf(M.master) ? `read ${rateOf(M.master)}` : M.units.length && rateOf(M.units[0]) ? `read ${rateOf(M.units[0])}` : "";
     let tiles = "";
+    $("#genCards").hidden = !M.master;
+    $("#p-genbus").hidden = !(M.master && has(M.master, "controller_mode"));
     if (M.master) {
-      const m = M.master, mask = pt(m, "can_present_mask");
-      const bits = Object.keys(m.points).filter((x) => /^g\d+_running$/.test(x)).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)));
+      const m = M.master;
+      const nums = Object.keys(m.points).filter((x) => /^g\d+_running$/.test(x)).map((x) => parseInt(x.slice(1))).sort((a, b) => a - b);
       $("#genTilesTitle").textContent = `Gensets on ${m.id} (breaker and CAN bus)`;
-      tiles += bits.map((b) => {
-        const g = parseInt(b.slice(1)), run = on(pt(m, b)), can = isNum(mask) ? ((mask >> (g - 1)) & 1) === 1 : null;
-        const lost = m.comms !== "ok" && m.comms !== "reading";
-        return `<div class="gen ${lost ? "lost" : run ? "run" : ""}" data-dev="${esc(m.id)}" tabindex="0" role="button"><div class="hd"><b>Gen ${g}</b><span class="chip ${lost ? "warn" : run ? "ok" : "idle"}">${lost ? "no data" : run ? "loaded" : "standby"}</span></div>
-          <dl><dt>Breaker (GCB)</dt><dd>${run ? "closed" : "open"}</dd><dt>On CAN bus</dt><dd style="color:${can === false ? css("--bad") : ""}">${can === null ? "—" : can ? "present" : "MISSING"}</dd></dl></div>`;
-      }).join("");
+      genCards(m, nums);
+      if (has(m, "controller_mode")) genBus(m);
     }
     if (M.units.length) {
       if (!M.master) $("#genTilesTitle").textContent = "Gensets now";
@@ -2223,6 +2396,123 @@ a.rcard:hover { border-color: var(--xc); }
     $("#p-genside").hidden = !side;
     $("#p-genside").classList.toggle("w5", load !== null); $("#p-genside").classList.toggle("w10", load === null);
     redraw($("#genSide"), side);
+  }
+
+  // the gensets the master supervises: one animated card each (built once, then only the values move)
+  const SHARE_INFO = "Gensets on the bus share the load in proportion to their size, so each one runs at about this share of its own capacity: gensets power ÷ capacity on the bus, from the master. Each genset's own kW, voltage and frequency need its controller's Modbus list.";
+  function genCards(m, nums) {
+    const host = $("#genCards"), key = m.id + ":" + nums.join(",");
+    if (host.__key !== key) {
+      host.__key = key;
+      host.innerHTML = nums.map((g) => `<div class="gcard" data-dev="${esc(m.id)}" data-g="${g}" tabindex="0" role="button" aria-label="Gen ${g}">
+        <div class="hd">${FAN}<b>Gen ${g}</b><span class="chip idle">—</span></div>
+        <div class="ga" title="${esc(SHARE_INFO)}"></div>
+        <div class="lamps"><span class="lamp gcb"><i></i><span class="t"></span></span><span class="lamp can"><i></i><span class="t"></span></span></div>
+        <div class="foot" title="In the selected time range"></div></div>`).join("");
+    }
+    const mask = pt(m, "can_present_mask"), lost = m.comms !== "ok" && m.comms !== "reading";
+    const nom = pt(m, "running_nominal_kw"), p = pt(m, "running_power_kw") ?? pt(m, "power_kw");
+    const share = isNum(nom) && nom > 0 && isNum(p) ? Math.max(0, 100 * p / nom) : null;
+    [...host.children].forEach((el) => {
+      const g = +el.dataset.g, onBus = on(pt(m, `g${g}_running`)), can = isNum(mask) ? ((mask >> (g - 1)) & 1) === 1 : null;
+      const st = lost ? "lost" : can === false ? "miss" : onBus ? "on" : "";
+      el.className = "gcard" + (st ? " " + st : "");
+      const [ct, cc] = lost ? ["no data", "warn"] : can === false ? ["not on CAN", "bad"] : onBus ? ["on bus", "ok"] : ["standby", "idle"];
+      const chip = el.querySelector(".chip"); chip.className = `chip ${cc}`; setText(chip, ct);
+      agauge(el.querySelector(".ga"), lost ? null : onBus ? share : 0, { min: 0, max: 100, unit: "%", idle: !onBus,
+        steps: [[0, C("--bad")], [30, C("--ok")], [85, C("--warn")], [95, C("--bad")]], cap: lost ? "" : onBus ? "shared load" : "standby" });
+      const gcb = el.querySelector(".gcb"), cl = el.querySelector(".can");
+      gcb.className = "lamp gcb" + (!lost && onBus ? " ok" : ""); setText(gcb.querySelector(".t"), onBus ? "GCB closed" : "GCB open");
+      cl.className = "lamp can" + (lost || can === null ? "" : can ? " ok" : " bad"); setText(cl.querySelector(".t"), can === false ? "CAN missing" : can ? "CAN present" : "CAN");
+      const vals = sv(`${m.id}/g${g}_running`);
+      let n1 = 0, starts = 0, prev = null;
+      vals.forEach((v) => { const r1 = v === null ? null : v >= 0.5; if (r1) n1++; if (r1 && prev === false) starts++; if (r1 !== null) prev = r1; });
+      setText(el.querySelector(".foot"), vals.some((v) => v !== null) ? `${fmt(n1 * SSTEP / 3600, 1)} h on bus · ${starts} start${starts === 1 ? "" : "s"}` : "");
+    });
+  }
+  // the master's view of the generator bus: its mode (shown only), breaker state, all gensets together and the bus
+  function genBus(m) {
+    const host = $("#genBus");
+    if (!host.__built) {
+      host.__built = true;
+      host.innerHTML = `<div class="ctl"><div class="ah">Master mode</div>
+          <div class="modes" title="Shown only: this program cannot change the mode."><span data-m="0" data-no-i18n>OFF</span><span data-m="1" data-no-i18n>MAN</span><span data-m="2" data-no-i18n>AUTO</span><span data-m="3" data-no-i18n>TEST</span></div>
+          <div class="ah">Breaker state</div><div class="brk">—</div>
+          <div class="lamps"><span class="lamp lal"><i></i><span class="t">Alarm / warning</span></span><span class="lamp lrd"><i></i><span class="t">System ready</span></span></div>
+          <div class="estop">EMERGENCY STOP</div></div>
+        <div><div class="ah">Gensets power</div><div class="ga gp"></div></div>
+        <div><div class="ah">Bus frequency</div><div class="ga gf"></div></div>
+        <div><div class="ah">Bus voltage</div><div class="ga gu"></div></div>`;
+    }
+    const md = pt(m, "controller_mode");
+    host.querySelectorAll(".modes span").forEach((x) => { const lit = isNum(md) && +x.dataset.m === md && MODE[md]; x.classList.toggle("on", !!lit); x.style.background = lit ? MODE[md][1] : ""; });
+    const bs = pt(m, "breaker_state"), b = isNum(bs) && BRK[bs] ? BRK[bs] : null, brk = host.querySelector(".brk");
+    setText(brk, b ? b[0] : "—"); brk.style.color = b ? b[1] : "";
+    const al = host.querySelector(".lal"), rd = host.querySelector(".lrd"), alarm = pt(m, "alarm_active"), ready = pt(m, "system_ready");
+    al.className = "lamp lal" + (alarm === null ? "" : on(alarm) ? " bad" : " ok");
+    rd.hidden = ready === null; rd.className = "lamp lrd" + (ready === null ? "" : on(ready) ? " ok" : " warn");
+    host.querySelector(".estop").classList.toggle("on", on(pt(m, "estop")));
+    const nom = pt(m, "running_nominal_kw"), p = pt(m, "power_kw"), max = niceMax(Math.max(isNum(nom) ? nom : 0, isNum(p) ? p : 0, 500));
+    agauge(host.querySelector(".gp"), p, { min: 0, max, unit: "kW", steps: [[0, C("--c-gen")], [max * .85, C("--warn")], [max * .95, C("--bad")]], cap: isNum(nom) && nom > 0 ? `of ${fmt(nom)} kW on the bus` : "" });
+    agauge(host.querySelector(".gf"), pt(m, "bus_frequency_hz"), { min: 48, max: 52, dec: 2, unit: "Hz", labels: ["48", "52"], steps: [[48, C("--bad")], [49, C("--warn")], [49.5, C("--ok")], [50.5, C("--warn")], [51, C("--bad")]] });
+    const u = pt(m, "bus_voltage_v"), ll = isNum(u) && u > 300;
+    agauge(host.querySelector(".gu"), u, ll ? { min: 340, max: 460, unit: "V", steps: [[340, C("--bad")], [370, C("--warn")], [380, C("--ok")], [420, C("--warn")], [435, C("--bad")]] }
+      : { min: 200, max: 260, unit: "V", steps: [[200, C("--bad")], [215, C("--warn")], [220, C("--ok")], [243, C("--warn")], [250, C("--bad")]] });
+  }
+
+  // ---------------------------------------------------------------- power analyzers
+  function anName(d) { const mm = /^analyzer-(\d+)$/.exec(d.id); return d.name || (mm ? `Analyzer ${mm[1]}` : d.id); }
+  function anPanel(d) {
+    return `<div class="panel w24 anm" data-src="summary" data-an="${esc(d.id)}">
+      <div class="ph"><h3 data-dev="${esc(d.id)}" tabindex="0" role="button" title="All values and trend">${esc(anName(d))}</h3><span class="chip idle st">—</span>
+        <div class="meta"><span data-no-i18n>${esc(d.vendor)} ${esc(d.model)}</span><span><small>Gateway</small> <b class="gw" data-no-i18n>—</b></span><span><small>Unit ID</small> <b class="ui" data-no-i18n>—</b></span><span><small>CT</small> <b class="ct" data-no-i18n>—</b></span></div></div>
+      <div class="pb"><div class="anb">
+        <div><div class="ah">Active power</div><div class="ga p"></div>
+          <div class="aflow idle"><svg viewBox="0 0 200 12" height="12" preserveAspectRatio="none" aria-hidden="true"><line class="base" x1="4" y1="6" x2="196" y2="6"/><line class="dash" x1="4" y1="6" x2="196" y2="6"/></svg><span class="dir">no load</span></div>
+          <div class="pq"><span><small>Apparent power</small><br><b><span class="n s">—</span> kVA</b></span><span><small>Reactive power</small><br><b><span class="n q">—</span> kvar</b></span></div></div>
+        <div><div class="ah">Currents</div><div class="vgrp cur"></div></div>
+        <div><div class="ah">Voltages</div><div class="vgrp ll"></div><div class="vgrp ln"></div></div>
+        <div><div class="dials"><div><div class="ah">Power factor</div><div class="ga pf"></div></div><div><div class="ah">Frequency</div><div class="ga hz"></div></div></div></div>
+        <div><div class="ah">Energy counters</div>
+          <div class="ec"><span>Energy in</span><b><span class="n ein">—</span><em>MWh</em></b></div>
+          <div class="ec"><span>Energy out</span><b><span class="n eout">—</span><em>MWh</em></b></div>
+          <div class="ah" style="margin-top:6px">Power trend</div><div class="spk"></div></div>
+      </div></div></div>`;
+  }
+  function anUpdate(el, d) {
+    if (!el) return;
+    const P = (k) => pt(d, k);
+    const st = el.querySelector(".st"); st.className = `chip st ${commsCls(d.comms)}`; setText(st, comms(d.comms));
+    setText(el.querySelector(".gw"), d.host || "—"); setText(el.querySelector(".ui"), isNum(d.unit_id) ? String(d.unit_id) : "—");
+    const ct = P("ct_primary_a"); setText(el.querySelector(".ct"), isNum(ct) ? `${fmt(ct)} A` : "—");
+    const pmax = niceMax(Math.sqrt(3) * 400 * (isNum(ct) && ct > 0 ? ct : 500) / 1000), p = P("p_total_kw"), mag = isNum(p) ? Math.abs(p) : 0;
+    agauge(el.querySelector(".ga.p"), isNum(p) ? mag : null, { min: 0, max: pmax, unit: "kW", steps: [[0, C("--c-an")], [pmax * .8, C("--warn")], [pmax * .95, C("--bad")]] });
+    const fl = el.querySelector(".aflow");
+    fl.classList.toggle("idle", !(mag >= 1)); fl.classList.toggle("rev", isNum(p) && p <= -1);
+    fl.style.setProperty("--dur", (3.2 - 2.6 * Math.min(1, mag / pmax)).toFixed(2) + "s");
+    setText(fl.querySelector(".dir"), !(mag >= 1) ? "no load" : p > 0 ? "into the load" : "out of the load");
+    tweenNum(el.querySelector(".n.s"), P("s_total_kva")); tweenNum(el.querySelector(".n.q"), P("q_total_kvar"));
+    const imax = isNum(ct) && ct > 0 ? ct : Math.max(10, ...["i_l1_a", "i_l2_a", "i_l3_a"].map((k) => P(k) || 0)) * 1.25;
+    const ic = (v) => isNum(v) && v > imax * .9 ? C("--warn") : C("--c-an");
+    abars(el.querySelector(".cur"), [["L1", P("i_l1_a"), imax, ic(P("i_l1_a"))], ["L2", P("i_l2_a"), imax, ic(P("i_l2_a"))], ["L3", P("i_l3_a"), imax, ic(P("i_l3_a"))], ["N", P("i_n_a"), imax, C("--text-3")]], "A");
+    bands(el.querySelector(".ll"), [["L1-L2", P("v_l1l2_v")], ["L2-L3", P("v_l2l3_v")], ["L3-L1", P("v_l3l1_v")]], 340, 460, 380, 420, "V");
+    bands(el.querySelector(".ln"), [["L1-N", P("v_l1n_v")], ["L2-N", P("v_l2n_v")], ["L3-N", P("v_l3n_v")]], 196, 266, 220, 242, "V");
+    const pf = P("pf_total");
+    agauge(el.querySelector(".ga.pf"), isNum(pf) ? Math.abs(pf) : null, { min: 0.5, max: 1, dec: 2, labels: ["0.5", "1"], steps: [[0.5, C("--bad")], [0.8, C("--warn")], [0.9, C("--ok")]] });
+    agauge(el.querySelector(".ga.hz"), P("f_hz"), { min: 48, max: 52, dec: 2, unit: "Hz", labels: ["48", "52"], steps: [[48, C("--bad")], [49, C("--warn")], [49.5, C("--ok")], [50.5, C("--warn")], [51, C("--bad")]] });
+    const ein = P("e_in_kwh"), eout = P("e_out_kwh");
+    tweenNum(el.querySelector(".ein"), isNum(ein) ? ein / 1000 : null, 1, { fromZero: true, ms: 1400 });
+    tweenNum(el.querySelector(".eout"), isNum(eout) ? eout / 1000 : null, 1, { fromZero: true, ms: 1400 });
+    redraw(el.querySelector(".spk"), sparkSVG(sv(`${d.id}/p_total_kw`), C("--c-an")));
+  }
+  function renderAnalyzers(M) {
+    const list = M.analyzers;
+    showSec("analyzers", list.length > 0); if (!list.length) return;
+    $("#anSub").textContent = `${list.filter((d) => d.comms === "ok").length} of ${list.length} online`;
+    $("#anRate").textContent = rateOf(list[0]) ? `read ${rateOf(list[0])}` : "";
+    const grid = $("#anGrid"), key = list.map((d) => d.id).join(",");
+    if (grid.__key !== key) { grid.__key = key; grid.innerHTML = list.map(anPanel).join(""); }
+    list.forEach((d) => anUpdate([...grid.children].find((x) => x.dataset.an === d.id), d));
   }
 
   // ---------------------------------------------------------------- master controller
@@ -2335,6 +2625,8 @@ a.rcard:hover { border-color: var(--xc); }
     bess: [["soc_pct", "State of charge"], ["power_kw", "Power"], ["cell_temp_max_c", "Cell temp max"], ["alarm_active", "Alarm"]],
     meter: [["load_kw", "Load"], ["frequency_hz", "Frequency"], ["voltage_v", "Voltage"]],
     grid: [["available", "Available"], ["power_kw", "Import"], ["load_p_kw", "Load"], ["voltage_v", "Voltage"], ["frequency_hz", "Frequency"]],
+    // a power meter on one feeder (third value: decimals shown)
+    analyzer: [["p_total_kw", "Power"], ["i_avg_a", "Current"], ["v_ll_avg_v", "Voltage L-L"], ["pf_total", "Power factor", 2], ["f_hz", "Frequency", 2]],
   };
   const comms = (c) => c === "ok" ? "online" : c === "stale" ? "stale" : c === "reading" ? "reading…" : c === "unmapped" ? "registers pending" : "no data";
   const commsCls = (c) => c === "ok" ? "ok" : c === "stale" || c === "reading" ? "warn" : c === "unmapped" ? "idle" : "bad";
@@ -2343,11 +2635,11 @@ a.rcard:hover { border-color: var(--xc); }
     redraw($("#health"), donut([{ l: "Online", v: cnt((d) => d.comms === "ok"), c: C("--ok") }, { l: "Stale", v: cnt((d) => d.comms === "stale" || d.comms === "reading"), c: C("--warn") },
       { l: "No data", v: cnt((d) => d.comms === "lost"), c: C("--bad") }, { l: "Registers pending", v: cnt((d) => d.comms === "unmapped"), c: C("--idle") }], "devices"));
     redraw($("#devGrid"), devs.map((d) => {
-      const rows = (KEYS[d.kind] || []).filter(([k]) => d.points[k]).slice(0, 5).map(([k, l]) => {
+      const rows = (KEYS[d.kind] || []).filter(([k]) => d.points[k]).slice(0, 5).map(([k, l, dec]) => {
         const p = d.points[k];
-        return `<dt>${l}</dt><dd class="${p.q === "good" ? "" : p.q}">${p.q === "bad" ? "n/a" : fmt(p.v, typeof p.v === "number" && !Number.isInteger(p.v) ? 1 : 0)}${p.q === "bad" || !p.unit ? "" : " " + p.unit}</dd>`;
+        return `<dt>${l}</dt><dd class="${p.q === "good" ? "" : p.q}">${p.q === "bad" ? "n/a" : fmt(p.v, dec !== undefined ? dec : typeof p.v === "number" && !Number.isInteger(p.v) ? 1 : 0)}${p.q === "bad" || !p.unit ? "" : " " + p.unit}</dd>`;
       }).join("");
-      return `<div class="dev" data-src="summary" data-dev="${esc(d.id)}" tabindex="0" role="button" aria-label="${esc(d.id)}: all values and trend"><div class="hd"><b>${esc(d.id)}</b><span class="kind">${d.kind}</span><span class="chip ${commsCls(d.comms)}">${comms(d.comms)}</span></div>
+      return `<div class="dev" data-src="summary" data-dev="${esc(d.id)}" tabindex="0" role="button" aria-label="${esc(d.name || d.id)}: all values and trend"><div class="hd"><b>${esc(d.name || d.id)}</b><span class="kind">${d.kind}</span><span class="chip ${commsCls(d.comms)}">${comms(d.comms)}</span></div>
         <div class="model" title="${esc(d.vendor + " " + d.model)}">${esc(d.vendor)} ${esc(d.model)}</div>${rateOf(d) ? `<div class="model rate">${esc(rateOf(d))}</div>` : ""}<dl>${rows}</dl></div>`;
     }).join(""), "data-dev");
   }
@@ -2787,7 +3079,7 @@ a.rcard:hover { border-color: var(--xc); }
       dt.pt = (pref || rows.find(numeric) || rows[0] || {}).point || null;
     }
     const sel = rows.find((p) => p.point === dt.pt);
-    $("#dtTitle").textContent = d.id; $("#dtModel").textContent = `${d.kind} · ${d.vendor} ${d.model}`;
+    $("#dtTitle").textContent = d.name ? `${d.name} (${d.id})` : d.id; $("#dtModel").textContent = `${d.kind} · ${d.vendor} ${d.model}`;
     const pill = $("#dtPill"); pill.className = `chip ${commsCls(d.comms)}`; pill.textContent = comms(d.comms);
     $("#dtPoint").textContent = dt.pt || ""; $("#dtUnit").textContent = sel && sel.unit ? sel.unit : "";
     redraw($("#dtBody"), rows.map((p) => `<tr data-pt="${esc(p.point)}"${p.point === dt.pt ? ' class="sel"' : ""}><td><button type="button" class="ptlink" title="Trend of ${esc(p.point)}"><span data-no-i18n>${esc(p.point)}</span></button></td><td class="num">${val(p)}</td><td>${esc(p.unit || "")}</td><td class="q-${p.quality}">${p.quality}</td><td>${ago(p.age_s)}</td><td class="note" data-no-i18n>${esc(p.error || p.description || "")}</td></tr>`).join(""), "data-pt");

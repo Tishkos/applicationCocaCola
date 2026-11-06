@@ -507,7 +507,7 @@ def probe(targets: list[tuple[str, int, int]], address: int = 0, timeout: float 
         t0 = time.perf_counter()
         try:
             from .adapters import modbus_tcp
-            src = (modbus_tcp._SOURCE, 0) if modbus_tcp._SOURCE else None     # config network.source_address
+            src = (modbus_tcp._SOURCE, 0) if modbus_tcp._SOURCE and modbus_tcp._same_net(modbus_tcp._SOURCE, host) else None   # network.source_address, in its own network only
             s = socket.create_connection((host, port), timeout=timeout, source_address=src)
             s.close()
             row["tcp"] = "open"

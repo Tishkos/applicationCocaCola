@@ -1,0 +1,48 @@
+# Device profile: Schneider PowerLogic PM800-series power meter, read over Modbus TCP through a serial gateway, read-only.
+#
+# Source: a full read-only dump of registers 0-9999 of both meters at the plant on 2026-11-06 (02:35 plant time),
+# matched against the PM800 register layout and checked against itself: on the meter behind 192.168.141.1,
+# sqrt(3) x 416 V x 39 A x PF 0.981 = 27.6 kW against 27 kW read, and the energy counter (2,922,359,513 Wh)
+# equals the meter's own display (2.9223592 GWh). The meter names itself "PM8 POWER METER" at 2999-3008.
+# Register = 0-based address as sent (FC03; the PM800 manual counts from 1, so add 1 to compare).
+# Scale factors read 0 on both meters (currents in A, power in kW, voltages in V); 0x8000 = no value.
+#
+# The gateways ("GATEWAY TR" meter modems, Modbus mode, TCP port 502) serve one connection at a time and ignore a
+# new one for a few minutes after the previous one closed: the meters are read on one kept connection each
+# (connection.keep_open, see plantcollector/meters.py) in blocks of 16 registers (connection.max_block).
+
+kind: analyzer
+vendor: Schneider
+model: "PowerLogic PM800"
+profile_revision: 1
+profile_status: mapped (from a register dump, checked)
+source_document: "register dump of 2026-11-06, both meters, 0-9999, read-only"
+
+points:
+  - {id: p_total_kw,    unit: kW,   raw: {address: 1142, kind: int16, na: 32768}, description: "Active power, total (+ into the load)"}
+  - {id: p_l1_kw,       unit: kW,   raw: {address: 1139, kind: int16, na: 32768}, description: "Active power L1"}
+  - {id: p_l2_kw,       unit: kW,   raw: {address: 1140, kind: int16, na: 32768}, description: "Active power L2"}
+  - {id: p_l3_kw,       unit: kW,   raw: {address: 1141, kind: int16, na: 32768}, description: "Active power L3"}
+  - {id: q_total_kvar,  unit: kvar, raw: {address: 1146, kind: int16, na: 32768}, description: "Reactive power, total"}
+  - {id: s_total_kva,   unit: kVA,  raw: {address: 1150, kind: int16, na: 32768}, description: "Apparent power, total"}
+  - {id: pf_total,      unit: "",   raw: {address: 1162, kind: int16, scale: 0.001, na: 32768}, description: "Power factor, total"}
+  - {id: i_l1_a,        unit: A,    raw: {address: 1099, kind: int16, na: 32768}, description: "Current L1"}
+  - {id: i_l2_a,        unit: A,    raw: {address: 1100, kind: int16, na: 32768}, description: "Current L2"}
+  - {id: i_l3_a,        unit: A,    raw: {address: 1101, kind: int16, na: 32768}, description: "Current L3"}
+  - {id: i_n_a,         unit: A,    raw: {address: 1102, kind: int16, na: 32768}, description: "Current neutral"}
+  - {id: i_avg_a,       unit: A,    raw: {address: 1104, kind: int16, na: 32768}, description: "Current, average of the three phases"}
+  - {id: v_l1l2_v,      unit: V,    raw: {address: 1119, kind: int16, na: 32768}, description: "Voltage L1-L2"}
+  - {id: v_l2l3_v,      unit: V,    raw: {address: 1120, kind: int16, na: 32768}, description: "Voltage L2-L3"}
+  - {id: v_l3l1_v,      unit: V,    raw: {address: 1121, kind: int16, na: 32768}, description: "Voltage L3-L1"}
+  - {id: v_ll_avg_v,    unit: V,    raw: {address: 1122, kind: int16, na: 32768}, description: "Voltage line-line, average"}
+  - {id: v_l1n_v,       unit: V,    raw: {address: 1123, kind: int16, na: 32768}, description: "Voltage L1-N"}
+  - {id: v_l2n_v,       unit: V,    raw: {address: 1124, kind: int16, na: 32768}, description: "Voltage L2-N"}
+  - {id: v_l3n_v,       unit: V,    raw: {address: 1125, kind: int16, na: 32768}, description: "Voltage L3-N"}
+  - {id: v_ln_avg_v,    unit: V,    raw: {address: 1127, kind: int16, na: 32768}, description: "Voltage line-neutral, average"}
+  - {id: f_hz,          unit: Hz,   raw: {address: 1179, kind: uint16, scale: 0.01, na: 32768}, description: "Frequency"}
+  # energy counters: four registers of 0-9999 each, lowest first (PM800 "MOD10"), in Wh; shown in kWh
+  - {id: e_in_kwh,      unit: kWh,  raw: {address: 1699, kind: mod10x4, scale: 0.001, na: 32768}, description: "Active energy into the load (meter's counter)"}
+  - {id: e_out_kwh,     unit: kWh,  raw: {address: 1703, kind: mod10x4, scale: 0.001, na: 32768}, description: "Active energy out of the load (meter's counter)"}
+  # setting: the CT's primary current (the dashboard scales the current bars and the power gauge with it)
+  - {id: ct_primary_a,  unit: A,    raw: {address: 3200, kind: uint16, na: 32768}, description: "CT primary current (meter setting)"}
+  - {id: comm_error,    type: boolean, raw: {derived: comm_error}}

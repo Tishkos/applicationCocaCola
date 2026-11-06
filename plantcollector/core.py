@@ -58,8 +58,11 @@ def carry_forward(rows: list[tuple[float, float]], at: list[float], hold_s: floa
 
 class Collector:
     def __init__(self, config_path: str, data_dir: str = "./data", *, seed_hours: float = 0.0, fresh: bool = False,
-                 initial_poll: bool = True):
+                 initial_poll: bool = True, read_kept: bool = True):
         self.config_path = config_path
+        # False in the one-off tools (check, export, report): the meters on a kept connection are left to the running
+        # service, whose connection a second one could disturb
+        self.read_kept = read_kept
         self.registry = load_registry(config_path)
         self.simulated = all(d.adapter == "simulator" for d in self.registry.devices.values())
         self.plant: SimPlant | None = None
@@ -146,6 +149,7 @@ class Collector:
                     else:
                         self.every_override.pop(did, None)
         self.live = None                         # the live reader (plantcollector.live), started by `run`
+        self.meters = None                       # the meter reader (plantcollector.meters), started by `run`
         from collections import deque
         self._sim_history: deque = deque(maxlen=200)       # the demo's live chart (no live reader there)
         if self.simulated and seed_hours > 0:
@@ -224,6 +228,8 @@ class Collector:
     def close(self) -> None:
         if self.live is not None:
             self.live.close()
+        if self.meters is not None:
+            self.meters.close()
         for a in self.adapters.values():
             try:
                 a.close()
@@ -237,6 +243,9 @@ class Collector:
         lv = self.live
         if lv is not None and did in lv.device_ids:
             return lv.every_s
+        mr = self.meters
+        if mr is not None and did in mr.device_ids:
+            return mr.every_s
         return float(max(self.every_override.get(did, 0), self.poll_interval_s))
 
     def slow_down(self, did: str, seconds: int, why: str) -> None:
@@ -267,6 +276,23 @@ class Collector:
                 if int(saved) > 0:
                     cfg["every_s"] = int(saved)
         return cfg
+
+    def start_meters(self) -> bool:
+        """Start the meter reader for the devices whose connection is kept open (real plant only)."""
+        if self.simulated or self.meters is not None:
+            return False
+        from .meters import MeterReader
+        cfg = self.registry.extra.get("meters")
+        try:
+            r = MeterReader(self, cfg if isinstance(cfg, dict) else {})
+        except (TypeError, ValueError) as exc:        # a hand edit gone wrong must never stop the collector
+            print(f"[collector] the meters block of the config is not valid ({exc}); the meters are read with the defaults")
+            r = MeterReader(self, {})
+        if not r.device_ids:
+            return False
+        self.meters = r
+        r.start()
+        return True
 
     def start_live(self) -> bool:
         """Start the live reader when the config (or Settings) asks for it (real plant only; the demo has its own clock)."""
@@ -375,8 +401,9 @@ class Collector:
     def incomer_hold_s(self, did: str) -> float:
         """How long a stored reading of `did` counts: its read interval and a half, plus 2 min (the live reader
         stores a value that does not change only every few minutes: for its devices, that interval)."""
-        lv = self.live
-        every = max(lv.every_s, lv.idle_store_s) if lv is not None and did in lv.device_ids else self.device_every_s(did)
+        lv, mr = self.live, self.meters
+        every = max(lv.every_s, lv.idle_store_s) if lv is not None and did in lv.device_ids else \
+            max(mr.every_s, mr.store_every_s) if mr is not None and did in mr.device_ids else self.device_every_s(did)
         return every * 1.5 + 120.0
 
     def grid_went(self, since: datetime, until: datetime) -> list[float]:
@@ -497,12 +524,19 @@ class Collector:
     def _poll(self) -> None:
         lv = self.live                           # Settings may switch the live reader off meanwhile
         live = lv if (lv is not None and lv.running) else None
+        mr = self.meters
+        meters = mr if (mr is not None and mr.running) else None
         now_mono = time.monotonic()
         prev_host = None
         for did, ad in self.adapters.items():
             if live is not None and did in live.device_ids and not live.failures_in_row:
                 continue                         # read every few seconds by the live reader; its values are current
                                                  # (while it backs off, the site read reads the device itself)
+            if meters is not None and did in meters.device_ids:
+                continue
+            if not self.read_kept and (self.registry.devices[did].connection or {}).get("keep_open"):
+                continue                         # read by the meter reader on its kept connection; a second connection
+                                                 # would only be ignored by the meters' gateway
             if not self._due(did, now_mono):
                 continue                         # a slow device: its last values stay until it is due
             conn = self.registry.devices[did].connection
@@ -525,7 +559,10 @@ class Collector:
             self._health(did, rows)
         try:                                     # free the gateway's connection slots between polls
             from .adapters.modbus_tcp import close_all
-            close_all(keep=lv.endpoints if lv is not None and lv is self.live else frozenset())   # the live one stays open
+            keep = set(lv.endpoints) if lv is not None and lv is self.live else set()   # the live one stays open,
+            if meters is not None:                                                     # and the meters' kept ones
+                keep |= set(meters.endpoints)
+            close_all(keep=frozenset(keep))
         except Exception:
             pass
         self.site_snapshot = {did: self.store.latest(did) for did in self.registry.devices}
