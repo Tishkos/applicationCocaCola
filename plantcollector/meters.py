@@ -265,8 +265,11 @@ class MeterReader:
             host = str((dev.connection or {}).get("host"))
             now_m = time.monotonic()
             plant = self._plant_sources()
-            reach = on_its_network(host, plant, self.any_route)
-            src = route_source(host) if not str(host).startswith("127.") else "127.0.0.1"
+            is_open = getattr(ad, "is_open", lambda: True)
+            own = ad.pick_source() if hasattr(ad, "pick_source") and not is_open() else getattr(ad, "source", None)
+            # sent from the PC's own address in the meter's network when it has one; else where Windows routes it
+            reach = bool(own) or on_its_network(host, plant, self.any_route)
+            src = own or (route_source(host) if not str(host).startswith("127.") else "127.0.0.1")
             self.routes[did] = {"from": src, "ok": bool(reach)}
             why_not = (f"this PC would ask {host} from {src}, not from its plant network address" if src else
                        f"this PC has no route to {host}")
@@ -275,7 +278,6 @@ class MeterReader:
                                    "asked (it would go out through another network)", device_id=did,
                                    severity="warning", code="NO_ROUTE")
             self._off_net[did] = reach
-            is_open = getattr(ad, "is_open", lambda: True)
             if reach and self._conn_since.get(ep) is not None and not is_open():
                 self._rest(ep, now_m, "the connection to the gateway closed", did)   # closed by the gateway, or broke
             rest = self._rest_until.get(ep, 0.0) - now_m

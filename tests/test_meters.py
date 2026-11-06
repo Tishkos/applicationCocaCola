@@ -530,3 +530,24 @@ def test_read_devices_now_reads_the_meters_on_their_kept_connection(tmp_path, ga
         assert r["ok"] and "readers" in r
     finally:
         c.close()
+
+
+def test_a_meter_connection_is_opened_from_the_pcs_own_address_in_its_network(tmp_path, monkeypatch):
+    """The plant PC has 192.168.141.50 on its plant cable (with four more addresses), and Windows sent the requests
+    for 192.168.141.3 out through the Wi-Fi and the router, where they never connected: a meter connection is
+    opened from the PC's one address in the meter's network."""
+    from plantcollector.adapters import modbus_tcp
+    monkeypatch.setattr(modbus_tcp, "own_addresses", lambda: {"192.168.200.253", "192.168.141.50", "192.168.101.50",
+                                                               "192.168.0.129", "192.168.0.50", "192.168.0.100"})
+    assert modbus_tcp.own_address_in("192.168.141.3") == "192.168.141.50"
+    assert modbus_tcp.own_address_in("192.168.0.20") is None            # three addresses there: Windows chooses
+    assert modbus_tcp.own_address_in("10.0.0.1") is None
+    from plantcollector.registry import Device
+    dev = Device(id="analyzer-9", name="x", kind="analyzer", vendor="v", model="m", adapter="modbus_tcp",
+                 connection={"host": "192.168.141.3", "port": 502, "unit_id": 1, "keep_open": True}, points=[])
+    ad = modbus_tcp.ModbusTcpAdapter(dev)
+    assert ad.pick_source() == "192.168.141.50"
+    assert ad._client.comm_params.source_address == ("192.168.141.50", 0)
+    dev2 = Device(id="analyzer-8", name="x", kind="analyzer", vendor="v", model="m", adapter="modbus_tcp",
+                  connection={"host": "192.168.141.4", "port": 502, "unit_id": 1, "keep_open": True, "source_address": "192.168.141.60"}, points=[])
+    assert modbus_tcp.ModbusTcpAdapter(dev2).pick_source() == "192.168.141.60"

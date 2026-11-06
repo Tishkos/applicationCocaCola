@@ -2708,12 +2708,19 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     // why there is no data: the reader's own words for it (waiting for the gateway, no answer, no address)
     const err = d.comms === "ok" ? "" : String(((d.points || {}).p_total_kw || {}).err || ""), why = el.querySelector(".why");
     const noRows = d.comms !== "ok" && !Object.keys(d.points || {}).length;
+    const exc = (err.match(/exception_code=(\d+)/) || [])[1];         // the gateway answered with a Modbus exception
+    const EXC = { 1: "the meter does not know this request", 2: "the meter refuses these register addresses", 3: "the meter refuses this request",
+      4: "the meter reports an error", 6: "the meter is busy", 10: "the gateway has no path to the meter",
+      11: `the gateway answers, but the meter behind it does not (unit ${d.unit_id ?? "?"})` };
     const say = noRows ? "not read yet"
       : /takes a new connection in/.test(err) ? err.replace(/^.*?(the gateway takes a new connection in \d+ s).*$/, "$1")
       : /would ask|no route to/.test(err) ? err
       : /no address in/.test(err) ? err.replace(/^.*?(this PC has no address in [\d.]+x).*$/, "$1")
+      : exc ? (EXC[exc] || `the meter answers with error ${exc}`)
       : /No response|no response|Input\/Output/.test(err) ? "the gateway does not answer"
-      : /no connection|Connection|refused|unreachable/i.test(err) ? "no connection to the gateway" : "";
+      : /no connection|Connection|refused|unreachable|10049|10051|10060|10065/i.test(err) ? "no connection to the gateway"
+      : /no value from the device/.test(err) ? "the meter gives no values"
+      : err.replace(/^(modbus|read failed|decode): /, "").slice(0, 110);    // anything else: its own words
     setText(why, say); st.title = err;
     const route = ((summary.meters || {}).routes || {})[d.id];          // the address this PC asks the meter from
     el.querySelector(".m-src").hidden = !(route && route.from); setText(el.querySelector(".src"), route && route.from ? route.from : "—");

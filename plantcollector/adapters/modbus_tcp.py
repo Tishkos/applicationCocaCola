@@ -29,6 +29,7 @@ connection.keep_open: true for a device whose connection must never be closed be
 from __future__ import annotations
 
 import logging
+import socket
 import struct
 import threading
 import time
@@ -49,6 +50,24 @@ _POOL: dict[tuple[str, int], ModbusTcpClient] = {}
 _POOL_LOCK = threading.RLock()
 _CONN_LOCKS: dict[tuple[str, int], threading.RLock] = {}     # one request at a time per connection, not per process
 _SOURCE: str | None = None          # the PC's own address on the plant network, when it has more than one
+
+
+def own_addresses() -> set[str]:
+    """This PC's IPv4 addresses (every adapter's, the extra ones included)."""
+    out = set()
+    try:
+        for ai in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            out.add(str(ai[4][0]))
+    except OSError:
+        pass
+    return out
+
+
+def own_address_in(host: str) -> str | None:
+    """This PC's one address in the host's /24, if it has exactly one (the meters' network: 192.168.141.50)."""
+    net = str(host).split(".")[:3]
+    found = sorted(a for a in own_addresses() if a.split(".")[:3] == net and a != str(host))
+    return found[0] if len(found) == 1 else None
 
 
 def set_source_address(ip: str | None) -> None:
@@ -137,6 +156,7 @@ class ModbusTcpAdapter(Adapter):
         self.unit_id = int(c.get("unit_id", 1))
         self.address_offset = int(c.get("address_offset", 0))
         self._client = shared_client(c["host"], int(c.get("port", 502)), float(c.get("timeout", 3)))
+        self.source = None                      # the local address a kept connection is opened from (see pick_source)
         self._lock = connection_lock(c["host"], int(c.get("port", 502)))
         self.max_block = max(1, min(MAX_BLOCK, int(c.get("max_block", MAX_BLOCK))))
         self.keep_open = bool(c.get("keep_open"))
@@ -198,6 +218,19 @@ class ModbusTcpAdapter(Adapter):
     def close(self) -> None:
         with self._lock:
             self._client.close()
+
+    def pick_source(self) -> str | None:
+        """For a kept connection, before it is opened: send from this PC's own address in the device's network when
+        it has one (connection.source_address, else its one address in the device's /24). The plant PC has
+        192.168.141.50 on its plant cable, and Windows may otherwise reach a meter's gateway through the Wi-Fi and
+        the router, which never connects. None: Windows chooses."""
+        c = self.device.connection or {}
+        src = str(c.get("source_address") or "").strip() or own_address_in(str(c.get("host")))
+        with self._lock:
+            if not self._client.connected:
+                self._client.comm_params.source_address = (src, 0) if src else None
+                self.source = src
+        return self.source
 
     def is_open(self) -> bool:
         """True while this device's TCP connection is open (the meter reader decides when a new one is opened)."""
