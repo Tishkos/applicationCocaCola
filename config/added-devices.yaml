@@ -31,3 +31,5 @@ meters:
   every_s: 15              # each meter read every 15 s on its kept connection (7 small requests, about 0.1 s each;
                            # never slower than 240 s, so the gateway never drops the connection for being idle)
   store_every_s: 300       # every value written to the database every 5 minutes
+  rest_s: 210              # after a connection to a gateway closed (no answer, or a restart of this program), no new
+                           # one for 3.5 min: the gateway ignores a new connection for about 2.5 min after one closed

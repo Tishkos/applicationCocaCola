@@ -145,6 +145,7 @@ class ModbusTcpAdapter(Adapter):
         self.last_failed_blocks = 0
         self.last_io_failed = 0                 # of those: no answer at all (timeout, no connection, broken link)
         self.last_busy = 0                      # of those: answered "busy" (exception 6)
+        self.last_refused = 0                   # of those: answered with any exception (the link works)
         self.last_ms = 0.0
         self.last_wait_ms = 0.0
 
@@ -197,6 +198,10 @@ class ModbusTcpAdapter(Adapter):
     def close(self) -> None:
         with self._lock:
             self._client.close()
+
+    def is_open(self) -> bool:
+        """True while this device's TCP connection is open (the meter reader decides when a new one is opened)."""
+        return bool(self._client.connected)
 
     def read(self) -> dict[str, Reading]:
         t0 = time.perf_counter()
@@ -263,7 +268,7 @@ class ModbusTcpAdapter(Adapter):
                     derived.append(p)
                 else:
                     out[p.id] = reading(p, None, Quality.BAD, "no register mapping", now)
-        ok_blocks = failed_blocks = io_failed = busy = 0
+        ok_blocks = failed_blocks = io_failed = busy = refused = 0
         no_link = False                     # the device could not be connected: do not try again for every block
         queue = list(self._blocks)
         while queue:
@@ -298,6 +303,7 @@ class ModbusTcpAdapter(Adapter):
                 failed_blocks += 1
                 if isinstance(exc, Refused):
                     busy += 1 if exc.code == 6 else 0
+                    refused += 1                    # an exception answer: the device (or gateway) did answer
                 else:
                     io_failed += 1
                 for p in pts:
@@ -334,7 +340,7 @@ class ModbusTcpAdapter(Adapter):
                 except Exception as exc:
                     out[p.id] = reading(p, None, Quality.BAD, f"decode: {exc}", now)
         self.last_ok_blocks, self.last_failed_blocks = ok_blocks, failed_blocks
-        self.last_io_failed, self.last_busy = io_failed, busy
+        self.last_io_failed, self.last_busy, self.last_refused = io_failed, busy, refused
         for p in derived:
             if p.raw.get("derived") == "comm_error":   # the device answered nothing this poll
                 if not self._blocks:                    # nothing mapped yet: nothing was asked, so unknown

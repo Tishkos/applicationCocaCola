@@ -36,8 +36,9 @@ METER_1 = {
 
 
 class FakeGateway:
-    def __init__(self, regs: dict, unit: int = 17, block_s: float = 3.0, idle_s: float = 30.0):
+    def __init__(self, regs: dict, unit: int = 17, block_s: float = 3.0, idle_s: float = 30.0, strict: bool = False):
         self.regs, self.unit, self.block_s, self.idle_s = dict(regs), unit, block_s, idle_s
+        self.strict = strict                     # a connection it ignored, when closed, starts its quiet time again
         self.sock = socket.socket()
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self.sock.bind(("127.0.0.1", 0))
@@ -90,9 +91,9 @@ class FakeGateway:
                 except OSError:
                     chunk = b""
                 if not chunk:
-                    if serve:
+                    if serve or self.strict:
                         with self.lock:
-                            self.client_closes += 1
+                            self.client_closes += 1 if serve else 0
                             self.blocked_until = time.monotonic() + self.block_s
                     return
                 buf += chunk
@@ -341,25 +342,61 @@ def test_a_gateway_that_ignores_the_connection_gets_one_request_a_cycle(tmp_path
 
 
 def test_a_connection_that_is_never_served_is_opened_again(tmp_path):
-    """Accepted while the gateway still ignored new connections, it is never served: after reopen_after_s without an
-    answer the reader closes it, and the next connection (after the gateway's quiet time) is served."""
-    gw = FakeGateway(METER_1, block_s=60)
+    """Accepted while the gateway still ignored new connections, it is never served: after first_answer_s without an
+    answer the reader closes it, leaves the gateway alone for rest_s, and the next connection is served. Like the
+    plant's gateways (strict), closing the ignored connection starts the gateway's quiet time again: opened at once,
+    the new connection would be ignored too, and so would every one after it."""
+    gw = FakeGateway(METER_1, block_s=1.0, strict=True)
     gw.blocked_until = time.monotonic() + 1.0
     c = Collector(_config(tmp_path, gw), str(tmp_path / "d"), initial_poll=False)
     try:
         from plantcollector.meters import MeterReader
-        c.meters = MeterReader(c, {"every_s": 10})
-        c.meters.reopen_after_s = 0.8
+        c.meters = MeterReader(c, {"every_s": 10, "first_answer_s": 0.8, "rest_s": 1.6})
         c.meters.cycle()                          # accepted during the quiet time: never served
         assert gw.accepted == 1 and gw.answered == 0
-        time.sleep(1.2)
-        c.meters.cycle()                          # still no answer on it, and quiet for longer than reopen_after_s: closed
-        c.meters.cycle()                          # a new connection, now served
+        time.sleep(1.0)
+        c.meters.cycle()                          # still no answer, longer than first_answer_s: closed, the gateway rests
+        assert gw.accepted == 1
+        c.meters.cycle()                          # resting: no new connection yet
+        assert gw.accepted == 1
+        assert "takes a new connection in" in c.store._latest["analyzer-1"]["p_total_kw"].error
+        time.sleep(1.8)
+        c.meters.cycle()                          # after the rest: a new connection, and it is served
         assert gw.accepted == 2
         assert _values(c)["p_total_kw"] == (27, Quality.GOOD)
         assert any(e[0] == "meters" for e in c.store._db.execute("SELECT kind FROM events WHERE code='REOPEN'").fetchall())
     finally:
         c.close()
+        gw.close()
+
+
+def test_after_a_restart_the_reader_waits_for_the_gateway(tmp_path):
+    """An update restarts the program: the old connection closes with it, and the gateway ignores a new one for a few
+    minutes. The new reader waits until rest_s after the old connection was last open, so its first connection is
+    served (1.0.9 opened one at once, then every few minutes another one, and every one fell in the quiet time)."""
+    gw = FakeGateway(METER_1, block_s=1.0, strict=True)
+    cfg = _config(tmp_path, gw, meters="meters: {every_s: 10, rest_s: 1.5}")
+    c = Collector(cfg, str(tmp_path / "d"), initial_poll=False)
+    try:
+        assert c.start_meters() and _wait(lambda: c.meters.cycles >= 1)
+        assert _values(c)["p_total_kw"] == (27, Quality.GOOD)
+    finally:
+        c.close()                                 # writes when the meter connection was last open
+    from plantcollector.adapters.modbus_tcp import close_all
+    close_all()                                   # the process ends: its connections close
+    assert _wait(lambda: gw.client_closes == 1)
+    c2 = Collector(cfg, str(tmp_path / "d"), initial_poll=False)
+    try:
+        assert c2.start_meters()
+        assert c2.meters.status()["waiting_s"]    # it waits before connecting
+        time.sleep(0.5)
+        assert gw.accepted == 1                   # nothing opened during the gateway's quiet time
+        assert _wait(lambda: c2.meters.cycles >= 2, s=8)
+        assert _values(c2)["p_total_kw"] == (27, Quality.GOOD)
+        assert gw.accepted == 2 and gw.ignored == 0
+        assert c2.store._db.execute("SELECT COUNT(*) FROM events WHERE code='WAIT'").fetchone()[0] == 1
+    finally:
+        c2.close()
         gw.close()
 
 

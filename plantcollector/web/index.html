@@ -950,6 +950,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
 .anm .meta { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-inline-start: auto; font-size: calc(12px * var(--zoom)); color: var(--text-3); }
 .anm .meta b { color: var(--text); font-weight: 500; font-family: var(--mono); }
 .anm .ph .chip { margin-inline-start: 8px; }
+.anm .ph .why { margin-inline-start: 8px; font-size: calc(12px * var(--zoom)); color: var(--text-2); }
 .anm .ph h3 { cursor: pointer; }
 .phb, .vb { display: grid; grid-template-columns: calc(44px * var(--zoom)) 1fr calc(64px * var(--zoom)); align-items: center; gap: 8px; font-size: calc(12px * var(--zoom)); }
 .phb .l, .vb .l { color: var(--text-2); font-family: var(--mono); }
@@ -2640,7 +2641,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
         <div class="ph"><h3><span data-no-i18n>${nm}</span> · <span>${title}</span></h3><span class="r" data-upd="series"></span></div>
         <div class="pb"><div class="chart"><canvas id="c-an-${id}-${k}"></canvas></div></div><div class="legend" id="lg-an-${id}-${k}"></div></div>`;
     return `<div class="panel w24 anm" data-src="summary" data-an="${id}">
-      <div class="ph"><h3 data-dev="${id}" tabindex="0" role="button" title="All values and trend">${nm}</h3><span class="chip idle st">—</span>
+      <div class="ph"><h3 data-dev="${id}" tabindex="0" role="button" title="All values and trend">${nm}</h3><span class="chip idle st">—</span><span class="why"></span>
         <div class="meta"><span data-no-i18n>${esc(d.vendor)} ${esc(d.model)}</span><span class="m-gw"><small>Gateway</small> <b class="gw" data-no-i18n>—</b></span><span class="m-ui"><small>Unit ID</small> <b class="ui" data-no-i18n>—</b></span><span><small>CT</small> <b class="ct" data-no-i18n>—</b></span></div></div>
       <div class="pb">
         <div class="stats astats">${AN_TILES.map((k) => `<div data-k="${k}"></div>`).join("")}</div>
@@ -2661,6 +2662,13 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     if (!el) return;
     const P = (k) => pt(d, k), trend = (k) => sv(`${d.id}/${k}`), tile = (k) => el.querySelector(`.astats [data-k="${k}"]`);
     const st = el.querySelector(".st"); st.className = `chip st ${commsCls(d.comms)}`; setText(st, comms(d.comms));
+    // why there is no data: the reader's own words for it (waiting for the gateway, no answer, no address)
+    const err = d.comms === "ok" ? "" : String(((d.points || {}).p_total_kw || {}).err || ""), why = el.querySelector(".why");
+    const say = /takes a new connection in/.test(err) ? err.replace(/^.*?(the gateway takes a new connection in \d+ s).*$/, "$1")
+      : /no address in/.test(err) ? err.replace(/^.*?(this PC has no address in [\d.]+x).*$/, "$1")
+      : /No response|no response|Input\/Output/.test(err) ? "the gateway does not answer"
+      : /no connection|Connection|refused|unreachable/i.test(err) ? "no connection to the gateway" : "";
+    setText(why, say); st.title = err;
     el.querySelector(".m-gw").hidden = !d.host; el.querySelector(".m-ui").hidden = !d.host;
     setText(el.querySelector(".gw"), d.host || "—"); setText(el.querySelector(".ui"), isNum(d.unit_id) ? String(d.unit_id) : "—");
     const ct = P("ct_primary_a"), hasCt = isNum(ct) && ct > 0; setText(el.querySelector(".ct"), hasCt ? `${fmt(ct)} A` : "—");

@@ -329,6 +329,12 @@
     // gensets (animated cards, generator bus) and analyzers
     ["Analyzers", "المحللات", "شیکەرەوەکان", "Analizörler"], ["Generator bus", "قضبان المولدات", "باسی مۆلیدەکان", "Jeneratör barası"],
     // 1.0.9: stat tiles, bar gauges and time series (analyzers, gensets)
+    ["The power meters come back by themselves after a restart or an update: the program waits for their gateways (about 3.5 minutes) instead of opening connections they ignore. The Analyzers tab says why a meter has no data.",
+     "تعود عدادات الطاقة من تلقاء نفسها بعد إعادة التشغيل أو التحديث: ينتظر البرنامج بواباتها (نحو 3.5 دقائق) بدلاً من فتح اتصالات تتجاهلها. ويبيّن تبويب المحللات سبب عدم وجود بيانات لعداد ما.",
+     "پێوەرەکانی توانا خۆیان دەگەڕێنەوە دوای دەستپێکردنەوە یان نوێکردنەوە: بەرنامەکە چاوەڕێی دەروازەکانیان دەکات (نزیکەی 3.5 خولەک) لە جیاتی کردنەوەی پەیوەندی کە پشتگوێی دەخەن. تابی شیکەرەوەکان دەڵێت بۆچی پێوەرێک داتای نییە.",
+     "Güç sayaçları yeniden başlatma veya güncellemeden sonra kendiliğinden geri gelir: program, yok saydıkları bağlantıları açmak yerine ağ geçitlerini bekler (yaklaşık 3,5 dakika). Analizörler sekmesi bir sayacın neden verisi olmadığını gösterir."],
+    ["the gateway does not answer", "البوابة لا تجيب", "دەروازەکە وەڵام ناداتەوە", "ağ geçidi yanıt vermiyor"],
+    ["no connection to the gateway", "لا اتصال بالبوابة", "پەیوەندی بە دەروازەکەوە نییە", "ağ geçidine bağlantı yok"],
     ["The Analyzers tab has stat tiles, bar gauges and time series for power, currents and voltage. One button reads every device. New menu icons. The month files of the database are kept exact even when the PC clock was wrong or the power went off.",
      "يحتوي تبويب المحللات على مربعات قيم ومؤشرات أعمدة ومنحنيات زمنية للقدرة والتيارات والجهد. زر واحد يقرأ كل الأجهزة. أيقونات جديدة للقائمة. تبقى ملفات قاعدة البيانات الشهرية دقيقة حتى لو كانت ساعة الحاسوب خاطئة أو انقطعت الكهرباء.",
      "تابی شیکەرەوەکان خانەی بەها، پیشاندەری ستوونی و گرافی کات بۆ توانا، تەزووەکان و ڤۆڵتیە هەیە. یەک دوگمە هەموو ئامێرەکان دەخوێنێتەوە. ئایکۆنی نوێی لیست. فایلە مانگانەکانی داتابەیس ورد دەمێننەوە تەنانەت ئەگەر کاتژمێری کۆمپیوتەرەکە هەڵە بووبێت یان کارەبا بڕابێت.",
@@ -528,6 +534,8 @@
     [/^Version (.+) is ready to install$/, (m) => [`الإصدار ${m[1]} جاهز للتثبيت`, `وەشانی ${m[1]} ئامادەی دامەزراندنە`, `${m[1]} sürümü kurulmaya hazır`]],
     [/^Analyzer (\d+)$/, (m) => [`المحلل ${m[1]}`, `شیکەرەوەی ${m[1]}`, `Analizör ${m[1]}`]],
     [/^([\d.,]+) % of the ([\d,]+) A CT$/, (m) => [`${m[1]} % من محوّل التيار \u2066${m[2]} A\u2069`, `${m[1]} % ی CT ـی \u2066${m[2]} A\u2069`, `${m[2]} A CT'nin %${m[1]}'i`]],
+    [/^the gateway takes a new connection in (\d+) s$/, (m) => [`تقبل البوابة اتصالاً جديداً بعد ${m[1]} ثانية`, `دەروازەکە پەیوەندییەکی نوێ وەردەگرێت لە ${m[1]} چرکەدا`, `ağ geçidi ${m[1]} sn sonra yeni bağlantı kabul eder`]],
+    [/^this PC has no address in ([\d.]+x)$/, (m) => [`لا يملك هذا الحاسوب عنواناً في \u2066${m[1]}\u2069`, `ئەم کۆمپیوتەرە ناونیشانی نییە لە \u2066${m[1]}\u2069`, `bu bilgisayarın ${m[1]} ağında adresi yok`]],
     [/^(\d+) of (\d+) gensets on the bus$/, (m) => [`${m[1]} من ${m[2]} مولدات على القضبان`, `${m[1]} لە ${m[2]} مۆلیدە لەسەر باسن`, `${m[2]} jeneratörden ${m[1]} barada`]],
     [/^([\d.,]+) h on bus · (\d+) starts?$/, (m) => [`${m[1]} س على القضبان · ${m[2]} تشغيل`, `${m[1]} کاتژمێر لەسەر باس · ${m[2]} دەستپێکردن`, `${m[1]} sa barada · ${m[2]} başlatma`]],
     [/^of ([\d,.]+) kW on the bus$/, (m) => [`من أصل ${m[1]} kW على القضبان`, `لە کۆی ${m[1]} kW لەسەر باس`, `baradaki ${m[1]} kW kapasiteden`]],

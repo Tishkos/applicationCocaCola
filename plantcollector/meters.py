@@ -12,12 +12,17 @@ So:
   - the meters are read every `every_s` (60 s by default, never slower than 240 s, so a gateway never sees the
     connection idle long enough to drop it);
   - the site read leaves these devices to this reader while it runs, so nothing else opens a second connection;
-  - a broken connection is opened again at the next cycle; the gateway may ignore it for a few minutes, and those
-    readings are marked bad ("no data" is written to the event log only after `comms_debounce` cycles in a row);
-  - a connection that has not answered for `reopen_after_s` (3 min) is closed and opened again: one the gateway
-    accepted while it was still ignoring new connections may never be served (after a restart, or when another
-    program had just used the gateway). On 2026-11-06 a new connection was served again 2.5 min after the last one
-    closed, so after a restart the meters are back within about 3 minutes;
+  - a connection the gateway accepted while it was still ignoring new connections is never served (after a restart,
+    or when another program had just used the gateway). So a connection that has not answered for a while
+    (`first_answer_s`, 1 min, on a new one; `reopen_after_s`, 3 min, on one that answered before) is closed, and
+    then the reader stays away from that gateway for `rest_s` (3.5 min) before it opens a new one: opened at once,
+    the new one would again fall in the gateway's quiet time, and so would every one after it (1.0.7 - 1.0.9 did
+    that after a restart and got no data for hours). The same rest follows a connection the gateway closed;
+  - the time a meter connection was last open is kept in data/meters-connection.json: after a restart (an update)
+    the reader waits until `rest_s` after it before connecting, so the first connection is served. On 2026-11-06 a
+    new connection was served again 2.5 min after the last one closed;
+  - while it waits, and while a connection is not answered, the readings are marked bad ("no data" is written to
+    the event log only after `comms_debounce` cycles in a row);
   - before connecting, it checks that this PC has an address in the meter's network (192.168.141.x): without one the
     request would go out through another adapter (the CCI Wi-Fi), so it is not sent at all.
 
@@ -29,6 +34,9 @@ Read-only like everything else: the adapter only has read requests.
 
 from __future__ import annotations
 
+import json
+import math
+import os
 import socket
 import threading
 import time
@@ -77,10 +85,21 @@ class MeterReader:
         self.every_s = min(self.MAX_EVERY_S, max(self.MIN_EVERY_S, float(cfg.get("every_s", 60))))
         self.store_every_s = max(self.every_s, float(cfg.get("store_every_s", 300)))
         self.comms_debounce = max(1, int(cfg.get("comms_debounce", 3)))
-        self.reopen_after_s = max(60.0, float(cfg.get("reopen_after_s", 180)))
-        self._quiet_since: dict[str, float] = {}             # device -> since when its connection has not answered
+        self.reopen_after_s = max(0.1, float(cfg.get("reopen_after_s", 180)))      # no answer on one that answered
+        self.first_answer_s = max(0.1, float(cfg.get("first_answer_s", 60)))       # no answer on a new one
+        self.rest_s = max(0.0, float(cfg.get("rest_s", 210)))                      # then away from the gateway
+        self._ep = {d: endpoint(reg.devices[d]) for d in self.device_ids}
+        # per gateway (host, port): since when its connection has not answered, when that connection was opened,
+        # whether it ever answered, and until when no new connection is opened
+        self._quiet_since: dict[tuple, float] = {}
+        self._conn_since: dict[tuple, float | None] = {}
+        self._conn_answered: dict[tuple, bool] = {}
+        self._rest_until: dict[tuple, float] = {}
         self._off_net: dict[str, bool] = {}
-        self.endpoints = frozenset(endpoint(reg.devices[d]) for d in self.device_ids)
+        self.endpoints = frozenset(self._ep.values())
+        dd = getattr(collector, "data_dir", None)
+        self.state_path = os.path.join(dd, "meters-connection.json") if dd and cfg.get("remember", True) else None
+        self._seen_written = 0.0
         self._last_store: dict[str, float] = {}
         self._answered: dict[str, bool] = {}
         self._bad_run = {d: 0 for d in self.device_ids}
@@ -99,15 +118,52 @@ class MeterReader:
         return self.thread is not None and self.thread.is_alive() and not self.stop.is_set()
 
     def status(self) -> dict:
+        now = time.monotonic()
         return {"running": self.running, "every_s": self.every_s, "store_every_s": self.store_every_s,
                 "devices": self.device_ids, "cycles": self.cycles, "last_ms": self.last_ms,
                 "last_cycle": self.last_cycle_at.isoformat() if self.last_cycle_at else None,
-                "last_ok": {d: t.isoformat() for d, t in dict(self.last_ok_at).items()}}
+                "last_ok": {d: t.isoformat() for d, t in dict(self.last_ok_at).items()},
+                "waiting_s": {f"{h}:{p}": round(t - now) for (h, p), t in dict(self._rest_until).items() if t > now}}
+
+    # ------------------------------------------------------------------ when a meter connection was last open
+    def _note_open(self, force: bool = False) -> None:
+        """Write the time a meter connection was open (at most every 30 s): a restart then knows how long to wait."""
+        if not self.state_path:
+            return
+        now = time.time()
+        if not force and now - self._seen_written < 30:
+            return
+        self._seen_written = now
+        try:
+            with open(self.state_path, "w", encoding="utf-8") as f:
+                json.dump({"open_at": datetime.fromtimestamp(now, timezone.utc).isoformat(), "epoch": now}, f)
+        except OSError:
+            pass
+
+    def _rest_after_restart(self) -> float:
+        """Seconds to wait before the first connection: until rest_s after a meter connection was last open."""
+        if not self.state_path or not self.rest_s:
+            return 0.0
+        try:
+            with open(self.state_path, encoding="utf-8") as f:
+                seen = float(json.load(f).get("epoch"))
+        except (OSError, ValueError, TypeError, AttributeError):
+            return 0.0
+        ago = time.time() - seen
+        return self.rest_s - ago if 0 <= ago < self.rest_s else 0.0
 
     # ------------------------------------------------------------------ thread
     def start(self) -> bool:
         if not self.device_ids or self.running:
             return False
+        wait = self._rest_after_restart()
+        if wait > 0:                                         # the gateways saw a connection of ours close just now
+            until = time.monotonic() + wait
+            for ep in self.endpoints:
+                self._rest_until[ep] = max(self._rest_until.get(ep, 0.0), until)
+            self.c.store.event("meters", f"the meters are read from {wait / 60:.1f} min on: their gateways ignore a new "
+                               "connection for a few minutes after the last one closed (this program was just restarted)",
+                               severity="info", code="WAIT")
         self.stop.clear()
         self.thread = threading.Thread(target=self._run, daemon=True, name="meter-reader")
         self.thread.start()
@@ -125,6 +181,8 @@ class MeterReader:
     def close(self, wait_s: float = 5.0) -> None:
         self.stop.set()
         self._wake.set()
+        if any(self._conn_since.get(ep) is not None for ep in self.endpoints):
+            self._note_open(force=True)                      # the connections close with this program
         t = self.thread
         if t is not None and t.is_alive() and t is not threading.current_thread():
             t.join(timeout=wait_s)
@@ -136,19 +194,42 @@ class MeterReader:
                 self.cycle()
             except Exception as exc:                           # never let the thread die on a surprise
                 print(f"[meters] cycle failed: {exc}")
-            self._wake.wait(max(1.0, self.every_s - (time.monotonic() - t0)))
+            now = time.monotonic()
+            nxt = self.every_s - (now - t0)
+            ends = [t - now for t in dict(self._rest_until).values() if t > now]
+            if ends:                                           # a gateway's rest ends sooner: read it right then
+                nxt = min(nxt, min(ends) + 0.05)
+            self._wake.wait(max(0.2, nxt))
             self._wake.clear()
 
     # ------------------------------------------------------------------ one cycle
+    def _rest(self, ep: tuple, now_m: float, why: str, device_id: str | None = None) -> None:
+        """Close the connection to a gateway (if open) and open no new one for rest_s."""
+        for did, e in self._ep.items():
+            if e == ep:
+                try:
+                    self.c.adapters[did].close()
+                except Exception:
+                    pass
+        self._conn_since[ep] = None
+        self._conn_answered[ep] = False
+        self._quiet_since.pop(ep, None)
+        self._rest_until[ep] = now_m + self.rest_s
+        self.c.store.event("meters", f"{device_id or ep[0]}: {why}; a new connection is opened in {self.rest_s / 60:.1f} min "
+                           "(the gateway ignores a new connection for a few minutes after one closed)",
+                           device_id=device_id, severity="info", code="REOPEN")
+
     def cycle(self) -> None:
         """Read every kept device once, on its kept connection."""
         from .adapters import reading
         t0 = time.perf_counter()
+        alive: dict[tuple, bool] = {}
         for did in self.device_ids:
             if self.stop.is_set():
                 break
             ad = self.c.adapters[did]
             dev = self.c.registry.devices[did]
+            ep = self._ep[did]
             host = str((dev.connection or {}).get("host"))
             now_m = time.monotonic()
             reach = on_its_network(host)
@@ -157,29 +238,36 @@ class MeterReader:
                                    "is not asked (it would go out through another network)", device_id=did,
                                    severity="warning", code="NO_ROUTE")
             self._off_net[did] = reach
+            is_open = getattr(ad, "is_open", lambda: True)
+            if reach and self._conn_since.get(ep) is not None and not is_open():
+                self._rest(ep, now_m, "the connection to the gateway closed", did)   # closed by the gateway, or broke
+            rest = self._rest_until.get(ep, 0.0) - now_m
+            failed, ok_blocks, link = 1, 0, False
             if not reach:
                 rows = {p.id: reading(p, None, Quality.BAD, f"this PC has no address in {'.'.join(host.split('.')[:3])}.x")
                         for p in dev.points}
-                failed, ok_blocks = 1, 0
+            elif rest > 0:
+                left = f"{int(math.ceil(rest / 5) * 5)} s"
+                rows = {p.id: reading(p, None, Quality.BAD, f"the gateway takes a new connection in {left}") for p in dev.points}
             else:
+                if not is_open():
+                    self._conn_since[ep] = now_m             # a new connection, opened by this read
+                    self._conn_answered[ep] = False
+                    self._quiet_since[ep] = now_m
                 try:
                     rows = ad.read()
                     failed = getattr(ad, "last_failed_blocks", 0)
                     ok_blocks = getattr(ad, "last_ok_blocks", 0 if failed else 1)
+                    # an exception answer ("busy", "no meter behind me") is an answer: the link itself works
+                    link = ok_blocks > 0 or getattr(ad, "last_refused", 0) > 0
                 except Exception as exc:
                     rows = {p.id: reading(p, None, Quality.BAD, f"read failed: {exc}") for p in dev.points}
-                    failed, ok_blocks = 1, 0
+                if not is_open():
+                    self._conn_since[ep] = None              # could not connect at all: nothing to wait for
+                else:
+                    self._note_open()
+                alive[ep] = alive.get(ep, False) or link
             answered = ok_blocks > 0
-            if answered or did not in self._quiet_since:
-                self._quiet_since[did] = now_m
-            elif reach and now_m - self._quiet_since[did] >= self.reopen_after_s:
-                try:                                          # never served: a fresh connection next cycle
-                    ad.close()
-                except Exception:
-                    pass
-                self._quiet_since[did] = now_m
-                self.c.store.event("meters", f"{did}: no answer on its connection for {self.reopen_after_s / 60:g} min; "
-                                   "a new connection is opened", device_id=did, severity="info", code="REOPEN")
             turned = did in self._answered and self._answered[did] != answered
             due = did not in self._last_store or now_m - self._last_store[did] >= self.store_every_s - 1 or turned
             if due:
@@ -197,6 +285,20 @@ class MeterReader:
             if (all_bad and self._bad_run[did] >= self.comms_debounce) or \
                     (not all_bad and (not lost or self._ok_run[did] >= 1)):
                 self.c._health(did, rows)                     # "no data" only after a few cycles in a row
+        # a connection that is not served: closed, and the gateway left alone for a while
+        now_m = time.monotonic()
+        for ep, ok in alive.items():
+            if ok:
+                self._quiet_since[ep] = now_m
+                self._conn_answered[ep] = True
+                continue
+            if self._conn_since.get(ep) is None:
+                continue
+            since = max(self._quiet_since.get(ep, now_m), self._conn_since[ep])
+            limit = self.reopen_after_s if self._conn_answered.get(ep) else self.first_answer_s
+            if now_m - since >= limit:
+                did = next(d for d, e in self._ep.items() if e == ep)
+                self._rest(ep, now_m, f"no answer on its connection for {limit / 60:.1f} min, so it is closed", did)
         self.last_ms = round((time.perf_counter() - t0) * 1000, 1)
         self.cycles += 1
         self.last_cycle_at = datetime.now(timezone.utc)
