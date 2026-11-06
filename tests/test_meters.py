@@ -400,3 +400,17 @@ def test_the_setup_ships_the_added_devices(tmp_path, monkeypatch):
 def test_skip_list_and_other_settings_files():
     assert [e["id"] for e in added_devices(_cfg(skip_added_devices="analyzer-2"))[0]] == ["analyzer-1"]
     assert added_devices(_cfg(), config_name="site.eth1.yaml") == ([], {})
+
+
+def test_the_page_is_asked_again_after_an_update(tmp_path, gateway):
+    from fastapi.testclient import TestClient
+    from plantcollector.api import create_app
+    c = Collector(_config(tmp_path, gateway), str(tmp_path / "d"), initial_poll=False, read_kept=False)
+    try:
+        api = TestClient(create_app(c))
+        for path in ("/", "/static/i18n.js"):
+            r = api.get(path)
+            assert r.status_code == 200 and r.headers.get("cache-control") == "no-cache", path
+        assert "no-cache" not in (api.get("/api/v1/health").headers.get("cache-control") or "")
+    finally:
+        c.close()

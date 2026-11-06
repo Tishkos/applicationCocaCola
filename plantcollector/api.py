@@ -53,6 +53,17 @@ def create_app(c: Collector) -> FastAPI:
         return JSONResponse(status_code=500, content={"error": f"{type(exc).__name__}: {exc}",
                                                       "path": request.url.path, "hint": "details in data/collector.log"})
     catalog = views.load_tag_catalog()
+
+    @app.middleware("http")
+    async def _fresh_pages(request, call_next):
+        # the page and its scripts are asked again every time (a quick "not modified" when unchanged): without this the
+        # window keeps showing the previous version's page for hours after an update, with only the version number new
+        resp = await call_next(request)
+        path = request.url.path
+        if path in ("/", "/report") or path.startswith("/static/"):
+            resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
     app.mount("/static", StaticFiles(directory=os.path.join(WEB_DIR, "static")), name="static")
 
     @app.get("/", include_in_schema=False)
