@@ -24,6 +24,7 @@ falls back to an Edge/Chrome app-mode window.
 import ctypes
 import base64
 import os
+import shutil
 import subprocess
 import sys
 import threading
@@ -309,6 +310,41 @@ class WindowApi:
         return True
 
 
+def fresh_cache(store: str) -> bool:
+    """After an update, empty the window's browser cache (pages, scripts, compiled code), so the new version's page is
+    shown at once and never a copy of the old one. The rest of the window's data stays: the language, the theme and
+    the other choices saved in the page. Once per version; True when it emptied something."""
+    try:
+        with open(os.path.join(ROOT, "version.txt"), encoding="utf-8") as f:
+            version = f.readline().strip()
+    except OSError:
+        return False
+    if not version:
+        return False
+    mark = os.path.join(store, "window-version.txt")
+    try:
+        with open(mark, encoding="utf-8") as f:
+            if f.readline().strip() == version:
+                return False
+    except OSError:
+        pass
+    emptied = False
+    caches = {"cache", "code cache", "gpucache", "cachestorage", "scriptcache"}
+    for top, dirs, _files in os.walk(store):
+        for d in list(dirs):
+            if d.lower() in caches:
+                shutil.rmtree(os.path.join(top, d), ignore_errors=True)
+                dirs.remove(d)
+                emptied = True
+    try:
+        os.makedirs(store, exist_ok=True)
+        with open(mark, "w", encoding="utf-8") as f:
+            f.write(version + "\n")
+    except OSError:
+        pass
+    return emptied
+
+
 def main():
     global DATA, TITLE
     demo = "--demo" in sys.argv
@@ -380,6 +416,7 @@ def main():
     # the window's own browser data: the user's profile when installed (ProgramData belongs to the service)
     store = os.path.join(os.environ.get("LOCALAPPDATA") or DATA, "CCI Plant Monitoring", "appwindow") if installed \
         else os.path.join(DATA, "appwindow")
+    fresh_cache(store)                        # a new version: its page, not the old one from the cache
     try:
         webview.start(icon=ICON, private_mode=False, storage_path=store)
     except Exception:

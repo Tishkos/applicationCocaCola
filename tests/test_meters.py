@@ -414,3 +414,25 @@ def test_the_page_is_asked_again_after_an_update(tmp_path, gateway):
         assert "no-cache" not in (api.get("/api/v1/health").headers.get("cache-control") or "")
     finally:
         c.close()
+
+
+def test_the_window_empties_its_cache_once_per_version(tmp_path, monkeypatch):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("desktop_app", os.path.join(ROOT, "app", "desktop.py"))
+    desk = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(desk)
+    prog = tmp_path / "prog"
+    prog.mkdir()
+    (prog / "version.txt").write_text("1.0.8\n")
+    monkeypatch.setattr(desk, "ROOT", str(prog))
+    store = tmp_path / "appwindow"
+    for d in ("EBWebView/Default/Cache/Cache_Data", "EBWebView/Default/Code Cache/js", "EBWebView/Default/Local Storage/leveldb"):
+        (store / d).mkdir(parents=True)
+    (store / "EBWebView/Default/Local Storage/leveldb/000003.log").write_text("pc.lang=ar")
+    assert desk.fresh_cache(str(store)) is True
+    assert not (store / "EBWebView/Default/Cache").exists() and not (store / "EBWebView/Default/Code Cache").exists()
+    assert (store / "EBWebView/Default/Local Storage/leveldb/000003.log").exists()      # language and theme stay
+    (store / "EBWebView/Default/Cache").mkdir()
+    assert desk.fresh_cache(str(store)) is False                                        # once per version
+    (prog / "version.txt").write_text("1.0.9\n")
+    assert desk.fresh_cache(str(store)) is True

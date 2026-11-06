@@ -689,6 +689,24 @@ a.rcard:hover { border-color: var(--xc); }
   border: 1px solid var(--border-2); border-radius: 8px; background: var(--panel-2); color: var(--text); font-weight: 500; transition: background .2s, filter .2s; }
 .menu > .list .ract .btn:hover { background: var(--panel-3); }
 .menu > .list .ract .btn.primary { background: var(--cci); border-color: var(--cci); color: #fff; }
+.btn.cci { background: var(--cci); border-color: var(--cci); color: #fff; } .btn.cci:hover { filter: brightness(1.1); }
+.updprog { display: flex; align-items: center; gap: 12px; margin: 2px 14px 10px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 3px; background: var(--panel-2); }
+.updprog b { display: block; color: var(--strong); font-weight: 500; }
+.updprog small { display: block; color: var(--text-3); font-size: calc(12px * var(--zoom)); margin-top: 2px; }
+.updprog .spin { flex: none; width: calc(24px * var(--zoom)); height: calc(24px * var(--zoom)); border-radius: 50%; border: 3px solid var(--panel-3); border-top-color: var(--cci); animation: pcSpin .9s linear infinite; display: grid; place-items: center; }
+.updprog .spin svg { width: 70%; height: 70%; fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; opacity: 0; }
+.updprog.ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--border)); }
+.updprog.ok .spin { animation: none; border-color: var(--ok); background: var(--ok); }
+.updprog.ok .spin svg { opacity: 1; }
+dialog.upddlg { width: min(480px, 94vw); }
+dialog.upddlg > header img { border-radius: 6px; }
+dialog.upddlg h3 { font-family: inherit; font-size: calc(15px * var(--zoom)); }
+.udbody { padding: 14px 18px 6px; }
+.udsteps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: flex; flex-direction: column; gap: 12px; }
+.udsteps li { counter-increment: s; display: grid; grid-template-columns: calc(26px * var(--zoom)) 1fr; column-gap: 10px; }
+.udsteps li::before { content: counter(s); grid-row: span 2; width: calc(24px * var(--zoom)); height: calc(24px * var(--zoom)); border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--cci) 18%, transparent); color: var(--cci); font-weight: 600; font-size: calc(12px * var(--zoom)); }
+.udsteps b { color: var(--strong); font-weight: 500; } .udsteps span { color: var(--text-2); font-size: calc(12.5px * var(--zoom)); }
+dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 14px; border-top: 1px solid var(--border); margin-top: 10px; }
 .menu > .list .ract .btn.primary:hover { filter: brightness(1.1); }
 .menu > .list .ract .btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .cal .hint2 { font-size: calc(11px * var(--zoom)); color: var(--text-3); text-align: center; margin-top: 4px; min-height: 1.3em; }
@@ -1400,7 +1418,8 @@ a.rcard:hover { border-color: var(--xc); }
           <div class="panel w12" id="p-upd">
             <div class="ph"><h3>Updates</h3><span class="r">new versions from GitHub</span></div>
             <dl class="about" id="updList"></dl>
-            <div class="actions"><button class="btn" type="button" id="updCheck" hidden><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg><span>Check for updates</span></button><button class="btn primary" type="button" id="updInstall" hidden><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>Install now</span></button><span class="note" id="updNote" role="status"></span></div>
+            <div class="updprog" id="updProg" hidden role="status"><span class="spin" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b id="updProgT"></b><small id="updProgS"></small></div></div>
+            <div class="actions"><button class="btn" type="button" id="updCheck" hidden><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg><span>Check for updates</span></button><button class="btn primary" type="button" id="updInstall" hidden data-act="download"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>Download</span></button><span class="note" id="updNote" role="status"></span></div>
             <div class="hint">The updater looks for a newer release every 4 hours. With automatic updates on, it installs it at night (01:00–05:00). The settings and the history stay. Installing stops the collector for about a minute, Turkey's feed included. If the new version does not start, the updater puts the previous one back. The buttons work only in the window on the PC the collector runs on.</div>
           </div>
           <div class="panel w12">
@@ -1432,6 +1451,17 @@ a.rcard:hover { border-color: var(--xc); }
   <div class="hbody" id="hdBody"></div>
 </dialog>
 
+<dialog class="sheet upddlg" id="updDlg" aria-labelledby="udTitle">
+  <header><img src="/static/app-icon.png" alt="" width="28" height="28"><div><h3 id="udTitle">Install the new version</h3><div class="model" id="udSub"></div></div></header>
+  <div class="udbody">
+    <ol class="udsteps">
+      <li><b>This window closes</b><span>so that none of the program's files is in use while they are replaced.</span></li>
+      <li><b>The update window shows the progress</b><span>The collector stops for about a minute, Turkey's feed included.</span></li>
+      <li><b>It tells you when everything is ready</b><span>Then click Reopen. Settings and history stay as they are.</span></li>
+    </ol>
+  </div>
+  <footer><button class="btn" type="button" id="udNo">Not now</button><button class="btn cci" type="button" id="udGo"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg><span>Install and restart</span></button></footer>
+</dialog>
 <dialog class="sheet" id="detail" aria-labelledby="dtTitle">
   <header>
     <div><h3 id="dtTitle"></h3><div class="model" id="dtModel"></div></div>
@@ -3326,7 +3356,7 @@ a.rcard:hover { border-color: var(--xc); }
 
   // ---- updates (scripts\updater.ps1 does the work; the collector only passes the request on)
   const ON_THIS_PC = ["localhost", "127.0.0.1", "[::1]", "::1"].includes(location.hostname);
-  let updWatch = null;
+  let updWatch = null, updAct = null;
   function renderUpdate(u) {
     if (!u) return;
     const inst = !!u.installed;
@@ -3340,22 +3370,38 @@ a.rcard:hover { border-color: var(--xc); }
       rows.push(["Automatic updates", "none: this copy was not installed by the Setup"]);
     }
     redraw($("#updList"), rows.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join(""));
-    const busy = ["downloading", "installing"].includes(u.state);
+    const busy = ["downloading", "installing"].includes(u.state), ready = u.state === "ready" && !!u.available;
+    const asking = !!u.check_requested && updAct === "download";
     $("#updCheck").hidden = !(inst && ON_THIS_PC);
     $("#updCheck").disabled = busy || !!u.check_requested;
     const ib = $("#updInstall");
-    ib.hidden = !(inst && ON_THIS_PC && u.available);
+    ib.hidden = !(inst && ON_THIS_PC && u.available) || busy || asking;
     ib.disabled = busy || !!u.check_requested;
-    if (u.available) ib.querySelector("span").textContent = `Install ${u.available} now`;
-    $("#updNote").textContent = u.check_requested ? "asked the updater, waiting for it…" : busy ? u.state + "…"
+    ib.dataset.act = ready ? "install" : "download";
+    if (u.available) {
+      setText(ib.querySelector("span"), ready ? `Install ${u.available}` : `Download ${u.available}`);
+      ib.className = ready ? "btn cci" : "btn primary";
+      redraw(ib.querySelector("svg"), ready ? `<path d="M5 12.5l4.5 4.5L19 7.5"/>` : `<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>`);
+    }
+    // the download (and the installation, seen from here) with a spinner; a tick once it is downloaded and checked
+    const pg = $("#updProg"), v = u.available || u.latest || "";
+    pg.hidden = !(inst && (busy || ready || asking));
+    pg.classList.toggle("ok", ready && !busy);
+    setText($("#updProgT"), u.state === "installing" ? `Installing version ${v}…` : ready ? `Version ${v} is ready to install`
+      : u.state === "downloading" ? `Downloading version ${v}…` : "Asking the updater…");
+    setText($("#updProgS"), u.state === "installing" ? "The collector stops for about a minute."
+      : ready ? "Downloaded and checked. Install closes this window; the update window shows the rest."
+      : "The program keeps running meanwhile. Install appears when the download is checked.");
+    $("#updNote").textContent = u.check_requested && !asking ? "asked the updater, waiting for it…"
       : (inst && !ON_THIS_PC ? "the buttons are on the PC the collector runs on" : "");
   }
-  async function askUpdater(install) {
-    const b = install ? $("#updInstall") : $("#updCheck");
-    if (install && !confirm("Install the new version now?\n\nThis window closes and an update window shows the download and the installation; the program opens again by itself when it is done. The collector stops for about a minute (Turkey's feed included). Settings and history stay.")) return;
+  async function askUpdater(act) {
+    const install = act === "install";
+    const b = act === "check" ? $("#updCheck") : $("#updInstall");
+    updAct = act;
     b.classList.add("busy");
     try {
-      const r = await getJSON(install ? "/api/v1/local/update/install" : "/api/v1/local/update/check", { method: "POST", headers: { "X-CCI-Request": "update" } });
+      const r = await getJSON(`/api/v1/local/update/${act}`, { method: "POST", headers: { "X-CCI-Request": "update" } });
       renderUpdate(r.status);
       // in the CCI Plant Monitoring window: the update window takes over (download, installation, opening again) and
       // this window closes, so none of the program's files is in use while they are replaced
@@ -3364,19 +3410,29 @@ a.rcard:hover { border-color: var(--xc); }
         let ok = false; try { ok = await wa.start_update(String((r.status && (r.status.available || r.status.latest)) || "")); } catch (e) { ok = false; }
         if (ok) { toast("The update window takes over; this window closes now."); b.classList.remove("busy"); return; }
       }
-      toast(install ? "Installing: this window closes in a moment. Open CCI Plant Monitoring again from the Start Menu in about two minutes." : (r.started ? "Asked GitHub for the newest version…" : "The request is waiting for the updater (it starts within a few minutes)."));
+      toast(install ? "Installing: this window closes in a moment. Open CCI Plant Monitoring again from the Start Menu in about two minutes."
+        : act === "download" ? "Downloading the new version; the program keeps running." : (r.started ? "Asked GitHub for the newest version…" : "The request is waiting for the updater (it starts within a few minutes)."));
       clearInterval(updWatch);
       const t0 = Date.now();
       updWatch = setInterval(async () => {
         let u; try { u = await getJSON("/api/v1/local/version"); } catch (e) { return; }   // the collector restarts during an install
         renderUpdate(u);
-        if ((!u.check_requested && !["downloading", "installing"].includes(u.state)) || Date.now() - t0 > 10 * 60000) clearInterval(updWatch);
-      }, 3000);
+        if ((!u.check_requested && !["downloading", "installing"].includes(u.state)) || Date.now() - t0 > 15 * 60000) clearInterval(updWatch);
+      }, 2000);
     } catch (e) { toast(`Updater not reached: ${why(e)}.`, true); }
     b.classList.remove("busy");
   }
-  $("#updCheck").addEventListener("click", () => askUpdater(false));
-  $("#updInstall").addEventListener("click", () => askUpdater(true));
+  const updDlg = $("#updDlg");
+  $("#updCheck").addEventListener("click", () => askUpdater("check"));
+  $("#updInstall").addEventListener("click", () => {
+    if ($("#updInstall").dataset.act !== "install") { askUpdater("download"); return; }
+    const v = (($("#updInstall").querySelector("span").textContent || "").match(/\d+\.\d+\.\d+/) || [""])[0];
+    setText($("#udTitle"), v ? `Install version ${v}` : "Install the new version"); setText($("#udSub"), "Downloaded and checked · CCI Plant Monitoring");
+    updDlg.showModal(); $("#udGo").focus();
+  });
+  $("#udNo").addEventListener("click", () => updDlg.close());
+  $("#udGo").addEventListener("click", () => { updDlg.close(); askUpdater("install"); });
+  updDlg.addEventListener("click", (e) => { if (e.target === updDlg) updDlg.close(); });
   // ================================================================== read now
   $("#pollBtn").addEventListener("click", async () => {
     const b = $("#pollBtn"); b.classList.add("busy");

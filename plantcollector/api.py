@@ -163,6 +163,15 @@ def create_app(c: Collector) -> FastAPI:
         except RuntimeError as exc:
             raise HTTPException(409, str(exc))
 
+    @app.post("/api/v1/local/update/download")
+    def update_download(request: Request):
+        """Download and check the newer release now; it is installed only with "Install". Only from this PC itself."""
+        _from_this_pc(request)
+        try:
+            return updates.request_check(c.data_dir, download=True)
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc))
+
     @app.post("/api/v1/local/update/install")
     def update_install(request: Request):
         """Install the newer release now (the collector stops for about a minute). Only from this PC itself."""

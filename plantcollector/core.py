@@ -230,6 +230,8 @@ class Collector:
             self.live.close()
         if self.meters is not None:
             self.meters.close()
+        if getattr(self, "_archive_stop", None) is not None:
+            self._archive_stop.set()
         for a in self.adapters.values():
             try:
                 a.close()
@@ -276,6 +278,28 @@ class Collector:
                 if int(saved) > 0:
                     cfg["every_s"] = int(saved)
         return cfg
+
+    def start_archiver(self, first_after_s: float = 120.0, every_s: float = 3600.0) -> bool:
+        """Once an hour (the first time two minutes after the start): every finished month's readings into a file of
+        its own (TelemetryStore.archive_months). Real plant only; the demo's data is made again at each start."""
+        if self.simulated or not self.store.archive_dir or getattr(self, "_archive_stop", None) is not None:
+            return False
+        stop = self._archive_stop = threading.Event()
+
+        def run():
+            if stop.wait(first_after_s):
+                return
+            while True:
+                try:
+                    moved = self.store.archive_months()
+                    if moved:
+                        print(f"[collector] the readings of {', '.join(moved)} moved to their own files in {self.store.archive_dir}")
+                except Exception as exc:                  # never let it stop the collector; it tries again in an hour
+                    print(f"[collector] moving a finished month to its own file failed: {exc}")
+                if stop.wait(every_s):
+                    return
+        threading.Thread(target=run, daemon=True, name="db-months").start()
+        return True
 
     def start_meters(self) -> bool:
         """Start the meter reader for the devices whose connection is kept open (real plant only)."""

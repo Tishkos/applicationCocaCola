@@ -8,6 +8,8 @@
 #   2. newer than the installed version (version.txt)?
 #        - installs it when "Install now" was clicked, or automatically at night (01:00-05:00, the PC's own clock)
 #          when automatic updates are on; otherwise only reports "available" in the dashboard
+#        - "Download" (1.0.8 and later) only downloads and checks it, and reports "ready": the dashboard then offers
+#          "Install", which uses the downloaded Setup at once
 #   3. installs: downloads that CCI-Plant-Monitoring-Setup-<version>.exe and its SHA256SUMS.txt, checks the
 #      SHA-256, runs the Setup quietly (/S /UPDATE: the settings and the data stay as they are)
 #   4. checks the background service answers afterwards; if not, puts the previous version back (its Setup is kept)
@@ -132,7 +134,7 @@ if (Test-Path $Flag) {
     $age = ((Get-Date) - (Get-Item $Flag).LastWriteTime).TotalMinutes
     # "Install now" counts only when it was clicked in the last 15 minutes; an older one is a check (never an
     # install in the middle of the day hours after the click)
-    $mode = if ("$f" -like "install*" -and $age -le 15) { "install" } else { "check" }
+    $mode = if ("$f" -like "install*" -and $age -le 15) { "install" } elseif ("$f" -like "download*" -and $age -le 15) { "download" } else { "check" }
     Remove-Item $Flag -Force -ErrorAction SilentlyContinue
 }
 $installed = Get-Installed
@@ -222,7 +224,23 @@ if ("$($cfg.skip)" -eq $latestText -and $mode -ne "install") {
 # ---- 2. install now? ---------------------------------------------------------------------------------------------
 $hour = (Get-Date).Hour
 $inWindow = ($hour -ge [int]$cfg.window_start_hour -and $hour -lt [int]$cfg.window_end_hour)
-$go = ($mode -eq "install") -or ([bool]$cfg.auto -and $inWindow)
+$installNow = ($mode -eq "install") -or ($mode -ne "download" -and [bool]$cfg.auto -and $inWindow)
+$go = $installNow -or ($mode -eq "download")
+$dl = Join-Path $UpdDir "download"
+$exe = Join-Path $dl $best.name
+function Test-Downloaded {
+    # the Setup of this version is already in the download folder and matches its SHA-256
+    if (-not (Test-Path $exe)) { return $false }
+    try {
+        $w = (Read-Sums (Get-Text $best.sums))[$best.name]
+        return [bool]($w -and ((Get-FileHash $exe -Algorithm SHA256).Hash.ToLower() -eq $w))
+    } catch { return $false }
+}
+if (-not $go -and (Test-Downloaded)) {
+    Save-Status "ready" "Version $latestText is downloaded and checked: 'Install' installs it now." @{ latest = $latestText; available = $latestText }
+    Say "ready: $latestText (downloaded earlier, not installing now)"
+    exit 0
+}
 if (-not $go) {
     $when = if ([bool]$cfg.auto) { "It is installed automatically tonight between $window, or now with 'Install now'." } else { "Automatic updates are off: use 'Install now'." }
     Save-Status "update available" "Version $latestText is available (installed: $installed). $when" @{ latest = $latestText; available = $latestText }
@@ -230,29 +248,36 @@ if (-not $go) {
     exit 0
 }
 
-# ---- 3. download and check ---------------------------------------------------------------------------------------
-$dl = Join-Path $UpdDir "download"
-Remove-Tree $dl
-New-Item -ItemType Directory -Force $dl | Out-Null
-$exe = Join-Path $dl $best.name
-Save-Status "downloading" "Downloading version $latestText..." @{ latest = $latestText; available = $latestText }
-Say "downloading $($best.name) from $($best.from)"
-try {
-    Invoke-WebRequest $best.url -OutFile $exe -Headers @{ "User-Agent" = $ua } -TimeoutSec 600 -UseBasicParsing
-    $want = (Read-Sums (Get-Text $best.sums))[$best.name]
-} catch {
-    Save-Status "error" ("Download failed: " + $_.Exception.Message + "; nothing installed.") @{ latest = $latestText; available = $latestText }
-    Say "download failed: $($_.Exception.Message)"
-    exit 1
+# ---- 3. download and check (unless it is already here and checked) -----------------------------------------------
+if (Test-Downloaded) {
+    Say "already downloaded and checked: $($best.name)"
+} else {
+    Remove-Tree $dl
+    New-Item -ItemType Directory -Force $dl | Out-Null
+    Save-Status "downloading" "Downloading version $latestText..." @{ latest = $latestText; available = $latestText }
+    Say "downloading $($best.name) from $($best.from)"
+    try {
+        Invoke-WebRequest $best.url -OutFile $exe -Headers @{ "User-Agent" = $ua } -TimeoutSec 600 -UseBasicParsing
+        $want = (Read-Sums (Get-Text $best.sums))[$best.name]
+    } catch {
+        Save-Status "error" ("Download failed: " + $_.Exception.Message + "; nothing installed.") @{ latest = $latestText; available = $latestText }
+        Say "download failed: $($_.Exception.Message)"
+        exit 1
+    }
+    $got = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+    if (-not $want -or $want -ne $got) {
+        Remove-Item $exe -Force -ErrorAction SilentlyContinue
+        Save-Status "error" "The downloaded Setup does not match its SHA-256 in SHA256SUMS.txt; nothing installed (the next check is in 4 hours)." @{ latest = $latestText; available = $latestText }
+        Say "SHA-256 mismatch: want $want got $got"
+        exit 1
+    }
+    Say "SHA-256 ok ($got)"
 }
-$got = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
-if (-not $want -or $want -ne $got) {
-    Remove-Item $exe -Force -ErrorAction SilentlyContinue
-    Save-Status "error" "The downloaded Setup does not match its SHA-256 in SHA256SUMS.txt; nothing installed (the next check is in 4 hours)." @{ latest = $latestText; available = $latestText }
-    Say "SHA-256 mismatch: want $want got $got"
-    exit 1
+if (-not $installNow) {
+    Save-Status "ready" "Version $latestText is downloaded and checked: 'Install' installs it now." @{ latest = $latestText; available = $latestText }
+    Say "ready: $latestText (downloaded, waiting for 'Install')"
+    exit 0
 }
-Say "SHA-256 ok ($got)"
 
 # ---- 4. install, check, go back if it does not start -----------------------------------------------------------
 if (Test-Path $SetupNow) { Copy-Item $SetupNow $SetupPrev -Force }

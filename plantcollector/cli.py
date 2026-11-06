@@ -144,6 +144,8 @@ def cmd_run(a) -> int:
         mr = c.meters
         print(f"[collector] meters: {', '.join(mr.device_ids)} every {mr.every_s:g} s on one kept connection each "
               f"(stored every {mr.store_every_s:g} s)")
+    if c.start_archiver():
+        print(f"[collector] database: this month in {c.db_path}, each finished month in its own file in {c.store.archive_dir}")
     t = threading.Thread(target=run_loop, args=(c, forced, stop), daemon=True, name="poller")
     t.start()
     # the live reader: the master every few seconds for the dashboard (never for the Turkey feed)
