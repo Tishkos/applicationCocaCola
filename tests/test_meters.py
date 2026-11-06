@@ -290,7 +290,10 @@ def test_added_devices_reach_an_installed_plant_config():
 def test_the_plant_configs_get_the_meters_the_demos_do_not():
     for name, want in (("site.plant.yaml", True), ("site.eth1.yaml", False), ("site.demo.yaml", False), ("site.yaml", False)):
         reg = load_registry(os.path.join(ROOT, "config", name))
-        assert ("analyzer-1" in reg.devices and "analyzer-2" in reg.devices) == want, name
+        real = [d for d in ("analyzer-1", "analyzer-2") if d in reg.devices and reg.devices[d].adapter == "modbus_tcp"]
+        assert (len(real) == 2) == want and (want or not real), name
+    demo = load_registry(os.path.join(ROOT, "config", "site.demo.yaml"))           # the demo models them instead
+    assert [demo.devices[d].adapter for d in ("analyzer-1", "analyzer-2")] == ["simulator", "simulator"]
     reg = load_registry(os.path.join(ROOT, "config", "site.plant.yaml"))
     a1, a2 = reg.devices["analyzer-1"].connection, reg.devices["analyzer-2"].connection
     assert (a1["host"], a1["unit_id"], a2["host"], a2["unit_id"]) == ("192.168.141.1", 17, "192.168.141.3", 1)
@@ -436,3 +439,29 @@ def test_the_window_empties_its_cache_once_per_version(tmp_path, monkeypatch):
     assert desk.fresh_cache(str(store)) is False                                        # once per version
     (prog / "version.txt").write_text("1.0.9\n")
     assert desk.fresh_cache(str(store)) is True
+
+
+def test_read_devices_now_reads_the_meters_on_their_kept_connection(tmp_path, gateway):
+    """The one "Read devices now" button: the site read and a cycle of the meter reader at once, in the reader's
+    own thread (one connection to the gateway, as always)."""
+    c = Collector(_config(tmp_path, gateway, meters="meters: {every_s: 240, store_every_s: 300}"), str(tmp_path / "d"),
+                  initial_poll=False)
+    try:
+        assert c.start_meters()
+        assert _wait(lambda: c.meters.cycles >= 1)
+        time.sleep(3.2)                               # a click soon after a read waits for nothing
+        n = c.meters.cycles
+        gateway.regs[1142] = 31
+        t0 = time.time()
+        done = c.read_everything_now(wait_s=8)
+        assert done == {"meters": True} and time.time() - t0 < 6
+        assert c.meters.cycles == n + 1 and _values(c)["p_total_kw"] == (31, Quality.GOOD)
+        assert gateway.accepted == 1                  # still the one kept connection
+        assert c.read_everything_now(wait_s=8) == {}  # clicked again at once: no extra read of the meters
+        from fastapi.testclient import TestClient
+        from plantcollector.api import create_app
+        client = TestClient(create_app(c))
+        r = client.post("/api/v1/local/poll").json()
+        assert r["ok"] and "readers" in r
+    finally:
+        c.close()

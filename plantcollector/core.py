@@ -538,6 +538,23 @@ class Collector:
         with self._poll_lock:
             self._poll()
 
+    def read_everything_now(self, wait_s: float = 8.0) -> dict:
+        """"Read devices now": the site read, and at the same time one cycle of the live reader and of the meter
+        reader, each in its own thread on its own kept connection (never a second connection to a device). Waits
+        up to wait_s for those cycles; a device that answers later still shows up at the next refresh."""
+        asked = []
+        for name, r in (("live", self.live), ("meters", self.meters)):
+            if r is not None and r.running and r.wake_now():
+                asked.append((name, r, r.cycles))
+        self.poll()
+        deadline = time.monotonic() + wait_s
+        done = {}
+        for name, r, n0 in asked:
+            while r.cycles <= n0 and time.monotonic() < deadline:
+                time.sleep(0.1)
+            done[name] = r.cycles > n0
+        return done
+
     def _due(self, did: str, now_mono: float) -> bool:
         every = self.every_override.get(did)
         if not every:

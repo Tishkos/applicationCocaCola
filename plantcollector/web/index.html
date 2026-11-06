@@ -218,6 +218,10 @@ code { font-family: var(--mono); font-size: .92em; background: var(--panel-2); p
 .gen::before { content: ""; position: absolute; inset-inline-start: 0; top: 0; bottom: 0; width: 3px; background: var(--idle); }
 .gen.run::before { background: var(--ok); } .gen.alarm::before { background: var(--bad); } .gen.lost::before { background: var(--warn); }
 .gen .hd { display: flex; align-items: center; gap: 8px; }
+.gen.has-sp { padding-bottom: calc(42px * var(--zoom)); }
+.gen .gsp { position: absolute; inset: auto 0 0 0; height: calc(36px * var(--zoom)); pointer-events: none; }
+.gen .gsp .spark { position: absolute; inset: 0; width: 100%; height: 100%; }
+.gen > :not(.gsp) { position: relative; }
 .gen .hd b { font-size: calc(14px * var(--zoom)); color: var(--strong); font-weight: 600; }
 .gen .kw { font-size: calc(26px * var(--zoom)); font-weight: 500; color: var(--strong); line-height: 1; }
 .gen .kw small { font-size: .5em; color: var(--text-2); margin-left: 3px; }
@@ -861,7 +865,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
   .bar { padding: 8px 12px; } .content { padding: 10px 12px 50px; } .hide-sm { display: none !important; }
 }
 @media (max-width: 520px) { .w2, .w3, .w4, .w5, .w6, .w7 { grid-column: span 24; } }
-/* ---------------------------------------------------------------- animated widgets: gensets and power analyzers */
+/* ---------------------------------------------------------------- animated widgets: gensets and analyzers */
 .ag { position: relative; }
 .ag svg { width: 100%; height: auto; display: block; max-height: calc(160px * var(--zoom)); }
 .ag .trk { stroke: var(--panel-3); }
@@ -880,7 +884,8 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
 .gcard.on::before { background: var(--ok); } .gcard.miss::before { background: var(--bad); } .gcard.lost::before { background: var(--warn); }
 .gcard.miss { border-color: color-mix(in srgb, var(--bad) 50%, var(--border)); }
 .gcard .hd { display: flex; align-items: center; gap: 8px; }
-.gcard .hd b { font-size: calc(15px * var(--zoom)); color: var(--strong); font-weight: 600; }
+.gcard .hd b { font-size: calc(15px * var(--zoom)); color: var(--strong); font-weight: 600; white-space: nowrap; }
+.gcard .hd .chip { white-space: nowrap; }
 .gcard .hd .chip { margin-inline-start: auto; }
 .gcard .fan { width: calc(20px * var(--zoom)); height: calc(20px * var(--zoom)); color: var(--text-3); flex: none; }
 .gcard.on .fan { color: var(--ok); animation: pcSpin 1.4s linear infinite; }
@@ -895,13 +900,46 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
 .busstrip { display: grid; grid-template-columns: minmax(calc(230px * var(--zoom)), 1.3fr) repeat(3, minmax(calc(130px * var(--zoom)), 1fr)); gap: 16px; align-items: center; }
 .busstrip .ctl { display: flex; flex-direction: column; gap: 10px; }
 .busstrip .ah, .anb .ah { font-size: calc(11.5px * var(--zoom)); color: var(--text-3); text-transform: uppercase; letter-spacing: .4px; }
-.modes { display: inline-flex; border: 1px solid var(--border-2); border-radius: 3px; overflow: hidden; width: fit-content; }
-.modes span { padding: 4px 11px; font-size: calc(12px * var(--zoom)); font-weight: 600; color: var(--text-3); background: var(--panel-2); border-inline-end: 1px solid var(--border); transition: background .4s, color .4s; cursor: default; }
-.modes span:last-child { border-inline-end: 0; }
-.modes span.on { color: #fff; }
 .busstrip .brk { font-size: calc(17px * var(--zoom)); color: var(--strong); font-weight: 500; }
-.estop { display: none; background: var(--bad-d); color: #fff; font-weight: 700; letter-spacing: 1px; text-align: center; padding: 5px 8px; border-radius: 3px; animation: pcBlink 1s steps(2, start) infinite; }
-.estop.on { display: block; }
+/* which gensets are on the bus, one box each (generator bus panel) */
+.gbx { display: flex; gap: 5px; flex-wrap: wrap; }
+.gbx span { min-width: calc(30px * var(--zoom)); height: calc(26px * var(--zoom)); display: inline-flex; align-items: center; justify-content: center; border-radius: 3px; font-family: var(--mono); font-size: calc(12.5px * var(--zoom)); font-weight: 600; color: var(--text-3); background: var(--panel-3); border: 1px solid var(--border); transition: background .5s, color .5s, box-shadow .5s, border-color .5s; }
+.gbx span.on { color: #fff; background: color-mix(in srgb, var(--ok) 78%, #000); border-color: var(--ok); box-shadow: 0 0 10px -3px var(--ok); }
+.gbx span.miss { color: #fff; background: color-mix(in srgb, var(--bad) 70%, #000); border-color: var(--bad); }
+.gbx span.lost { opacity: .45; }
+/* the gensets' cards: all in one row while they fit */
+.gcwrap { container-type: inline-size; }
+@container (min-width: 700px) { .gcards.fit { grid-template-columns: repeat(var(--gn), minmax(0, 1fr)); } }
+@container (max-width: 1040px) {
+  .gcards.fit { gap: 8px; }
+  .gcards.fit .gcard { padding: 8px 9px 10px; }
+  .gcards.fit .gcard .hd { gap: 6px; } .gcards.fit .gcard .hd b { font-size: calc(14px * var(--zoom)); }
+  .gcards.fit .gcard .hd .chip { font-size: calc(10px * var(--zoom)); padding: 1px 6px; }
+  .gcards.fit .lamp { font-size: calc(10.5px * var(--zoom)); padding: 2px 7px 2px 6px; gap: 5px; }
+}
+/* ---------------------------------------------------------------- Grafana-style stat tiles and bar gauges */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(158px * var(--zoom)), 1fr)); gap: 8px; }
+.stile { position: relative; overflow: hidden; min-width: 0; background: var(--panel-2); border: 1px solid var(--border); border-radius: 3px; padding: 8px 12px 6px; min-height: calc(104px * var(--zoom)); display: flex; flex-direction: column; gap: 1px; box-shadow: inset 0 2px 0 color-mix(in srgb, var(--sc, var(--strong)) 75%, transparent); transition: box-shadow .5s; }
+.stile.has-sp { padding-bottom: calc(40px * var(--zoom)); }
+.panel.bare { background: transparent; border: 0; }
+.panel.bare > .pb { padding: 0; }
+.panel.bare .stile { background: var(--panel); }
+.stile .sp { position: absolute; inset: auto 0 0 0; height: calc(36px * var(--zoom)); pointer-events: none; }
+.stile .sp .spark { position: absolute; inset: 0; width: 100%; height: 100%; }
+.stile .tt { position: relative; font-size: calc(12px * var(--zoom)); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stile .sv { position: relative; font-size: calc(29px * var(--zoom)); font-weight: 500; line-height: 1.15; letter-spacing: -.3px; color: var(--sc, var(--strong)); white-space: nowrap; transition: color .5s; font-variant-numeric: tabular-nums; }
+.stile .sv small { font-size: .5em; font-weight: 500; margin-inline-start: 4px; letter-spacing: 0; opacity: .85; }
+.stile .ss { position: relative; margin-top: auto; font-size: calc(11.5px * var(--zoom)); line-height: 1.35; color: var(--text-3); overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+.stile .ss b { color: var(--text); font-weight: 500; font-family: var(--mono); }
+.astats { margin-bottom: 14px; }
+.bgx { display: flex; flex-direction: column; gap: 9px; }
+.bgx .lr { display: grid; grid-template-columns: calc(26px * var(--zoom)) 1fr calc(60px * var(--zoom)); align-items: center; gap: 8px; font-size: calc(12px * var(--zoom)); }
+.bgx .l { color: var(--text-2); font-family: var(--mono); }
+.bgx .cells { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 2px; height: calc(14px * var(--zoom)); }
+.bgx .cells i { border-radius: 1px; background: var(--panel-3); opacity: .16; transition: opacity .4s, filter .4s; }
+.bgx .cells i.on { opacity: 1; filter: saturate(1.15); }
+.bgx b { text-align: end; font-family: var(--mono); font-weight: 500; color: var(--strong); transition: color .5s; white-space: nowrap; }
+@media (max-width: 1280px) { .anc3 { grid-column: span 24; } }
 .anb { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(205px * var(--zoom)), 1fr)); gap: 18px 22px; align-items: start; }
 .anb > div { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .anb .pq { display: flex; justify-content: space-between; gap: 10px; font-size: calc(12px * var(--zoom)); color: var(--text-2); }
@@ -941,9 +979,11 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
 @keyframes pcFlow { to { stroke-dashoffset: -24; } }
 @keyframes pcSheen { from { background-position: -60px 0; } to { background-position: 400px 0; } }
 @media (max-width: 900px) { .busstrip { grid-template-columns: 1fr 1fr; } .busstrip .ctl { grid-column: span 2; } }
+@media (max-width: 520px) { .stats { grid-template-columns: 1fr 1fr; } }
 @media (prefers-reduced-motion: reduce) {
   .ag .val, .ag .ndl, .phb .tr i, .vb .tr i { transition: none !important; }
-  .gcard.on .fan, .gcard.on .ag::after, .lamp.bad i, .estop, .aflow .dash, .phb .tr i::after { animation: none !important; }
+  .gcard.on .fan, .gcard.on .ag::after, .lamp.bad i, .aflow .dash, .phb .tr i::after { animation: none !important; }
+  .bgx .cells i, .stile, .gbx span { transition: none !important; }
 }
 </style>
 </head>
@@ -953,22 +993,22 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     <div class="brand"><img src="/static/app-icon.png" alt="" width="36" height="36"><div><b>CCI Plant Monitoring</b></div></div>
     <nav class="nav" id="nav">
       <div class="grp">Plant</div>
-      <a href="#overview" class="active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span>Overview</span></a>
-      <a href="#flowsec"><svg viewBox="0 0 24 24"><path d="M3 12h18M7 12V5M12 12v7M17 12V5M5 5h4M15 5h4M10 19h4"/></svg><span>Live power flow</span></a>
-      <a href="#energy"><svg viewBox="0 0 24 24"><path d="M3 20h18M6 16v-5M11 16V6M16 16v-8M21 16v-3"/></svg><span>Energy &amp; trends</span></a>
-      <a href="#gensets" data-sec="gensets"><svg viewBox="0 0 24 24"><path d="M4 8h13v9H4zM17 11h3v4h-3M7 17v2M14 17v2M8 12.5h5"/></svg><span>Gensets</span></a>
-      <a href="#master" data-sec="master"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg><span>Master controller</span></a>
-      <a href="#solar" data-sec="solar"><svg viewBox="0 0 24 24"><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/><circle cx="12" cy="12" r="4"/></svg><span>Solar PV</span></a>
-      <a href="#mains" data-sec="mains"><svg viewBox="0 0 24 24"><path d="M12 2v20M6 7l6-3 6 3M6 13l6-3 6 3M8 22h8"/></svg><span>Mains &amp; grid</span></a>
-      <a href="#analyzers" data-sec="analyzers" hidden><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M7.5 13.5a4.5 4.5 0 0 1 9 0M12 13.5l2.2-2.4M8 17.5h8"/></svg><span>Power analyzers</span></a>
-      <a href="#quality"><svg viewBox="0 0 24 24"><path d="M2 12c2-6 4-6 6 0s4 6 6 0 4-6 6 0"/></svg><span>Power quality</span></a>
+      <a href="#overview" class="active"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="9" rx="1.6"/><rect x="13.5" y="3" width="7.5" height="5.5" rx="1.6"/><rect x="13.5" y="11.5" width="7.5" height="9.5" rx="1.6"/><rect x="3" y="15" width="7.5" height="6" rx="1.6"/></svg><span>Overview</span></a>
+      <a href="#flowsec"><svg viewBox="0 0 24 24"><path d="M13 2.5L5 13.5h6l-1 8 8-11h-6z"/></svg><span>Live power flow</span></a>
+      <a href="#energy"><svg viewBox="0 0 24 24"><path d="M3.5 3.5v15a2 2 0 0 0 2 2h15"/><path d="M7.5 15l3.8-4.2 3 3 5.2-6.3"/><path d="M15.8 7.5h3.7v3.7"/></svg><span>Energy &amp; trends</span></a>
+      <a href="#gensets" data-sec="gensets"><svg viewBox="0 0 24 24"><rect x="2.5" y="7" width="14" height="10.5" rx="2"/><path d="M16.5 10.5h2.2a1.3 1.3 0 0 1 1.3 1.3v1.9a1.3 1.3 0 0 1-1.3 1.3h-2.2M6 4.5h5.5M8.7 4.5V7M5.5 17.5V20M13.5 17.5V20"/><path d="M10.4 9.3L8 12.6h3.1l-1 3"/></svg><span>Gensets</span></a>
+      <a href="#master" data-sec="master"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2.5"/><rect x="6.5" y="6.5" width="11" height="5.5" rx="1"/><path d="M7.5 16.5h.01M12 16.5h.01M16.5 16.5h.01"/></svg><span>Master controller</span></a>
+      <a href="#solar" data-sec="solar"><svg viewBox="0 0 24 24"><path d="M5.2 12.5h13.6l2.4 8H2.8z"/><path d="M12 12.5v8M4 16.5h16"/><circle cx="12" cy="5.8" r="2.3"/><path d="M12 1.8v.7M7.3 5.8h.7M16 5.8h.7"/></svg><span>Solar PV</span></a>
+      <a href="#mains" data-sec="mains"><svg viewBox="0 0 24 24"><path d="M7 21.5L11 3h2l4 18.5"/><path d="M4 7.5h16M5.8 12.5h12.4M9.6 12.5l5.6 9M14.4 12.5l-5.6 9"/><path d="M4.5 7.5v2M19.5 7.5v2"/></svg><span>Mains &amp; grid</span></a>
+      <a href="#analyzers" data-sec="analyzers" hidden><svg viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="2.5"/><path d="M6.8 14.2a5.2 5.2 0 0 1 10.4 0"/><path d="M12 14.2l2.6-3"/><path d="M7 17.6h10"/></svg><span>Analyzers</span></a>
+      <a href="#quality"><svg viewBox="0 0 24 24"><path d="M2.5 12h2c1.7 0 2-6.5 3.75-6.5S10.3 18.5 12 18.5s2-13 3.75-13S17.8 12 19.5 12h2"/></svg><span>Power quality</span></a>
       <div class="grp">Operate</div>
-      <a href="#devices"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg><span>Devices</span></a>
-      <a href="#alarms"><svg viewBox="0 0 24 24"><path d="M12 3l9 16H3zM12 10v4M12 17v.5"/></svg><span>Alarms &amp; events</span></a>
-      <a href="#export"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"/></svg><span>Export</span></a>
-      <a href="/report" target="_blank" rel="noopener" class="ext"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6zM14 2v6h6M9 13h8M9 17h8M9 9h3"/></svg><span>Day report</span></a>
-      <a href="#points"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>All points</span></a>
-      <a href="#settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg><span>Settings</span></a>
+      <a href="#devices"><svg viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="7" rx="2"/><rect x="3" y="13.5" width="18" height="7" rx="2"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6"/></svg><span>Devices</span></a>
+      <a href="#alarms"><svg viewBox="0 0 24 24"><path d="M10.3 4.2L2.6 17.6a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/><path d="M12 9.5v4M12 17h.01"/></svg><span>Alarms &amp; events</span></a>
+      <a href="#export"><svg viewBox="0 0 24 24"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4 15.5v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg><span>Export</span></a>
+      <a href="/report" target="_blank" rel="noopener" class="ext"><svg viewBox="0 0 24 24"><path d="M14 2.8H7a2 2 0 0 0-2 2v14.4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7.8z"/><path d="M14 2.8v5h5"/><path d="M8.5 17.5v-2.5M11.5 17.5v-5M14.5 17.5v-3.5"/></svg><span>Day report</span></a>
+      <a href="#points"><svg viewBox="0 0 24 24"><path d="M8.5 6h12M8.5 12h12M8.5 18h12"/><path d="M4 6h.01M4 12h.01M4 18h.01"/></svg><span>All points</span></a>
+      <a href="#settings"><svg viewBox="0 0 24 24"><path d="M9.92 5.21L10.25 2.56A9.6 9.6 0 0 1 13.75 2.56L14.08 5.21A7.1 7.1 0 0 1 15.33 5.73L17.44 4.09A9.6 9.6 0 0 1 19.91 6.56L18.27 8.67A7.1 7.1 0 0 1 18.79 9.92L21.44 10.25A9.6 9.6 0 0 1 21.44 13.75L18.79 14.08A7.1 7.1 0 0 1 18.27 15.33L19.91 17.44A9.6 9.6 0 0 1 17.44 19.91L15.33 18.27A7.1 7.1 0 0 1 14.08 18.79L13.75 21.44A9.6 9.6 0 0 1 10.25 21.44L9.92 18.79A7.1 7.1 0 0 1 8.67 18.27L6.56 19.91A9.6 9.6 0 0 1 4.09 17.44L5.73 15.33A7.1 7.1 0 0 1 5.21 14.08L2.56 13.75A9.6 9.6 0 0 1 2.56 10.25L5.21 9.92A7.1 7.1 0 0 1 5.73 8.67L4.09 6.56A9.6 9.6 0 0 1 6.56 4.09L8.67 5.73A7.1 7.1 0 0 1 9.92 5.21Z"/><circle cx="12" cy="12" r="3"/></svg><span>Settings</span></a>
     </nav>
     <div class="sidefoot"><span class="live" id="live" title="Connection to the collector"><i></i><span class="lt"><b id="liveText">connecting</b><small id="liveSub"></small></span></span></div>
   </aside>
@@ -980,7 +1020,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       <span class="tag hide-sm mono" id="clock"></span>
       <div class="grow"></div>
       <button class="btn search hide-sm hide-kiosk" id="searchBtn" title="Search sections, devices and actions"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>Search…<kbd>Ctrl K</kbd></button>
-      <button class="btn hide-kiosk" id="pollBtn" title="Read every device now"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg><span class="hide-sm">Read devices now</span></button>
+      <button class="btn hide-kiosk" id="pollBtn" title="Read every device now and refresh every panel"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><path d="M8.5 8.5a5 5 0 0 0 0 7M15.5 8.5a5 5 0 0 1 0 7M5.6 5.6a9 9 0 0 0 0 12.8M18.4 5.6a9 9 0 0 1 0 12.8"/></svg><span class="hide-sm">Read devices now</span></button>
       <div class="menu" id="rangeMenu">
         <button class="btn" id="rangeBtn" aria-haspopup="true" aria-expanded="false"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="rangeText">Last 24 hours</span><svg viewBox="0 0 24 24" style="width:12px;height:12px"><path d="M6 9l6 6 6-6"/></svg></button>
         <div class="list rmenu" role="menu" hidden>
@@ -1004,7 +1044,6 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
         </div>
       </div>
       <button class="btn icon bell" id="bellBtn" title="Alarms" aria-label="Alarms"><svg viewBox="0 0 24 24"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="cnt" id="bellN" hidden></span></button>
-      <button class="btn icon" id="refreshBtn" title="Refresh every panel now" aria-label="Refresh"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8M21 3v5h-5"/></svg></button>
       <button class="btn icon hide-sm themeb" id="themeBtn" title="Light / dark" aria-label="Switch theme"><svg class="ti moon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9c-4 0-8-3-9-9z"/></svg><svg class="ti sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><path d="M12 2v2.2M12 19.8V22M2 12h2.2M19.8 12H22M4.9 4.9l1.6 1.6M17.5 17.5l1.6 1.6M4.9 19.1l1.6-1.6M17.5 6.5l1.6-1.6"/></svg></button>
       <button class="btn icon fsb" id="fsBtn" title="Full screen (F)" aria-label="Full screen"><svg class="fs-in" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg><svg class="fs-out" viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"/></svg></button>
     </div>
@@ -1094,12 +1133,15 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
         <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Gensets</h2><span class="sub" id="genSub"></span><span class="sub rate" id="genRate"></span><span class="upd" data-upd="summary"></span></button>
         <div class="grid">
           <div class="panel w24" data-src="summary" id="p-genbus" hidden>
-            <div class="ph"><h3>Generator bus</h3><span class="info" title="From the master controller: its mode, the breaker state, all gensets together and the bus. Shown only: this program reads the controllers and cannot change anything."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span></div>
+            <div class="ph"><h3>Generator bus</h3><span class="info" title="From the master controller: the breaker state, which gensets are on the bus, all gensets together and the bus. Shown only: this program reads the controllers and cannot change anything."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span></div>
             <div class="pb"><div class="busstrip" id="genBus"></div></div>
           </div>
           <div class="panel w24" data-src="summary">
             <div class="ph"><h3 id="genTilesTitle">Gensets now</h3><span class="info" title="Click a genset for all its values and a trend."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span></div>
-            <div class="pb"><div class="gcards" id="genCards" hidden></div><div class="gens" id="genTiles"></div></div>
+            <div class="pb gcwrap"><div class="gcards" id="genCards" hidden></div><div class="gens" id="genTiles"></div></div>
+          </div>
+          <div class="panel w24 bare" data-src="summary" id="p-genstats" hidden>
+            <div class="pb"><div class="stats" id="genStats"><div data-k="p"></div><div data-k="nom"></div><div data-k="res"></div><div data-k="start"></div><div data-k="stop"></div><div data-k="hrs"></div></div></div>
           </div>
           <div class="panel w14" data-src="series" id="p-gencap">
             <div class="ph"><h3 id="genChartTitle">Gensets - power</h3><span class="r" data-upd="series"></span></div>
@@ -1207,9 +1249,9 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       </section>
 
       <!-- ========================================================== power quality -->
-      <!-- ========================================================== power analyzers -->
+      <!-- ========================================================== analyzers -->
       <section class="row" id="analyzers" hidden>
-        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Power analyzers</h2><span class="sub" id="anSub"></span><span class="sub rate" id="anRate"></span><span class="upd" data-upd="summary"></span></button>
+        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Analyzers</h2><span class="sub" id="anSub"></span><span class="sub rate" id="anRate"></span><span class="upd" data-upd="summary"></span></button>
         <div class="grid" id="anGrid"></div>
       </section>
 
@@ -1628,14 +1670,14 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
   // Grafana-style building blocks. Each returns HTML (or SVG) for one panel body.
   const PAL = ["#7eb26d", "#eab839", "#6ed0e0", "#ef843c", "#e24d42", "#1f78c1", "#ba43a9", "#705da0", "#508642", "#cca300"];
   const GENPAL = ["#ff9830", "#fade2a", "#73bf69", "#8ab8ff", "#b877d9", "#f2495c", "#5794f2", "#ffb357"];
-  function sparkSVG(vals, color) {
+  function sparkSVG(vals, color, gid) {
     let end = vals.length - 1; while (end > 0 && !isNum(vals[end])) end--;
     vals = vals.slice(0, end + 1);
     const pts = vals.map((v, i) => [i, v]).filter(([, v]) => isNum(v));
     if (pts.length < 2) return "";
     const n = vals.length - 1 || 1, lo = Math.min(...pts.map((p) => p[1])), hi = Math.max(...pts.map((p) => p[1])), span = hi - lo || 1;
     const xy = pts.map(([i, v]) => `${(i / n * 100).toFixed(2)},${(48 - (v - lo) / span * 44).toFixed(2)}`);
-    const id = "sg" + Math.random().toString(36).slice(2, 8);
+    const id = gid || "sg" + Math.random().toString(36).slice(2, 8);     // a fixed id keeps the HTML the same while nothing changed
     return `<svg class="spark" viewBox="0 0 100 50" preserveAspectRatio="none"><defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${color}" stop-opacity=".35"/><stop offset="1" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>`
       + `<path d="M${xy[0].split(",")[0]},50 L${xy.join(" L")} L${xy[xy.length - 1].split(",")[0]},50 Z" fill="url(#${id})"/>`
       + `<path d="M${xy.join(" L")}" fill="none" stroke="${color}" stroke-width="1.5" vector-effect="non-scaling-stroke"/></svg>`;
@@ -1718,7 +1760,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
   const sig = (label, state, text) => `<div class="sig ${state}"><small>${esc(label)}</small><b>${esc(text)}</b></div>`;
   const bigBox = (text, color) => `<div class="big" style="background:linear-gradient(135deg, ${color}cc, ${color})">${esc(text)}</div>`;
 
-  // ---------------------------------------------------------------- animated widgets (gensets, power analyzers)
+  // ---------------------------------------------------------------- animated widgets (gensets, analyzers)
   // Built once per element; a new reading only moves the value (CSS transitions and a short number tween), so it
   // glides there instead of the widget being redrawn.
   const RM = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -1794,6 +1836,76 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       later(() => { dot.style.left = (isNum(v) ? pos(v) : 0).toFixed(1) + "%"; dot.style.background = col; });
       tweenNum(el.querySelector(".n"), v, 0);
     });
+  }
+  // ---------------------------------------------------------------- Grafana-style stat tiles and bar gauges
+  // A stat tile: title, the value in the colour of its thresholds, its unit, a line of facts under it, and the trend
+  // of the selected range as an area (or bars) behind it. Built once; afterwards only the number glides, and the
+  // area is drawn again only when the trend changed. o: {title, v, dec, unit, color, facts, spark, bars, info}
+  // (facts: [label, value text] pairs, or whole sentences as strings)
+  function stile(host, o) {
+    let s = host.__st;
+    if (!s) {
+      host.classList.add("stile");
+      host.innerHTML = `<div class="sp" aria-hidden="true"></div><div class="tt"></div><div class="sv"><span dir="ltr"><span class="n">—</span><small class="u"></small></span></div><div class="ss"></div>`;
+      s = host.__st = { sp: host.querySelector(".sp"), tt: host.querySelector(".tt"), n: host.querySelector(".n"), u: host.querySelector(".u"), ss: host.querySelector(".ss"), key: null, facts: null };
+    }
+    const col = o.color || css("--strong");
+    setText(s.tt, o.title);
+    if (o.info && host.title !== o.info) host.title = o.info;
+    host.style.setProperty("--sc", isNum(o.v) ? col : css("--text-3"));
+    tweenNum(s.n, isNum(o.v) ? o.v : null, o.dec || 0);
+    setText(s.u, isNum(o.v) && o.unit ? o.unit : "");
+    const facts = (o.facts || []).filter((f) => f && (typeof f === "string" || isNum(f[1]) || (typeof f[1] === "string" && f[1])))
+      .map((f) => typeof f === "string" ? `<span>${esc(f)}</span>` : `<span>${esc(f[0])}</span> <b dir="ltr">${esc(f[1])}</b>`).join(" · ");
+    if (s.facts !== facts) { s.facts = facts; s.ss.innerHTML = facts; }
+    const sp = o.spark || [], key = sp.some(isNum) && sp.length > 1 ? (o.bars ? "b" : "a") + col + sp.join(",") : "";
+    if (s.key !== key) { s.key = key; s.sp.innerHTML = key ? (o.bars ? sparkBars(sp, col) : sparkSVG(sp, col)) : ""; host.classList.toggle("has-sp", !!s.sp.innerHTML); }
+  }
+  // the trend behind a stat tile as bars (energy per step)
+  function sparkBars(vals, color) {
+    const n = vals.length, hi = Math.max(0, ...vals.filter(isNum)) || 1, w = 100 / n;
+    let r = "";
+    vals.forEach((v, i) => { if (isNum(v) && v > 0) { const h = Math.max(1, v / hi * 46); r += `<rect x="${(i * w + w * .1).toFixed(2)}" y="${(50 - h).toFixed(2)}" width="${(w * .8).toFixed(2)}" height="${h.toFixed(2)}"/>`; } });
+    return r ? `<svg class="spark" viewBox="0 0 100 50" preserveAspectRatio="none"><g fill="${color}" opacity=".42">${r}</g></svg>` : "";
+  }
+  // Grafana's bar gauge ("LCD" mode): a row of cells per value, lit up to the value, each cell in the colour of its
+  // threshold band. rows: [[label, value, max, steps?]]; o: {unit, dec, steps: [[from, colour], ...], cells}
+  function barGauge(host, rows, o) {
+    const N = o.cells || 26, sig = rows.map((r) => r[0]).join("|") + N + (o.unit || "");
+    if (host.__sig !== sig) {
+      host.__sig = sig;
+      host.classList.add("bgx");
+      host.innerHTML = rows.map((r) => `<div class="lr"><span class="l" data-no-i18n>${esc(r[0])}</span><div class="cells">${Array.from({ length: N }, (_, k) => `<i style="transition-delay:${k * 12}ms"></i>`).join("")}</div><b dir="ltr"><span class="n">—</span> ${esc(o.unit || "")}</b></div>`).join("");
+    }
+    [...host.children].forEach((el, i) => {
+      const [, v, max, own] = rows[i], steps = own || o.steps, f = isNum(v) && max > 0 ? Math.max(0, Math.min(1, v / max)) : 0;
+      const lit = isNum(v) && v > 0 ? Math.max(1, Math.round(f * N)) : 0, key = lit + "|" + max + "|" + steps.map((x) => x.join(":")).join(",");
+      if (el.__k !== key) {
+        el.__k = key;
+        const cells = el.querySelectorAll(".cells i");
+        later(() => cells.forEach((c, k) => { c.style.background = colorAt((k + .5) / N * max, steps); c.classList.toggle("on", k < lit); }));
+      }
+      el.querySelector("b").style.color = isNum(v) ? colorAt(v, steps) : "";
+      tweenNum(el.querySelector(".n"), isNum(v) ? v : null, o.dec || 0);
+    });
+  }
+  // the selected range in numbers: lowest, highest and average of a series
+  function rangeStats(a) {
+    const x = (a || []).filter(isNum);
+    return x.length ? { min: Math.min(...x), max: Math.max(...x), avg: x.reduce((t, v) => t + v, 0) / x.length } : null;
+  }
+  // what a counter (kWh) went up by in the range, and per step (a counter that went back counts nothing)
+  function counterUse(a) {
+    let first = null, last = null, prev = null;
+    const per = (a || []).map(() => null);
+    (a || []).forEach((v, i) => { if (!isNum(v)) return; if (first === null) first = v; if (prev !== null) per[i] = Math.max(0, v - prev); prev = v; last = v; });
+    return { total: first !== null && last >= first ? last - first : null, per };
+  }
+  // unbalance as NEMA defines it: the largest difference from the average of the three, in % of the average
+  function unbalance(xs, floor = 0) {
+    if (xs.some((x) => !isNum(x))) return null;
+    const avg = xs.reduce((t, v) => t + v, 0) / xs.length;
+    return avg > floor && avg > 0 ? Math.max(...xs.map((x) => Math.abs(x - avg))) / avg * 100 : null;
   }
   const FAN = `<svg class="fan" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="2.2" fill="currentColor"/><path fill="currentColor" opacity=".9" d="M12 9.8c.4-3.4 2.4-6.3 5-6.3 1.6 0 2.3 1.4 1.4 2.7-1.2 1.8-3.6 2.9-6.4 3.6zM14.1 13.2c3.1 1.4 5.2 4.2 4.4 6.7-.5 1.5-2 1.7-3 .5-1.5-1.6-1.9-4.3-1.4-7.2zM9.9 13.1c-2.7 2-6.2 2.6-7.8.6-1-1.3-.3-2.7 1.2-2.8 2.2-.2 4.5 1 6.6 2.2z"/></svg>`;
 
@@ -1936,11 +2048,10 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
   });
   $("#rgExport").addEventListener("click", () => { const [f, t] = rangeFT(); download(`/api/v1/local/export.xlsx?from=${iso(f)}&to=${iso(upToNow(t))}&step=${exportStep(f, upToNow(t))}`, $("#rgExport")); });
   setInterval(() => { if (!rMenu.hidden) return; $("#rangeText").textContent = rangeLabel(); }, 60000);
-  $("#refreshBtn").addEventListener("click", async () => {
-    const b = $("#refreshBtn"); b.classList.add("busy");
-    await Promise.allSettled([withSpin("summary", loadSummary()), withSpin("series", loadSeries()), withSpin("alarms", loadAlarms()), withSpin("points", loadPoints()), withSpin("hourly", loadHourly())]);
-    b.classList.remove("busy");
-  });
+  // every panel asks the collector again (what "Read devices now" ends with; R and the search box do only this)
+  function refreshAll() {
+    return Promise.allSettled([withSpin("summary", loadSummary()), withSpin("series", loadSeries()), withSpin("alarms", loadAlarms()), withSpin("points", loadPoints()), withSpin("hourly", loadHourly())]);
+  }
   // collapsible rows, remembered
   const closedRows = new Set((saved("pc.closed") || "").split(",").filter(Boolean));
   $$("section.row").forEach((r) => {
@@ -2388,7 +2499,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       const nums = Object.keys(m.points).filter((x) => /^g\d+_running$/.test(x)).map((x) => parseInt(x.slice(1))).sort((a, b) => a - b);
       $("#genTilesTitle").textContent = `Gensets on ${m.id} (breaker and CAN bus)`;
       genCards(m, nums);
-      if (has(m, "controller_mode")) genBus(m);
+      if (has(m, "controller_mode")) genBus(m, nums);
     }
     if (M.units.length) {
       if (!M.master) $("#genTilesTitle").textContent = "Gensets now";
@@ -2404,16 +2515,15 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       }).join("");
     }
     redraw($("#genTiles"), tiles, "data-dev");
-    // loading gauge and side panel
+    // loading gauge, the master's numbers (stat tiles with the trend of the selected range) or the units' fuel
     const m = M.master;
     let load = null, side = "";
-    if (m && isNum(pt(m, "running_nominal_kw"))) {
+    const masterTiles = !!(m && isNum(pt(m, "running_nominal_kw")));
+    $("#p-genstats").hidden = !masterTiles;
+    if (masterTiles) {
       const nom = pt(m, "running_nominal_kw"), p = pt(m, "running_power_kw") ?? pt(m, "power_kw");
       load = nom > 0 && isNum(p) ? 100 * p / nom : null;
-      $("#genSideTitle").textContent = "Capacity and reserves";
-      side = [["Capacity on line", nom], ["Spinning reserve", pt(m, "actual_reserve_kw")], ["Start one below", pt(m, "start_reserve_kw")], ["Stop one above", pt(m, "stop_reserve_kw")]]
-        .filter(([, v]) => v !== null).map(([l, v]) => `<div style="display:flex;justify-content:space-between;align-items:baseline;padding:7px 0;border-bottom:1px solid ${css("--border")}"><span style="color:${css("--text-2")}">${l}</span><span class="mono" style="font-size:18px;color:#8ab8ff">${fmt(v)} <small style="font-size:11px;color:${css("--text-3")}">kW</small></span></div>`).join("")
-        + (pt(m, "running_hours") !== null ? `<div style="display:flex;justify-content:space-between;padding:7px 0"><span style="color:${css("--text-2")}">Hours · starts</span><span class="mono">${fmt(pt(m, "running_hours"))} h · ${fmt(pt(m, "num_starts"))}</span></div>` : "");
+      genStats(m, p, nom);
     } else if (M.units.length) {
       const run = M.units.filter((d) => on(pt(d, "running")) || (pt(d, "power_kw") || 0) > 1);
       $("#genSideTitle").textContent = "Fuel";
@@ -2425,6 +2535,10 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     if (load !== null) redraw($("#g-genload"), gauge(load, { min: 0, max: 100, unit: "%", steps: [[0, C("--bad")], [30, C("--ok")], [85, C("--warn")], [95, C("--bad")]] }));
     $("#p-genside").hidden = !side;
     $("#p-genside").classList.toggle("w5", load !== null); $("#p-genside").classList.toggle("w10", load === null);
+    // the chart takes the room the side panel leaves
+    const wide = !side;
+    $("#p-gencap").classList.toggle("w14", !wide); $("#p-gencap").classList.toggle("w16", wide && load !== null); $("#p-gencap").classList.toggle("w24", wide && load === null);
+    $("#p-genload").classList.toggle("w5", !wide); $("#p-genload").classList.toggle("w8", wide);
     redraw($("#genSide"), side);
   }
 
@@ -2434,6 +2548,8 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     const host = $("#genCards"), key = m.id + ":" + nums.join(",");
     if (host.__key !== key) {
       host.__key = key;
+      host.classList.toggle("fit", nums.length > 0 && nums.length <= 6);
+      host.style.setProperty("--gn", String(Math.max(1, nums.length)));
       host.innerHTML = nums.map((g) => `<div class="gcard" data-dev="${esc(m.id)}" data-g="${g}" tabindex="0" role="button" aria-label="Gen ${g}">
         <div class="hd">${FAN}<b>Gen ${g}</b><span class="chip idle">—</span></div>
         <div class="ga" title="${esc(SHARE_INFO)}"></div>
@@ -2460,80 +2576,155 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       setText(el.querySelector(".foot"), vals.some((v) => v !== null) ? `${fmt(n1 * SSTEP / 3600, 1)} h on bus · ${starts} start${starts === 1 ? "" : "s"}` : "");
     });
   }
-  // the master's view of the generator bus: its mode (shown only), breaker state, all gensets together and the bus
-  function genBus(m) {
-    const host = $("#genBus");
-    if (!host.__built) {
-      host.__built = true;
-      host.innerHTML = `<div class="ctl"><div class="ah">Master mode</div>
-          <div class="modes" title="Shown only: this program cannot change the mode."><span data-m="0" data-no-i18n>OFF</span><span data-m="1" data-no-i18n>MAN</span><span data-m="2" data-no-i18n>AUTO</span><span data-m="3" data-no-i18n>TEST</span></div>
-          <div class="ah">Breaker state</div><div class="brk">—</div>
-          <div class="lamps"><span class="lamp lal"><i></i><span class="t">Alarm / warning</span></span><span class="lamp lrd"><i></i><span class="t">System ready</span></span></div>
-          <div class="estop">EMERGENCY STOP</div></div>
+  // the master's view of the generator bus: the breaker state, which gensets are on it, all gensets together and the bus
+  function genBus(m, nums = []) {
+    const host = $("#genBus"), key = nums.join(",");
+    if (host.__key !== key) {
+      host.__key = key;
+      host.innerHTML = `<div class="ctl"><div class="ah">Breaker state</div><div class="brk">—</div>
+          <div class="ah">On the bus</div><div class="gbx">${nums.map((g) => `<span data-g="${g}" title="Gen ${g}" data-no-i18n>${g}</span>`).join("")}</div>
+          <div class="lamps"><span class="lamp lal"><i></i><span class="t">Alarm / warning</span></span><span class="lamp lrd"><i></i><span class="t">System ready</span></span></div></div>
         <div><div class="ah">Gensets power</div><div class="ga gp"></div></div>
         <div><div class="ah">Bus frequency</div><div class="ga gf"></div></div>
         <div><div class="ah">Bus voltage</div><div class="ga gu"></div></div>`;
     }
-    const md = pt(m, "controller_mode");
-    host.querySelectorAll(".modes span").forEach((x) => { const lit = isNum(md) && +x.dataset.m === md && MODE[md]; x.classList.toggle("on", !!lit); x.style.background = lit ? MODE[md][1] : ""; });
     const bs = pt(m, "breaker_state"), b = isNum(bs) && BRK[bs] ? BRK[bs] : null, brk = host.querySelector(".brk");
     setText(brk, b ? b[0] : "—"); brk.style.color = b ? b[1] : "";
+    const lost = m.comms !== "ok" && m.comms !== "reading", mask = pt(m, "can_present_mask");
+    host.querySelectorAll(".gbx span").forEach((x) => {
+      const g = +x.dataset.g, can = isNum(mask) ? ((mask >> (g - 1)) & 1) === 1 : null;
+      x.className = lost ? "lost" : can === false ? "miss" : on(pt(m, `g${g}_running`)) ? "on" : "";
+    });
     const al = host.querySelector(".lal"), rd = host.querySelector(".lrd"), alarm = pt(m, "alarm_active"), ready = pt(m, "system_ready");
     al.className = "lamp lal" + (alarm === null ? "" : on(alarm) ? " bad" : " ok");
     rd.hidden = ready === null; rd.className = "lamp lrd" + (ready === null ? "" : on(ready) ? " ok" : " warn");
-    host.querySelector(".estop").classList.toggle("on", on(pt(m, "estop")));
     const nom = pt(m, "running_nominal_kw"), p = pt(m, "power_kw"), max = niceMax(Math.max(isNum(nom) ? nom : 0, isNum(p) ? p : 0, 500));
-    agauge(host.querySelector(".gp"), p, { min: 0, max, unit: "kW", steps: [[0, C("--c-gen")], [max * .85, C("--warn")], [max * .95, C("--bad")]], cap: isNum(nom) && nom > 0 ? `of ${fmt(nom)} kW on the bus` : "" });
-    agauge(host.querySelector(".gf"), pt(m, "bus_frequency_hz"), { min: 48, max: 52, dec: 2, unit: "Hz", labels: ["48", "52"], steps: [[48, C("--bad")], [49, C("--warn")], [49.5, C("--ok")], [50.5, C("--warn")], [51, C("--bad")]] });
+    agauge(host.querySelector(".gp"), p, { min: 0, max, unit: "kW", steps: [[0, C("--c-gen")], [max * .85, C("--warn")], [max * .95, C("--bad")]], cap: isNum(nom) && nom >= 10 ? `of ${fmt(nom)} kW on the bus` : "" });
+    agauge(host.querySelector(".gf"), pt(m, "bus_frequency_hz"), { min: 48, max: 52, dec: 2, unit: "Hz", labels: ["48", "52"], steps: HZ_STEPS() });
     const u = pt(m, "bus_voltage_v"), ll = isNum(u) && u > 300;
     agauge(host.querySelector(".gu"), u, ll ? { min: 340, max: 460, unit: "V", steps: [[340, C("--bad")], [370, C("--warn")], [380, C("--ok")], [420, C("--warn")], [435, C("--bad")]] }
       : { min: 200, max: 260, unit: "V", steps: [[200, C("--bad")], [215, C("--warn")], [220, C("--ok")], [243, C("--warn")], [250, C("--bad")]] });
   }
+  // the master's numbers for all gensets together, as stat tiles with the trend of the selected range behind them
+  function genStats(m, p, nom) {
+    const host = $("#genStats"), tile = (k) => host.querySelector(`[data-k="${k}"]`), trend = (k) => sv(`${m.id}/${k}`);
+    const pT = trend("running_power_kw").some(isNum) ? trend("running_power_kw") : sv("genset_kw"), pS = rangeStats(pT);
+    stile(tile("p"), { title: "Gensets power", v: p, unit: "kW", color: C("--c-gen"), spark: pT,
+      facts: pS ? [["peak", `${fmt(pS.max)} kW`], ["average", `${fmt(pS.avg)} kW`]] : [] });
+    const run = Object.keys(m.points).filter((x) => /^g\d+_running$/.test(x)), nRun = run.filter((x) => on(pt(m, x))).length;
+    stile(tile("nom"), { title: "Capacity on line", v: nom, unit: "kW", color: "#b877d9", spark: trend("running_nominal_kw"),
+      facts: run.length ? [`${nRun} of ${run.length} gensets on the bus`] : [] });
+    const res = pt(m, "actual_reserve_kw"), start = pt(m, "start_reserve_kw"), stop = pt(m, "stop_reserve_kw");
+    stile(tile("res"), { title: "Spinning reserve", v: res, unit: "kW", color: isNum(res) && isNum(start) && nRun && res < start ? C("--warn") : "#8ab8ff", spark: trend("actual_reserve_kw"),
+      info: "Capacity on line minus what the gensets give now: the load they could still take at once." });
+    stile(tile("start"), { title: "Start one below", v: start, unit: "kW", color: css("--text"),
+      facts: ["a setting of the master"], info: "The master starts one more genset when the spinning reserve falls below this." });
+    stile(tile("stop"), { title: "Stop one above", v: stop, unit: "kW", color: css("--text"),
+      facts: ["a setting of the master"], info: "The master stops one genset when the spinning reserve stays above this." });
+    const hrs = pt(m, "running_hours"), starts = pt(m, "num_starts");
+    stile(tile("hrs"), { title: "Gensets hours", v: hrs, unit: "h", color: C("--c-gen"), facts: [["starts", isNum(starts) ? fmt(starts) : null]] });
+    [...host.children].forEach((x) => { x.hidden = !x.__st || (x.dataset.k !== "p" && !isNum(x.__st.n.__v)); });
+  }
 
-  // ---------------------------------------------------------------- power analyzers
+  // ---------------------------------------------------------------- analyzers
   function anName(d) { const mm = /^analyzer-(\d+)$/.exec(d.id); return d.name || (mm ? `Analyzer ${mm[1]}` : d.id); }
+  const AN_TILES = ["p", "s", "pf", "i", "e", "u"];
+  const PF_STEPS = () => [[0, C("--bad")], [0.8, C("--warn")], [0.9, C("--ok")]];
+  const HZ_STEPS = () => [[48, C("--bad")], [49, C("--warn")], [49.5, C("--ok")], [50.5, C("--warn")], [51, C("--bad")]];
+  const UNB_INFO = "How far the three phase currents are apart: the largest difference from their average, in % of the average (NEMA). Under 10 % is normal for a feeder; a high value for a long time heats motors and transformers. Shown when the feeder carries at least 5 % of its CT.";
+  // one analyzer: a panel with its numbers now (stat tiles with the trend of the selected range behind them, gauges,
+  // bar gauges) and three time series panels under it
   function anPanel(d) {
-    return `<div class="panel w24 anm" data-src="summary" data-an="${esc(d.id)}">
-      <div class="ph"><h3 data-dev="${esc(d.id)}" tabindex="0" role="button" title="All values and trend">${esc(anName(d))}</h3><span class="chip idle st">—</span>
-        <div class="meta"><span data-no-i18n>${esc(d.vendor)} ${esc(d.model)}</span><span><small>Gateway</small> <b class="gw" data-no-i18n>—</b></span><span><small>Unit ID</small> <b class="ui" data-no-i18n>—</b></span><span><small>CT</small> <b class="ct" data-no-i18n>—</b></span></div></div>
-      <div class="pb"><div class="anb">
-        <div><div class="ah">Active power</div><div class="ga p"></div>
-          <div class="aflow idle"><svg viewBox="0 0 200 12" height="12" preserveAspectRatio="none" aria-hidden="true"><line class="base" x1="4" y1="6" x2="196" y2="6"/><line class="dash" x1="4" y1="6" x2="196" y2="6"/></svg><span class="dir">no load</span></div>
-          <div class="pq"><span><small>Apparent power</small><br><b><span class="n s">—</span> kVA</b></span><span><small>Reactive power</small><br><b><span class="n q">—</span> kvar</b></span></div></div>
-        <div><div class="ah">Currents</div><div class="vgrp cur"></div></div>
-        <div><div class="ah">Voltages</div><div class="vgrp ll"></div><div class="vgrp ln"></div></div>
-        <div><div class="dials"><div><div class="ah">Power factor</div><div class="ga pf"></div></div><div><div class="ah">Frequency</div><div class="ga hz"></div></div></div></div>
-        <div><div class="ah">Energy counters</div>
-          <div class="ec"><span>Energy in</span><b><span class="n ein">—</span><em>MWh</em></b></div>
-          <div class="ec"><span>Energy out</span><b><span class="n eout">—</span><em>MWh</em></b></div>
-          <div class="ah" style="margin-top:6px">Power trend</div><div class="spk"></div></div>
-      </div></div></div>`;
+    const id = esc(d.id), nm = esc(anName(d));
+    const chart = (k, title, extra = "") => `<div class="panel w8 anc${extra}" data-src="series" data-anc="${id}">
+        <div class="ph"><h3><span data-no-i18n>${nm}</span> · <span>${title}</span></h3><span class="r" data-upd="series"></span></div>
+        <div class="pb"><div class="chart"><canvas id="c-an-${id}-${k}"></canvas></div></div><div class="legend" id="lg-an-${id}-${k}"></div></div>`;
+    return `<div class="panel w24 anm" data-src="summary" data-an="${id}">
+      <div class="ph"><h3 data-dev="${id}" tabindex="0" role="button" title="All values and trend">${nm}</h3><span class="chip idle st">—</span>
+        <div class="meta"><span data-no-i18n>${esc(d.vendor)} ${esc(d.model)}</span><span class="m-gw"><small>Gateway</small> <b class="gw" data-no-i18n>—</b></span><span class="m-ui"><small>Unit ID</small> <b class="ui" data-no-i18n>—</b></span><span><small>CT</small> <b class="ct" data-no-i18n>—</b></span></div></div>
+      <div class="pb">
+        <div class="stats astats">${AN_TILES.map((k) => `<div data-k="${k}"></div>`).join("")}</div>
+        <div class="anb">
+          <div><div class="ah">Active power</div><div class="ga p"></div>
+            <div class="aflow idle"><svg viewBox="0 0 200 12" height="12" preserveAspectRatio="none" aria-hidden="true"><line class="base" x1="4" y1="6" x2="196" y2="6"/><line class="dash" x1="4" y1="6" x2="196" y2="6"/></svg><span class="dir">no load</span></div>
+            <div class="pq">${["L1", "L2", "L3"].map((l, i) => `<span><small data-no-i18n>${l}</small><br><b><span class="n p${i + 1}">—</span> kW</b></span>`).join("")}</div></div>
+          <div><div class="ah">Currents</div><div class="cur"></div></div>
+          <div><div class="ah">Voltages</div><div class="vgrp ll"></div><div class="vgrp ln"></div></div>
+          <div><div class="dials"><div><div class="ah">Power factor</div><div class="ga pf"></div></div><div><div class="ah">Frequency</div><div class="ga hz"></div></div></div></div>
+          <div><div class="ah">Energy counters</div>
+            <div class="ec"><span>Energy in</span><b><span class="n ein">—</span><em>MWh</em></b></div>
+            <div class="ec"><span>Energy out</span><b><span class="n eout">—</span><em>MWh</em></b></div></div>
+        </div></div></div>`
+      + chart("p", "Power") + chart("i", "Currents") + chart("v", "Voltage", " anc3");
   }
   function anUpdate(el, d) {
     if (!el) return;
-    const P = (k) => pt(d, k);
+    const P = (k) => pt(d, k), trend = (k) => sv(`${d.id}/${k}`), tile = (k) => el.querySelector(`.astats [data-k="${k}"]`);
     const st = el.querySelector(".st"); st.className = `chip st ${commsCls(d.comms)}`; setText(st, comms(d.comms));
+    el.querySelector(".m-gw").hidden = !d.host; el.querySelector(".m-ui").hidden = !d.host;
     setText(el.querySelector(".gw"), d.host || "—"); setText(el.querySelector(".ui"), isNum(d.unit_id) ? String(d.unit_id) : "—");
-    const ct = P("ct_primary_a"); setText(el.querySelector(".ct"), isNum(ct) ? `${fmt(ct)} A` : "—");
-    const pmax = niceMax(Math.sqrt(3) * 400 * (isNum(ct) && ct > 0 ? ct : 500) / 1000), p = P("p_total_kw"), mag = isNum(p) ? Math.abs(p) : 0;
+    const ct = P("ct_primary_a"), hasCt = isNum(ct) && ct > 0; setText(el.querySelector(".ct"), hasCt ? `${fmt(ct)} A` : "—");
+    const pmax = niceMax(Math.sqrt(3) * 400 * (hasCt ? ct : 500) / 1000), p = P("p_total_kw"), mag = isNum(p) ? Math.abs(p) : 0;
+    // stat tiles: now, and the selected range behind
+    const pS = rangeStats(trend("p_total_kw"));
+    stile(tile("p"), { title: "Active power", v: isNum(p) ? p : null, unit: "kW", color: C("--c-an"), spark: trend("p_total_kw"),
+      facts: pS ? [["peak", `${fmt(pS.max)} kW`], ["average", `${fmt(pS.avg)} kW`]] : [] });
+    const q = P("q_total_kvar");
+    stile(tile("s"), { title: "Apparent power", v: P("s_total_kva"), unit: "kVA", color: "#8ab8ff", spark: trend("s_total_kva"),
+      facts: [["reactive", isNum(q) ? `${fmt(q)} kvar` : null]] });
+    const pf = P("pf_total"), pfa = isNum(pf) ? Math.abs(pf) : null, pfT = trend("pf_total").map((x) => isNum(x) ? Math.abs(x) : null), pfS = rangeStats(pfT);
+    stile(tile("pf"), { title: "Power factor", v: pfa, dec: 2, color: colorAt(pfa, PF_STEPS()), spark: pfT, facts: pfS ? [["lowest", fmt(pfS.min, 2)]] : [] });
+    const ia = P("i_avg_a"), iS = rangeStats(trend("i_avg_a"));
+    stile(tile("i"), { title: "Current", v: ia, unit: "A", color: isNum(ia) && hasCt && ia > ct * .9 ? C("--warn") : C("--c-an"), spark: trend("i_avg_a"),
+      facts: [hasCt && isNum(ia) ? `${fmt(ia / ct * 100)} % of the ${fmt(ct)} A CT` : iS ? ["peak", `${fmt(iS.max)} A`] : null] });
+    const ein = P("e_in_kwh"), eout = P("e_out_kwh"), eu = counterUse(trend("e_in_kwh")), big = isNum(eu.total) && eu.total >= 10000;
+    stile(tile("e"), { title: "Energy in this range", v: isNum(eu.total) ? (big ? eu.total / 1000 : eu.total) : null, dec: big ? 1 : 0, unit: big ? "MWh" : "kWh",
+      color: "#73bf69", spark: eu.per, bars: true, facts: [["meter", isNum(ein) ? `${fmt(ein / 1000, 1)} MWh` : null]] });
+    const floor = Math.max(2, hasCt ? ct * .05 : 0), cur3 = ["i_l1_a", "i_l2_a", "i_l3_a"];
+    const iu = unbalance(cur3.map(P), floor), vu = unbalance([P("v_l1l2_v"), P("v_l2l3_v"), P("v_l3l1_v")]);
+    const ts = cur3.map(trend), uT = (ts[0] || []).map((_, k) => unbalance(ts.map((a) => a[k]), floor));
+    stile(tile("u"), { title: "Current unbalance", v: iu, dec: 1, unit: "%", color: colorAt(iu, [[0, C("--ok")], [10, C("--warn")], [20, C("--bad")]]), spark: uT, info: UNB_INFO,
+      facts: [iu === null && cur3.every((k) => isNum(P(k))) ? "too little load to judge" : null, ["voltage", isNum(vu) ? `${fmt(vu, 1)} %` : null]] });
+    // gauges and bar gauges
     agauge(el.querySelector(".ga.p"), isNum(p) ? mag : null, { min: 0, max: pmax, unit: "kW", steps: [[0, C("--c-an")], [pmax * .8, C("--warn")], [pmax * .95, C("--bad")]] });
     const fl = el.querySelector(".aflow");
     fl.classList.toggle("idle", !(mag >= 1)); fl.classList.toggle("rev", isNum(p) && p <= -1);
     fl.style.setProperty("--dur", (3.2 - 2.6 * Math.min(1, mag / pmax)).toFixed(2) + "s");
     setText(fl.querySelector(".dir"), !(mag >= 1) ? "no load" : p > 0 ? "into the load" : "out of the load");
-    tweenNum(el.querySelector(".n.s"), P("s_total_kva")); tweenNum(el.querySelector(".n.q"), P("q_total_kvar"));
-    const imax = isNum(ct) && ct > 0 ? ct : Math.max(10, ...["i_l1_a", "i_l2_a", "i_l3_a"].map((k) => P(k) || 0)) * 1.25;
-    const ic = (v) => isNum(v) && v > imax * .9 ? C("--warn") : C("--c-an");
-    abars(el.querySelector(".cur"), [["L1", P("i_l1_a"), imax, ic(P("i_l1_a"))], ["L2", P("i_l2_a"), imax, ic(P("i_l2_a"))], ["L3", P("i_l3_a"), imax, ic(P("i_l3_a"))], ["N", P("i_n_a"), imax, C("--text-3")]], "A");
+    ["p_l1_kw", "p_l2_kw", "p_l3_kw"].forEach((k, i) => tweenNum(el.querySelector(`.n.p${i + 1}`), P(k)));
+    const imax = hasCt ? ct : Math.max(10, ...cur3.map((k) => P(k) || 0)) * 1.25;
+    barGauge(el.querySelector(".cur"), [["L1", P("i_l1_a"), imax], ["L2", P("i_l2_a"), imax], ["L3", P("i_l3_a"), imax], ["N", P("i_n_a"), imax, [[0, css("--text-3")], [imax * .3, C("--warn")]]]],
+      { unit: "A", steps: [[0, C("--c-an")], [imax * .8, C("--warn")], [imax * .95, C("--bad")]] });
     bands(el.querySelector(".ll"), [["L1-L2", P("v_l1l2_v")], ["L2-L3", P("v_l2l3_v")], ["L3-L1", P("v_l3l1_v")]], 340, 460, 380, 420, "V");
     bands(el.querySelector(".ln"), [["L1-N", P("v_l1n_v")], ["L2-N", P("v_l2n_v")], ["L3-N", P("v_l3n_v")]], 196, 266, 220, 242, "V");
-    const pf = P("pf_total");
-    agauge(el.querySelector(".ga.pf"), isNum(pf) ? Math.abs(pf) : null, { min: 0.5, max: 1, dec: 2, labels: ["0.5", "1"], steps: [[0.5, C("--bad")], [0.8, C("--warn")], [0.9, C("--ok")]] });
-    agauge(el.querySelector(".ga.hz"), P("f_hz"), { min: 48, max: 52, dec: 2, unit: "Hz", labels: ["48", "52"], steps: [[48, C("--bad")], [49, C("--warn")], [49.5, C("--ok")], [50.5, C("--warn")], [51, C("--bad")]] });
-    const ein = P("e_in_kwh"), eout = P("e_out_kwh");
+    agauge(el.querySelector(".ga.pf"), pfa, { min: 0.5, max: 1, dec: 2, labels: ["0.5", "1"], steps: [[0.5, C("--bad")], [0.8, C("--warn")], [0.9, C("--ok")]] });
+    agauge(el.querySelector(".ga.hz"), P("f_hz"), { min: 48, max: 52, dec: 2, unit: "Hz", labels: ["48", "52"], steps: HZ_STEPS() });
     tweenNum(el.querySelector(".ein"), isNum(ein) ? ein / 1000 : null, 1, { fromZero: true, ms: 1400 });
     tweenNum(el.querySelector(".eout"), isNum(eout) ? eout / 1000 : null, 1, { fromZero: true, ms: 1400 });
-    redraw(el.querySelector(".spk"), sparkSVG(sv(`${d.id}/p_total_kw`), C("--c-an")));
+  }
+  // the time series of each analyzer (selected range): power, the three currents, the voltage with its normal band
+  function anCharts() {
+    if (!S || !T.length || !summary) return;
+    const range = [T[0], T[T.length - 1]];
+    model().analyzers.forEach((d) => {
+      const id = d.id, k = (x) => sv(`${id}/${x}`), cid = (x) => `c-an-${id}-${x}`;
+      if (!document.getElementById(cid("p"))) return;
+      const pw = [fill("Active power", k("p_total_kw"), C("--c-an"), { unit: "kW" }),
+        line("Apparent power", k("s_total_kva"), "#8ab8ff", { unit: "kVA", borderWidth: 1.3 }),
+        line("Reactive power", k("q_total_kvar"), "#b877d9", { unit: "kvar", borderWidth: 1.2, borderDash: [5, 4] })];
+      upsert(cid("p"), pw, baseOptions("", range, { y: { min: 0, suggestedMax: 10 } })); legend(`lg-an-${id}-p`, cid("p"), pw);
+      nodataIn(cid("p"), !hasS(`${id}/p_total_kw`));
+      const cur = [["L1", "i_l1_a", "#73bf69"], ["L2", "i_l2_a", "#fade2a"], ["L3", "i_l3_a", "#5794f2"]]
+        .map(([l, x, c]) => fill(l, k(x), c, { backgroundColor: grad(c, .16, 0), borderWidth: 1.4 }));
+      upsert(cid("i"), cur, baseOptions("A", range, { y: { min: 0, suggestedMax: 10 } })); legend(`lg-an-${id}-i`, cid("i"), cur, "A");
+      nodataIn(cid("i"), !hasS(`${id}/i_l1_a`));
+      const vv = k("v_ll_avg_v"), at = (y) => vv.map((x) => x === null ? null : y);
+      const vd = [fill("Voltage L-L", vv, "#b877d9", { unit: "V" }),
+        line("380 V", at(380), css("--warn"), { borderWidth: 1, borderDash: [3, 5], noLegend: true, noTip: true, pointHoverRadius: 0 }),
+        line("420 V", at(420), css("--warn"), { borderWidth: 1, borderDash: [3, 5], noLegend: true, noTip: true, pointHoverRadius: 0 })];
+      upsert(cid("v"), vd, baseOptions("V", range, { y: { suggestedMin: 372, suggestedMax: 428 } })); legend(`lg-an-${id}-v`, cid("v"), vd, "V");
+      nodataIn(cid("v"), !hasS(`${id}/v_ll_avg_v`));
+    });
   }
   function renderAnalyzers(M) {
     const list = M.analyzers;
@@ -2541,13 +2732,17 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     $("#anSub").textContent = `${list.filter((d) => d.comms === "ok").length} of ${list.length} online`;
     $("#anRate").textContent = rateOf(list[0]) ? `read ${rateOf(list[0])}` : "";
     const grid = $("#anGrid"), key = list.map((d) => d.id).join(",");
-    if (grid.__key !== key) { grid.__key = key; grid.innerHTML = list.map(anPanel).join(""); }
+    if (grid.__key !== key) {
+      Object.keys(charts).filter((c) => c.startsWith("c-an-")).forEach((c) => { charts[c].destroy(); delete charts[c]; });
+      grid.__key = key; grid.innerHTML = list.map(anPanel).join("");
+      later(anCharts);
+    }
     list.forEach((d) => anUpdate([...grid.children].find((x) => x.dataset.an === d.id), d));
   }
 
   // ---------------------------------------------------------------- master controller
   const HEALTHY = [["system_ready", "System ready"], ["bus_healthy", "Bus healthy"], ["mains_available", "Mains available"], ["pv_operable", "PV operable"], ["pvcb_status", "PV breaker"], ["mode_auto", "In AUTO"]];
-  const ALARMS = [["alarm_active", "Alarm / warning"], ["common_shutdown", "Shutdown"], ["alarm_mains_fail", "Mains fail"], ["pv_logger_comm_fail", "PV logger comm"], ["peripheral_comm_fail", "Peripheral comm"], ["estop", "Emergency stop"]];
+  const ALARMS = [["alarm_active", "Alarm / warning"], ["common_shutdown", "Shutdown"], ["alarm_mains_fail", "Mains fail"], ["pv_logger_comm_fail", "PV logger comm"], ["peripheral_comm_fail", "Peripheral comm"]];
   function renderMaster(M) {
     const m = M.master && has(M.master, "controller_mode") ? M.master : null;
     showSec("master", !!m); if (!m) return;
@@ -2632,7 +2827,9 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     redraw($("#mainsTiles"), M.grids.map((d) => {
       const av = pt(d, "available"), lost = d.comms !== "ok" && d.comms !== "reading", p = pt(d, "power_kw");
       const row = (l, v, u, dd = 0) => v === null ? "" : `<dt>${l}</dt><dd>${fmt(v, dd)}${u ? " " + u : ""}</dd>`;
-      return `<div class="gen ${lost ? "lost" : on(av) ? "run" : "alarm"}" data-dev="${esc(d.id)}" tabindex="0" role="button">
+      const trend = sv(`${d.id}/power_kw`);
+      return `<div class="gen ${lost ? "lost" : on(av) ? "run" : "alarm"}${trend.some(isNum) ? " has-sp" : ""}" data-dev="${esc(d.id)}" tabindex="0" role="button">
+        ${trend.some(isNum) ? `<div class="gsp" aria-hidden="true">${sparkSVG(trend, css("--c-grid"), "gsp-" + d.id)}</div>` : ""}
         <div class="hd"><b>${esc(d.id.replace(/^main-0?/, "MAIN "))}</b><span class="chip ${lost ? "warn" : on(av) ? "info" : "bad"}">${lost ? "no data" : on(av) ? "breaker closed" : "breaker open"}</span></div>
         <div class="kw" style="color:${css("--c-grid")}">${fmt(p)}<small>kW import</small></div>
         <dl>${(() => { const at = d.points.power_kw && d.points.power_kw.ts ? Date.parse(d.points.power_kw.ts) : null; return at ? `<dt>Read</dt><dd>${hm(at)} · ${ago(Math.max(0, Math.round((Date.parse(summary.time) - at) / 1000)))} ago</dd>` : ""; })()}${row("Load", pt(d, "load_p_kw"), "kW")}${row("Power factor", pt(d, "mains_pf"), "", 2)}${row("Voltage", pt(d, "voltage_v"), "V")}${row("Frequency", pt(d, "frequency_hz"), "Hz", 2)}${row("Imported total", pt(d, "energy_import_kwh"), "kWh")}${row("Controller battery", pt(d, "battery_v"), "V", 1)}</dl></div>`;
@@ -2722,7 +2919,8 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
         tooltip: { backgroundColor: css("--panel-2"), titleColor: css("--text"), bodyColor: css("--text"), borderColor: css("--border-2"), borderWidth: 1, padding: 10 * z,
                    titleFont: { family: css("--sans"), size: 11.5 * z, weight: "500" }, bodyFont: { family: css("--mono"), size: 11.5 * z }, boxWidth: 10, boxHeight: 3, usePointStyle: false,
                    itemSort: (a, b) => (b.parsed.y ?? -1e9) - (a.parsed.y ?? -1e9),
-                   callbacks: { title: (items) => items.length ? stamp(items[0].parsed.x) : "", label: (c) => ` ${c.dataset.label}: ${fmt(c.parsed.y, dec)} ${unit}` } },
+                   filter: (it) => !it.dataset.noTip,
+                   callbacks: { title: (items) => items.length ? stamp(items[0].parsed.x) : "", label: (c) => ` ${c.dataset.label}: ${fmt(c.parsed.y, dec)} ${c.dataset.unit ?? unit}` } },
       },
       scales: {
         x: { type: "linear", min: range[0], max: range[1], border: { display: false },
@@ -2731,7 +2929,9 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
              ticks: { autoSkip: false, maxRotation: 0, padding: 6, font: { family: css("--mono"), size: 10.5 * z }, color: (c) => c.tick && c.tick.major ? css("--text") : css("--tick"),
                       callback: (v, i, ticks) => ticks[i].major ? dayLabel(v) : hm(v) } },
         y: { grid: { color: css("--grid-line"), drawTicks: false }, border: { display: false }, ...extra.y,
-             ticks: { color: css("--tick"), padding: 8, maxTicksLimit: 6, font: { family: css("--mono"), size: 10.5 * z }, callback: (v) => fmt(v, unit === "Hz" ? 1 : 0) + (unit && unit !== "Hz" && unit.length <= 3 ? " " + unit : ""), ...((extra.y || {}).ticks || {}) } },
+             ticks: { color: css("--tick"), padding: 8, maxTicksLimit: 6, font: { family: css("--mono"), size: 10.5 * z },
+                     callback: (v, i, ticks) => { const st = ticks && ticks.length > 1 ? Math.abs(ticks[1].value - ticks[0].value) : 1, d = st > 0 && st < .1 ? 2 : st > 0 && st < 1 ? 1 : 0;
+                       return fmt(v, Math.max(unit === "Hz" ? 1 : 0, d)) + (unit && unit !== "Hz" && unit.length <= 3 ? " " + unit : ""); }, ...((extra.y || {}).ticks || {}) } },
       },
       spanGaps: false,
     };
@@ -2763,7 +2963,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     const yv = (p) => p !== null && typeof p === "object" ? p.y : p;
     const last = (d) => { if (d.noLast) return null; for (let i = d.data.length - 1; i >= 0; i--) { const y = yv(d.data[i]); if (y !== null && y !== undefined) return y; } return null; };
     const html = datasets.filter((d) => !d.noLegend && !seen.has(groupOf(d)) && seen.add(groupOf(d))).map((d) =>
-      `<button type="button" data-chart="${chartId}" data-group="${esc(groupOf(d))}" aria-pressed="${!off.has(groupOf(d))}" title="Show or hide ${esc(groupOf(d))}"><i style="background:${d.borderColor}"></i>${esc(groupOf(d))}${last(d) !== null ? ` <b>${fmt(last(d), unit === "Hz" ? 2 : Math.abs(last(d)) < 10 ? 1 : 0)}${unit ? " " + unit : ""}</b>` : ""}</button>`).join("");
+      `<button type="button" data-chart="${chartId}" data-group="${esc(groupOf(d))}" aria-pressed="${!off.has(groupOf(d))}" title="Show or hide ${esc(groupOf(d))}"><i style="background:${d.borderColor}"></i>${esc(groupOf(d))}${last(d) !== null ? ` <b>${fmt(last(d), (d.unit ?? unit) === "Hz" ? 2 : Math.abs(last(d)) < 10 ? 1 : 0)}${(d.unit ?? unit) ? " " + (d.unit ?? unit) : ""}</b>` : ""}</button>`).join("");
     if (legendHtml[lgId] !== html) { legendHtml[lgId] = html; redraw($("#" + lgId), html, "data-group"); }
   }
   document.addEventListener("click", (e) => {
@@ -2797,7 +2997,10 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     mark("series", true);
     S = r.series; T = r.t; SSTEP = r.step;
     renderSeries();
-    if (summary) renderOverview(model());          // the sparklines and the banner's "since" use the series
+    if (summary) {                                 // the sparklines, stat tiles and the banner's "since" use the series
+      const M = model();
+      renderOverview(M); renderGensets(M); renderAnalyzers(M); renderMains(M);
+    }
   }
   function renderSeries() {
     if (!S || !T.length) return;
@@ -2834,7 +3037,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       const d = [fill("Gensets P", sv(`${gens}/running_power_kw`).some((v) => v !== null) ? sv(`${gens}/running_power_kw`) : sv("genset_kw"), C("--c-gen"), { stepped: true }),
         line("Capacity on line", sv(`${gens}/running_nominal_kw`), "#b877d9", { borderDash: [6, 4], stepped: true }),
         line("Spinning reserve", sv(`${gens}/actual_reserve_kw`), "#8ab8ff", { borderWidth: 1.2, stepped: true })];
-      upsert("c-gen", d, baseOptions("kW", range, { y: { min: 0 } })); legend("lg-gen", "c-gen", d, "kW");
+      upsert("c-gen", d, baseOptions("kW", range, { y: { min: 0, suggestedMax: 100 } })); legend("lg-gen", "c-gen", d, "kW");
     } else {
       const gk = Object.keys(S).filter((k) => /\/(g\d+_)?power_kw$/.test(k) && M.units.some((u) => k.startsWith(u.id + "/")) && hasS(k));
       $("#genChartTitle").textContent = "Gensets - power per unit";
@@ -2842,6 +3045,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       if (d.length) { upsert("c-gen", d, baseOptions("kW", range, { y: { min: 0 } })); legend("lg-gen", "c-gen", d, "kW"); }
       $("#p-gencap").hidden = !d.length;
     }
+    anCharts();
     // which genset ran when
     let grow = [];
     if (gens) grow = Object.keys(S).filter((k) => k.startsWith(gens + "/") && /\/g\d+_running$/.test(k) && hasS(k))
@@ -3434,14 +3638,17 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
   $("#udGo").addEventListener("click", () => { updDlg.close(); askUpdater("install"); });
   updDlg.addEventListener("click", (e) => { if (e.target === updDlg) updDlg.close(); });
   // ================================================================== read now
+  // one button for everything: every device is read now (the site read, the live reader and the power meters,
+  // each on its own connection), then every panel is refreshed
   $("#pollBtn").addEventListener("click", async () => {
-    const b = $("#pollBtn"); b.classList.add("busy");
+    const b = $("#pollBtn"); if (b.classList.contains("busy")) return;
+    b.classList.add("busy"); b.disabled = true;
     try {
       const r = await getJSON("/api/v1/local/poll", { method: "POST" });
+      await refreshAll();
       toast(`Read done in ${r.took_s} s: ${r.answering} of ${r.total} devices answering`);
-      await loadSummary(); loadPoints(); loadSeries(); loadAlarms();
-    } catch (e) { toast(`Could not read the devices: ${why(e)}.`, true); }
-    b.classList.remove("busy");
+    } catch (e) { toast(`Could not read the devices: ${why(e)}.`, true); await refreshAll(); }
+    b.classList.remove("busy"); b.disabled = false;
   });
 
   // ================================================================== full screen
@@ -3526,7 +3733,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     out.push({ k: "Action", t: isFs() ? "Leave full screen" : "Full screen", h: "F", run: () => toggleFs() });
     out.push({ k: "Action", t: "Alarms", h: "active alarms, acknowledge, history", run: () => openDrawer() },
       { k: "Action", t: "Read devices now", run: () => $("#pollBtn").click() },
-      { k: "Action", t: "Refresh every panel", h: "R", run: () => $("#refreshBtn").click() },
+      { k: "Action", t: "Refresh every panel", h: "R", run: () => refreshAll() },
       { k: "Action", t: document.body.classList.contains("kiosk") ? "Leave TV mode" : "TV mode", h: "T", run: () => setKiosk(!document.body.classList.contains("kiosk")) },
       { k: "Action", t: "Switch light / dark", run: () => $("#themeBtn").click() },
       ...Object.entries(I18.langs || {}).map(([code, L]) => ({ k: "Language", t: L.name, h: code, run: () => setLang(code) })),
@@ -3568,7 +3775,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     if (e.key === "/") { e.preventDefault(); openCmdk(); }
     else if (e.key === "t") setKiosk(!document.body.classList.contains("kiosk"));
     else if (e.key === "f") toggleFs();
-    else if (e.key === "r") $("#refreshBtn").click();
+    else if (e.key === "r") refreshAll();
   });
 
   // ================================================================== language

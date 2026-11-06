@@ -94,7 +94,8 @@ def series_specs(reg: Registry) -> dict[str, tuple[str, list[tuple[str, str]]]]:
                 if d.point(pid):
                     specs[f"{d.id}/{pid}"] = ("avg", [(d.id, pid)])
     for d in reg.by_kind("analyzer"):                       # power meters: their own panels (never in the site totals)
-        for pid in ("p_total_kw", "i_avg_a", "v_ll_avg_v", "f_hz", "pf_total"):
+        for pid in ("p_total_kw", "s_total_kva", "q_total_kvar", "i_avg_a", "i_l1_a", "i_l2_a", "i_l3_a", "v_ll_avg_v",
+                    "f_hz", "pf_total", "e_in_kwh"):        # their stat tiles and time series (the energy from the counter)
             if d.point(pid):
                 specs[f"{d.id}/{pid}"] = ("avg", [(d.id, pid)])
     for d in reg.devices.values():                          # device links (dashboard timeline)

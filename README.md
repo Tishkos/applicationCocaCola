@@ -82,6 +82,11 @@ Every reading of every site read (all devices, every 10 minutes) is stored, and 
 The live reading of the master (every minute by default) is stored once a minute, every state change at once, and
 every value at least every 5 minutes. With the plant config (15 devices, 688 points) that is roughly
 100,000 site rows and up to 130,000 live rows a day, about 30-35 MB a day.
+Each finished month (UTC) moves to a file of its own, `data\archive\readings-YYYY-MM.sqlite` (since 1.0.8), in the
+background and a few thousand rows at a time; every chart, export and day report reads the months it covers by
+itself. Each month file records the last row of the main file it holds, so a reading written late (a PC clock that
+was wrong) is added to its month later and never hidden or lost, and the copies leave the main file one hour after
+the move. Back up the whole `data` folder, `archive` included. (Grafana reads only `telemetry.sqlite`.)
 
 Settings and history live in `C:\ProgramData\CCI Plant Monitoring` (`config\`, `data\`, `update\`,
 `install.log`); an update never overwrites them. Only SYSTEM and administrators may change that folder (users

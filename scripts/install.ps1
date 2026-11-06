@@ -151,6 +151,8 @@ if ($Phase -eq "Stop") {
                 $src = Join-Path $InstallDir "data\$f"
                 if (Test-Path $src) { Copy-Item $src (Join-Path $DataDir $f); Say "data brought over: $f" }
             }
+            $oa = Join-Path $InstallDir "data\archive"
+            if ((Test-Path $oa) -and -not (Test-Path (Join-Path $DataDir "archive"))) { Copy-Item $oa (Join-Path $DataDir "archive") -Recurse; Say "data brought over: archive (one file per month)" }
         }
     }
     exit 0
@@ -188,6 +190,8 @@ if ($Import -and -not (Test-Path (Join-Path $DataDir "telemetry.sqlite"))) {
         $src = Join-Path $oldData $f
         if (Test-Path $src) { Copy-Item $src (Join-Path $DataDir $f); Say "data brought over: $f" }
     }
+    $oa = Join-Path $oldData "archive"
+    if ((Test-Path $oa) -and -not (Test-Path (Join-Path $DataDir "archive"))) { Copy-Item $oa (Join-Path $DataDir "archive") -Recurse; Say "data brought over: archive (one file per month)" }
 }
 
 # the master's live reading: every minute, unless a rate was already chosen in Settings > Reading the devices (a config

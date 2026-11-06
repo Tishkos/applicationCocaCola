@@ -29,6 +29,7 @@ WHATS_NEW = {
     "1.0.6": "When the Neo reports 0 grid import while MAIN 1–3 carry power, grid import and site load come from the three incomers.",
     "1.0.7": "A Power analyzers tab: the two meters behind the gateways at 192.168.141.1 and .3, read every 15 s. The gensets have animated cards and a generator bus panel.",
     "1.0.8": "Updates download first and then install with one click, in a new update window that says when it is done. Each finished month of readings moves to a file of its own, and the window always shows the newest page.",
+    "1.0.9": "The Analyzers tab has stat tiles, bar gauges and time series for power, currents and voltage. One button reads every device. New menu icons. The month files of the database are kept exact even when the PC clock was wrong or the power went off.",
 }
 
 

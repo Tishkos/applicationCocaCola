@@ -86,6 +86,7 @@ class MeterReader:
         self._bad_run = {d: 0 for d in self.device_ids}
         self._ok_run = {d: 0 for d in self.device_ids}
         self.stop = threading.Event()
+        self._wake = threading.Event()                       # "Read devices now": the next cycle at once
         self.thread: threading.Thread | None = None
         self.cycles = 0
         self.last_cycle_at: datetime | None = None
@@ -112,8 +113,18 @@ class MeterReader:
         self.thread.start()
         return True
 
+    def wake_now(self, min_gap_s: float = 3.0) -> bool:
+        """Read the meters at once (on their kept connections, in this reader's own thread), unless they were read
+        less than min_gap_s ago. True when a cycle was asked for."""
+        last = self.last_cycle_at
+        if last is not None and (datetime.now(timezone.utc) - last).total_seconds() < min_gap_s:
+            return False
+        self._wake.set()
+        return True
+
     def close(self, wait_s: float = 5.0) -> None:
         self.stop.set()
+        self._wake.set()
         t = self.thread
         if t is not None and t.is_alive() and t is not threading.current_thread():
             t.join(timeout=wait_s)
@@ -125,7 +136,8 @@ class MeterReader:
                 self.cycle()
             except Exception as exc:                           # never let the thread die on a surprise
                 print(f"[meters] cycle failed: {exc}")
-            self.stop.wait(max(1.0, self.every_s - (time.monotonic() - t0)))
+            self._wake.wait(max(1.0, self.every_s - (time.monotonic() - t0)))
+            self._wake.clear()
 
     # ------------------------------------------------------------------ one cycle
     def cycle(self) -> None:

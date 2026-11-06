@@ -146,6 +146,15 @@ class LiveReader:
         self.thread = threading.Thread(target=self._run, daemon=True, name="live-reader")
         self.thread.start()
 
+    def wake_now(self, min_gap_s: float = 3.0) -> bool:
+        """Read the live devices at once ("Read devices now"), unless they were read less than min_gap_s ago.
+        True when a cycle was asked for."""
+        last = self.last_cycle_at
+        if last is not None and (datetime.now(timezone.utc) - last).total_seconds() < min_gap_s:
+            return False
+        self._wake.set()
+        return True
+
     def close(self) -> None:
         self.stop.set()
         self._wake.set()

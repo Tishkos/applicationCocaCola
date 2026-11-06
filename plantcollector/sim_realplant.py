@@ -38,6 +38,8 @@ class RealPlantSim:
         self.inverters = [d.id for d in kinds.values() if d.kind == "pv" and d.point("ac_power_kw") and not d.point("inverters_total")]
         self.arrays = [d.id for d in kinds.values() if d.kind == "pv" and d.point("inverters_total")]
         self.mains = [d.id for d in kinds.values() if d.kind == "grid"]
+        self.analyzers = [d.id for d in kinds.values() if d.kind == "analyzer"]       # the power meters (own feeders)
+        self.an_kwh = [148_200.0 + 61_500 * i for i in range(len(self.analyzers))]
         self.inv_rated = {i: float(kinds[i].limits.get("rated_kw", 320)) * 1.1 for i in self.inverters}    # 320 kW nominal, 352 kW max
         self.pv_rated = sum(self.inv_rated.values()) or 3520.0
         n = len(self.inverters)
@@ -273,4 +275,24 @@ class RealPlantSim:
             D[did] = {"power_kw": pm, "mains_import_q_kvar": pm * 0.28, "mains_pf": 0.96 if grid_on else 0.0,
                       "load_p_kw": lm, "load_q_kvar": lm * 0.3, "load_pf": 0.95,
                       "battery_v": 27.0 + r.uniform(-0.2, 0.2), "available": 1 if grid_on else 0}
+        # the power meters: two feeders of the plant (a small one and a bigger one), on the same 400 V bus
+        for k, did in enumerate(self.analyzers):
+            share = (0.024, 0.085, 0.05)[k % 3]
+            p = max(0.0, load * share * (1 + 0.18 * math.sin(h / 24 * 2 * math.pi * (2 + k))) * r.uniform(0.96, 1.04))
+            pf = min(0.99, max(0.8, 0.93 + 0.03 * math.sin(h / 3 + k) + r.uniform(-0.01, 0.01)))
+            s_ = p / pf
+            q = math.sqrt(max(0.0, s_ * s_ - p * p))
+            vll = 401 + 3 * math.sin(h / 5) + r.uniform(-1.2, 1.2)
+            vs = [vll + r.uniform(-1.5, 1.5) for _ in range(3)]
+            ia = s_ * 1000 / (math.sqrt(3) * vll)
+            imb = (1.0 + r.uniform(0.01, 0.04), 1.0 - r.uniform(0.0, 0.03), 1.0 + r.uniform(-0.02, 0.02))
+            cur = [ia * x for x in imb]
+            self.an_kwh[k] += p * seconds / 3600
+            D[did] = {"p_total_kw": round(p), "p_l1_kw": round(p * imb[0] / 3), "p_l2_kw": round(p * imb[1] / 3), "p_l3_kw": round(p * imb[2] / 3),
+                      "q_total_kvar": round(q), "s_total_kva": round(s_), "pf_total": round(pf, 3),
+                      "i_l1_a": round(cur[0]), "i_l2_a": round(cur[1]), "i_l3_a": round(cur[2]), "i_avg_a": round(sum(cur) / 3),
+                      "i_n_a": round(ia * 0.04), "v_l1l2_v": round(vs[0]), "v_l2l3_v": round(vs[1]), "v_l3l1_v": round(vs[2]),
+                      "v_ll_avg_v": round(sum(vs) / 3), "v_l1n_v": round(vs[0] / math.sqrt(3)), "v_l2n_v": round(vs[1] / math.sqrt(3)),
+                      "v_l3n_v": round(vs[2] / math.sqrt(3)), "v_ln_avg_v": round(sum(vs) / 3 / math.sqrt(3)), "f_hz": round(f, 2),
+                      "e_in_kwh": round(self.an_kwh[k], 3), "e_out_kwh": 0.0, "ct_primary_a": (450, 1000, 600)[k % 3]}
         self.data = D

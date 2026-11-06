@@ -183,12 +183,14 @@ def create_app(c: Collector) -> FastAPI:
 
     @app.post("/api/v1/local/poll")
     def poll_now():
-        """Read every device right now (the only POST; it reads, it does not write)."""
+        """Read every device right now: the site read, the live reader and the meter reader (it reads, it does
+        not write)."""
         t0 = time.time()
-        c.poll()
+        cycles = c.read_everything_now()
         devs = {d: views.device_comms(c, d) for d in c.registry.devices}
         return {"ok": True, "took_s": round(time.time() - t0, 2), "time": c.last_poll_at.isoformat(),
-                "devices": devs, "answering": sum(1 for v in devs.values() if v == "ok"), "total": len(devs)}
+                "devices": devs, "answering": sum(1 for v in devs.values() if v == "ok"), "total": len(devs),
+                "readers": cycles}
 
     @app.get("/api/v1/local/series")
     def series(hours: float | None = Query(None, gt=0, le=24 * MAX_EXPORT_DAYS), frm: str | None = Query(None, alias="from"),

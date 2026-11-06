@@ -39,6 +39,9 @@ devices:
   - {id: main-01,  profile: im210_mains.yaml,      adapter: simulator, connection: {}}
   - {id: main-02,  profile: im210_mains.yaml,      adapter: simulator, connection: {}}
   - {id: main-03,  profile: im210_mains.yaml,      adapter: simulator, connection: {}}
+  # the two power meters (on the plant behind the gateways at 192.168.141.1 and .3): two feeders in the demo
+  - {id: analyzer-1, profile: pm800_meter.yaml,   adapter: simulator, connection: {}}
+  - {id: analyzer-2, profile: pm800_meter.yaml,   adapter: simulator, connection: {}}
 
 # Demo of the Modbus TCP server for the Turkey platform (read-only), on this PC only. Port 5020 so it needs no
 # administrator rights; the plant config uses 502. Test with any Modbus client, unit id 1.

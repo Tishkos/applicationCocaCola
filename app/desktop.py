@@ -330,8 +330,16 @@ def fresh_cache(store: str) -> bool:
         pass
     emptied = False
     caches = {"cache", "code cache", "gpucache", "cachestorage", "scriptcache"}
+    def linked(p: str) -> bool:                           # a junction or symbolic link: never followed into
+        try:
+            return os.path.islink(p) or (hasattr(os.path, "isjunction") and os.path.isjunction(p))
+        except OSError:
+            return True
     for top, dirs, _files in os.walk(store):
         for d in list(dirs):
+            if linked(os.path.join(top, d)):
+                dirs.remove(d)
+                continue
             if d.lower() in caches:
                 shutil.rmtree(os.path.join(top, d), ignore_errors=True)
                 dirs.remove(d)

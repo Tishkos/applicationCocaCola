@@ -18,6 +18,7 @@ if (-not $InstallDir) { $InstallDir = Join-Path $env:ProgramFiles "CCI Plant Mon
 $Pd = Join-Path $env:ProgramData "CCI Plant Monitoring"
 $StatusFile = Join-Path $Pd "update\status.json"
 $Marker = Join-Path $Pd "update\installing.flag"
+$Flag = Join-Path $Pd "update\now.flag"
 $VersionFile = Join-Path $InstallDir "version.txt"
 $AppExe = Join-Path $InstallDir "CCI Plant Monitoring.exe"
 $LogPath = Join-Path $Pd "update\updater.log"
@@ -35,13 +36,23 @@ function Read-Status([switch]$Any) {
 function Installed {
     try { return (Get-Content $VersionFile -TotalCount 1 -ErrorAction Stop).Trim() } catch { return "" }
 }
-function Answers {
+function Base-Url {
     $url = "http://127.0.0.1:8080/"
     try {
         $f = Join-Path $Pd "data\dashboard.url"
         if (Test-Path $f) { $t = (Get-Content $f -TotalCount 1).Trim().Replace("localhost", "127.0.0.1"); if ($t) { $url = $t.TrimEnd("/") + "/" } }
     } catch {}
-    try { Invoke-RestMethod ($url + "api/v1/health") -TimeoutSec 2 -UseBasicParsing | Out-Null; return $true } catch { return $false }
+    return $url
+}
+function Answers {
+    try { Invoke-RestMethod ((Base-Url) + "api/v1/health") -TimeoutSec 2 -UseBasicParsing | Out-Null; return $true } catch { return $false }
+}
+function Ask-Again {
+    # the click came while the updater was already running (a check of its own): that run did not see it, and the
+    # request is still waiting in now.flag. Ask once more through the collector, as the Install button does.
+    try {
+        Invoke-RestMethod ((Base-Url) + "api/v1/local/update/install") -Method Post -Headers @{ "x-cci-request" = "update" } -TimeoutSec 20 -UseBasicParsing | Out-Null
+    } catch {}
 }
 
 # ---- colours and fonts of the program window -----------------------------------------------------------------------
@@ -250,13 +261,14 @@ function Open-App {
 $btnOpen.Add_Click({ Open-App; $form.Close() })
 $btnClose.Add_Click({ $form.Close() })
 
-function Finish($ok, $head, $message) {
+function Finish($ok, $head, $message, [switch]$Nothing) {
+    # -Nothing: nothing was installed (already the newest): no step gets a tick
     $tick.Stop()
     $ui.phase = if ($ok) { "ok" } else { "bad" }
     $title.Text = $head
     $text.Text = $message
-    if ($ok) { Set-Step 3 }
-    $btnOpen.Text = if ($ok) { "Reopen CCI Plant Monitoring" } else { "Open CCI Plant Monitoring" }
+    if ($Nothing) { Set-Step -1 } elseif ($ok) { Set-Step 3 }
+    $btnOpen.Text = if ($ok -and -not $Nothing) { "Reopen CCI Plant Monitoring" } else { "Open CCI Plant Monitoring" }
     $btnOpen.Visible = $true
     $btnClose.Visible = $true
     $hint.Visible = $false
@@ -277,7 +289,7 @@ $anim.Add_Tick({
 })
 
 # the state: once a second
-$state = @{ done = $false; working = $false; step = 0 }
+$state = @{ done = $false; working = $false; step = 0; asked = $started }
 $first = Read-Status -Any
 if ($first -and "$($first.state)" -eq "ready") { $state.step = 1 }          # downloaded and checked before the click
 Set-Step $state.step
@@ -285,7 +297,7 @@ $tick = New-Object System.Windows.Forms.Timer
 $tick.Interval = 1000
 $tick.Add_Tick({
     if (((Get-Date) - $started).TotalMinutes -gt 15) {
-        Finish $false "It takes longer than expected" "The update goes on by itself. The details are in $LogPath."
+        Finish $false "It takes longer than expected" "Settings > Updates in CCI Plant Monitoring shows what the updater did. The details are in $LogPath."
         return
     }
     $st = Read-Status
@@ -300,6 +312,7 @@ $tick.Add_Tick({
             Finish $true "Version $now is installed" ("Everything is ready, finished at " + (Get-Date -Format "HH:mm") + ". Settings and history were kept. Click Reopen to open CCI Plant Monitoring.")
             return
         }
+        if ($st -and "$($st.state)" -eq "error") { Finish $false "The update did not finish" ("" + $st.message); return }
         $text.Text = "Version $now is installed. Starting the background service..."
         return
     }
@@ -311,7 +324,11 @@ $tick.Add_Tick({
     }
     if ($st) {
         switch ("$($st.state)") {
-            "downloading" { $state.working = $true; $text.Text = "Downloading version $($st.latest)..." }
+            "downloading" {
+                $state.working = $true
+                if ($state.step -ne 0) { $state.step = 0; Set-Step 0 }
+                $text.Text = "Downloading version $($st.latest)..."
+            }
             "installing"  {
                 $state.working = $true
                 if ($state.step -lt 1) { $state.step = 1; Set-Step 1 }
@@ -319,9 +336,14 @@ $tick.Add_Tick({
             }
             "error"       { Finish $false "The update did not finish" ("" + $st.message) }
             # final only before any download or installation was seen (afterwards: a version change, or an error)
-            "up to date"  { if (-not $state.working) { Finish $true "Nothing to install" ("" + $st.message) } }
+            "up to date"  { if (-not $state.working) { Finish $true "Nothing to install" ("" + $st.message) -Nothing } }
             default       { $text.Text = "Asking the updater..." }
         }
+    }
+    # still waiting: a request the updater has not taken yet is asked again every 30 s
+    if (-not $state.working -and (Test-Path $Flag) -and ((Get-Date) - $state.asked).TotalSeconds -ge 30) {
+        $state.asked = Get-Date
+        Ask-Again
     }
 })
 $form.Add_Shown({ $anim.Start(); $tick.Start(); $form.Activate() })

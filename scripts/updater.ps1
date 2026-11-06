@@ -215,8 +215,29 @@ if (-not $have -or $latest -le $have) {
     Say "up to date (newest on GitHub: $latestText, from $($best.from))"
     exit 0
 }
-if ("$($cfg.skip)" -eq $latestText -and $mode -ne "install") {
-    Save-Status "update available" "$latestText did not start on this PC last time and was taken back; it is installed only with 'Install now'." @{ latest = $latestText; available = $latestText }
+$dl = Join-Path $UpdDir "download"
+$exe = Join-Path $dl $best.name
+$exeSum = $exe + ".sha256"
+function Test-Downloaded {
+    # the Setup of this version is already in the download folder and matches its SHA-256: the published one, or,
+    # when GitHub does not answer just now, the one written next to it when it was downloaded and checked (a
+    # network error must never throw a good download away)
+    if (-not (Test-Path $exe)) { return $false }
+    $w = $null
+    try { $w = (Read-Sums (Get-Text $best.sums))[$best.name] } catch { $w = $null }
+    if (-not $w -and (Test-Path $exeSum)) {
+        try { $w = ("" + (Get-Content $exeSum -TotalCount 1)).Trim().ToLower() } catch { $w = $null }
+    }
+    if (-not $w) { return $false }
+    try { return [bool]((Get-FileHash $exe -Algorithm SHA256).Hash.ToLower() -eq $w) } catch { return $false }
+}
+if ("$($cfg.skip)" -eq $latestText -and $mode -notin "install", "download") {
+    # it failed on this PC before: never installed by itself, but Download and Install from the dashboard still work
+    if (Test-Downloaded) {
+        Save-Status "ready" "Version $latestText is downloaded and checked. It did not start on this PC last time, so it is installed only with 'Install'." @{ latest = $latestText; available = $latestText }
+    } else {
+        Save-Status "update available" "Version $latestText did not start on this PC last time and was taken back; it is installed only with 'Download' and then 'Install'." @{ latest = $latestText; available = $latestText }
+    }
     Say "$latestText is on the skip list (it failed before)"
     exit 0
 }
@@ -226,23 +247,13 @@ $hour = (Get-Date).Hour
 $inWindow = ($hour -ge [int]$cfg.window_start_hour -and $hour -lt [int]$cfg.window_end_hour)
 $installNow = ($mode -eq "install") -or ($mode -ne "download" -and [bool]$cfg.auto -and $inWindow)
 $go = $installNow -or ($mode -eq "download")
-$dl = Join-Path $UpdDir "download"
-$exe = Join-Path $dl $best.name
-function Test-Downloaded {
-    # the Setup of this version is already in the download folder and matches its SHA-256
-    if (-not (Test-Path $exe)) { return $false }
-    try {
-        $w = (Read-Sums (Get-Text $best.sums))[$best.name]
-        return [bool]($w -and ((Get-FileHash $exe -Algorithm SHA256).Hash.ToLower() -eq $w))
-    } catch { return $false }
-}
 if (-not $go -and (Test-Downloaded)) {
     Save-Status "ready" "Version $latestText is downloaded and checked: 'Install' installs it now." @{ latest = $latestText; available = $latestText }
     Say "ready: $latestText (downloaded earlier, not installing now)"
     exit 0
 }
 if (-not $go) {
-    $when = if ([bool]$cfg.auto) { "It is installed automatically tonight between $window, or now with 'Install now'." } else { "Automatic updates are off: use 'Install now'." }
+    $when = if ([bool]$cfg.auto) { "It is installed automatically tonight between $window, or now with 'Download' and then 'Install'." } else { "Automatic updates are off: use 'Download' and then 'Install'." }
     Save-Status "update available" "Version $latestText is available (installed: $installed). $when" @{ latest = $latestText; available = $latestText }
     Say "available: $latestText (not installing now)"
     exit 0
@@ -272,6 +283,7 @@ if (Test-Downloaded) {
         exit 1
     }
     Say "SHA-256 ok ($got)"
+    try { Set-Content -Path $exeSum -Value $got -Encoding ASCII } catch {}
 }
 if (-not $installNow) {
     Save-Status "ready" "Version $latestText is downloaded and checked: 'Install' installs it now." @{ latest = $latestText; available = $latestText }
