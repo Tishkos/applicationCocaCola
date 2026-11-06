@@ -1,6 +1,6 @@
-# CCI Plant Monitoring - Setup download (test build 1.0.7)
+# CCI Plant Monitoring - Setup download (test build 1.0.9)
 
-**Download:** click `CCI-Plant-Monitoring-Setup-1.0.7.exe` above, then the **Download** button (the arrow, top right of the file view).
+**Download:** click `CCI-Plant-Monitoring-Setup-1.0.9.exe` above, then the **Download** button (the arrow, top right of the file view).
 
 Try it on a spare Windows 10/11 PC first.
 
@@ -14,8 +14,8 @@ Try it on a spare Windows 10/11 PC first.
 - If something goes wrong, send `C:\ProgramData\CCI Plant Monitoring\install.log` and
   `C:\ProgramData\CCI Plant Monitoring\data\collector.log`.
 
-`SHA256SUMS.txt` holds the Setup's SHA-256. Built from branch `live-dashboard`, commit c28855e.
+`SHA256SUMS.txt` holds the Setup's SHA-256. Built from branch `live-dashboard`, commit 9c849b0.
 This branch holds only the download; the code is on `live-dashboard`.
 
 The installed program's updater (1.0.3 and later) checks this branch too: a new Setup here, with its line in
-`SHA256SUMS.txt`, is installed automatically at night or with "Install now" in Settings > Updates.
+`SHA256SUMS.txt`, is installed automatically at night, or with "Download" and then "Install" in Settings > Updates (1.0.8 and later).
