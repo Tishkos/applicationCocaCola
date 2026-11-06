@@ -31,6 +31,7 @@ WHATS_NEW = {
     "1.0.8": "Updates download first and then install with one click, in a new update window that says when it is done. Each finished month of readings moves to a file of its own, and the window always shows the newest page.",
     "1.0.9": "The Analyzers tab has stat tiles, bar gauges and time series for power, currents and voltage. One button reads every device. New menu icons. The month files of the database are kept exact even when the PC clock was wrong or the power went off.",
     "1.0.10": "The power meters come back by themselves after a restart or an update: the program waits for their gateways (about 3.5 minutes) instead of opening connections they ignore. The Analyzers tab says why a meter has no data.",
+    "1.0.11": "Solar PV has a plant panel with stat tiles, gauges and bar gauges, and a card per inverter with its strings. Mains has a grid connection panel and a card per incomer, like the gensets. The power meters come back by themselves after a restart.",
 }
 
 

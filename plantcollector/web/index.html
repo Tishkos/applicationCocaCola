@@ -897,6 +897,28 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
 .lamp.bad i { background: var(--bad); box-shadow: 0 0 6px var(--bad); animation: pcBlink 1.2s steps(2, start) infinite; }
 .lamp.warn i { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
 .gcard .foot { font-size: calc(11.5px * var(--zoom)); color: var(--text-3); min-height: 1.3em; }
+/* inverter and incomer cards (like the gensets'): their own colour, the trend of the range in a band at the bottom */
+.gcard.has-sp { padding-bottom: calc(44px * var(--zoom)); }
+.gcard .gsp { position: absolute; inset: auto 0 0 0; height: calc(36px * var(--zoom)); pointer-events: none; }
+.gcard .gsp .spark { position: absolute; inset: 0; width: 100%; height: 100%; }
+.icard.on { border-color: color-mix(in srgb, var(--c-pv) 40%, var(--border)); box-shadow: 0 10px 28px -20px var(--c-pv); }
+.icard.on::before { background: var(--c-pv); }
+.icard .foot, .mcard .foot { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.icard.on .sun { color: var(--c-pv); animation: pcSpin 9s linear infinite; }
+.icard.on .ag::after { box-shadow: 0 0 34px -6px color-mix(in srgb, var(--c-pv) 50%, transparent); }
+.mcard.on { border-color: color-mix(in srgb, var(--c-grid) 45%, var(--border)); box-shadow: 0 10px 28px -20px var(--c-grid); }
+.mcard.on::before { background: var(--c-grid); }
+.mcard.on .pyl { color: var(--c-grid); animation: pylGlow 2.4s ease-in-out infinite; }
+.mcard.on .ag::after { box-shadow: 0 0 34px -6px color-mix(in srgb, var(--c-grid) 55%, transparent); }
+@keyframes pylGlow { 50% { filter: drop-shadow(0 0 4px var(--c-grid)); opacity: .75; } }
+.strs { display: grid; grid-template-columns: repeat(auto-fill, minmax(calc(8px * var(--zoom)), 1fr)); gap: 2px; }
+.strs i { height: calc(7px * var(--zoom)); border-radius: 1px; background: var(--panel-3); transition: background .5s; }
+.strs i.ok { background: color-mix(in srgb, var(--ok) 80%, transparent); } .strs i.warn { background: var(--warn); } .strs i.bad { background: var(--bad); }
+.anb.pvb { grid-template-columns: repeat(auto-fit, minmax(calc(190px * var(--zoom)), 1fr)); }
+.pvb .gbx span.on { background: color-mix(in srgb, var(--c-pv) 55%, #000); border-color: var(--c-pv); box-shadow: 0 0 10px -3px var(--c-pv); }
+.ilg { margin-top: 4px; }
+.ilg .lamp.bad i { animation: none; }
+.ilg .lamp.ok i { background: var(--c-pv); box-shadow: 0 0 6px var(--c-pv); }
 .busstrip { display: grid; grid-template-columns: minmax(calc(230px * var(--zoom)), 1.3fr) repeat(3, minmax(calc(130px * var(--zoom)), 1fr)); gap: 16px; align-items: center; }
 .busstrip .ctl { display: flex; flex-direction: column; gap: 10px; }
 .busstrip .ah, .anb .ah { font-size: calc(11.5px * var(--zoom)); color: var(--text-3); text-transform: uppercase; letter-spacing: .4px; }
@@ -916,6 +938,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
   .gcards.fit .gcard .hd { gap: 6px; } .gcards.fit .gcard .hd b { font-size: calc(14px * var(--zoom)); }
   .gcards.fit .gcard .hd .chip { font-size: calc(10px * var(--zoom)); padding: 1px 6px; }
   .gcards.fit .lamp { font-size: calc(10.5px * var(--zoom)); padding: 2px 7px 2px 6px; gap: 5px; }
+  .gcards.fit .gcard .foot { font-size: calc(10.5px * var(--zoom)); }
 }
 /* ---------------------------------------------------------------- Grafana-style stat tiles and bar gauges */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(calc(158px * var(--zoom)), 1fr)); gap: 8px; }
@@ -968,6 +991,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
 .aflow .base { stroke: var(--panel-3); stroke-width: 4; stroke-linecap: round; }
 .aflow .dash { stroke: var(--c-an); stroke-width: 4; stroke-linecap: round; stroke-dasharray: 2 10; animation: pcFlow var(--dur, 2s) linear infinite; }
 .aflow.rev .dash { animation-direction: reverse; stroke: var(--warn); }
+.pvm .aflow .dash { stroke: var(--c-pv); }
 .aflow.idle .dash { animation: none; opacity: .2; }
 .ec { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: calc(12px * var(--zoom)); color: var(--text-2); }
 .ec b { font-size: calc(19px * var(--zoom)); }
@@ -1192,20 +1216,31 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       <section class="row" id="solar" hidden>
         <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Solar PV</h2><span class="sub" id="pvSub"></span><span class="sub rate" id="pvRate"></span><span class="upd" data-upd="summary"></span></button>
         <div class="grid">
-          <div class="panel stat w4" data-src="summary" id="s-link"></div>
-          <div class="panel stat w4" data-src="summary" id="s-work"></div>
-          <div class="panel stat w4" data-src="summary" id="s-avail"></div>
-          <div class="panel stat w4" data-src="summary" id="s-out"></div>
-          <div class="panel stat w4" data-src="summary" id="s-today"></div>
-          <div class="panel w4" data-src="summary"><div class="ph"><h3 id="s-g4t">PV allowed</h3></div><div class="pb" id="s-g4"></div></div>
+          <div class="panel w24 anm pvm" data-src="summary" id="p-pvplant">
+            <div class="ph"><h3>Solar plant</h3><span class="chip idle st">—</span><span class="why"></span>
+              <div class="meta"><span class="m-dev" data-no-i18n></span><span class="m-inv"><small>Inverters</small> <b class="ninv" data-no-i18n>—</b></span><span class="m-kwp"><small>Rated</small> <b class="kwp" data-no-i18n>—</b></span></div></div>
+            <div class="pb">
+              <div class="stats astats" id="pvStats"><div data-k="out"></div><div data-k="avail"></div><div data-k="today"></div><div data-k="yield"></div><div data-k="work"></div><div data-k="share"></div></div>
+              <div class="anb pvb">
+                <div><div class="ah">Solar power</div><div class="ga pw"></div>
+                  <div class="aflow idle"><svg viewBox="0 0 200 12" height="12" preserveAspectRatio="none" aria-hidden="true"><line class="base" x1="4" y1="6" x2="196" y2="6"/><line class="dash" x1="4" y1="6" x2="196" y2="6"/></svg><span class="dir">no sun</span></div>
+                  <div class="pq"><span><small>Available</small><br><b><span class="n av">—</span> kW</b></span><span><small>Held back</small><br><b><span class="n hb">—</span> kW</b></span><span><small>DC</small><br><b><span class="n dc">—</span> kW</b></span></div></div>
+                <div><div class="ah g4t">PV allowed by master</div><div class="ga g4"></div>
+                  <div class="ah" style="margin-top:12px">Inverters</div><div class="gbx ibx"></div>
+                  <div class="lamps ilg"><span class="lamp ok"><i></i><span class="t">generating</span></span><span class="lamp"><i></i><span class="t">standby</span></span><span class="lamp bad"><i></i><span class="t">fault</span></span></div></div>
+                <div><div class="ah">Inverter power</div><div class="ipw"></div></div>
+                <div><div class="ah">Cabin temperature</div><div class="itc"></div></div>
+                <div><div class="dials"><div><div class="ah">Power factor</div><div class="ga pf"></div></div><div><div class="ah">Frequency</div><div class="ga hz"></div></div></div></div>
+              </div></div>
+          </div>
+          <div class="panel w24" data-src="summary" id="p-invcards">
+            <div class="ph"><h3>Inverters now</h3><span class="info" title="Each inverter: its output against its rating, its state, and its strings (each square one string: green near the inverter's typical string, amber clearly lower, red very low or none while the others work). Click an inverter for all its values."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" id="invBarsNote"></span></div>
+            <div class="pb gcwrap"><div class="gcards icards" id="invCards"></div></div>
+          </div>
           <div class="panel w12" data-src="series" id="p-pvchart">
             <div class="ph"><h3>Solar - available vs delivered</h3><span class="info" title="The gap is solar left unused: curtailment by the master while on gensets, tripped inverters, gateway stalls."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" data-upd="series"></span></div>
             <div class="pb"><div class="chart"><canvas id="c-pv"></canvas></div></div>
             <div class="legend" id="lg-pv"></div>
-          </div>
-          <div class="panel w12" data-src="summary" id="p-invbars">
-            <div class="ph"><h3>Inverters now</h3><span class="r" id="invBarsNote"></span></div>
-            <div class="pb"><div class="bars" id="invBars"></div></div>
           </div>
           <div class="panel w12" data-src="series" id="p-inv">
             <div class="ph"><h3>Inverter output</h3><span class="r" data-upd="series"></span></div>
@@ -1217,13 +1252,13 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
             <div class="pb"><div class="chart"><canvas id="c-invtemp"></canvas></div></div>
             <div class="legend" id="lg-invtemp"></div>
           </div>
+          <div class="panel w12" data-src="summary" id="p-invrank" hidden>
+            <div class="ph"><h3>Energy today per inverter</h3><span class="info" title="Ranked, and compared with the fleet average. An inverter far under its neighbours on a sunny day has a string, fuse or fan problem."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" id="invRankNote"></span></div>
+            <div class="pb"><div class="bars" id="invRank"></div></div>
+          </div>
           <div class="panel w24" data-src="summary" id="p-fleet">
             <div class="ph"><h3>Inverter fleet</h3><span class="info" title="Click an inverter for all its values and a trend."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" data-upd="summary"></span></div>
             <div class="tablewrap"><table><thead><tr><th>Inverter</th><th>Status</th><th>AC power</th><th class="num">DC kW</th><th class="num">Efficiency</th><th>Cabin</th><th class="num">Today kWh</th><th class="num">Total MWh</th><th>Link</th></tr></thead><tbody id="fleetBody"></tbody></table></div>
-          </div>
-          <div class="panel w24" data-src="summary" id="p-invrank" hidden>
-            <div class="ph"><h3>Energy today per inverter</h3><span class="info" title="Ranked, and compared with the fleet average. An inverter far under its neighbours on a sunny day has a string, fuse or fan problem."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" id="invRankNote"></span></div>
-            <div class="pb"><div class="bars" id="invRank"></div></div>
           </div>
         </div>
       </section>
@@ -1232,7 +1267,15 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       <section class="row" id="mains" hidden>
         <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Mains &amp; grid</h2><span class="sub" id="mainsSub"></span><span class="sub rate" id="mainsRate"></span><span class="upd" data-upd="summary"></span></button>
         <div class="grid">
-          <div class="panel w24" data-src="summary"><div class="ph"><h3 id="mainsTilesTitle">Incomers now</h3></div><div class="pb"><div class="gens" id="mainsTiles"></div></div></div>
+          <div class="panel w24" data-src="summary" id="p-mainsbus" hidden>
+            <div class="ph"><h3>Grid connection</h3><span class="info" title="From the master controller and the incomers' controllers: the mains breaker, which incomers carry the grid, the grid import, its power factor and its share of the site load. Shown only: this program reads the controllers and cannot change anything."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" data-upd="summary"></span></div>
+            <div class="pb"><div class="busstrip" id="mainsBus"></div></div>
+          </div>
+          <div class="panel w24" data-src="summary"><div class="ph"><h3 id="mainsTilesTitle">Incomers now</h3><span class="r" id="mainsCardsNote"></span></div>
+            <div class="pb gcwrap"><div class="gcards" id="mainsCards"></div><div class="gens" id="mainsTiles"></div></div></div>
+          <div class="panel w24 bare" data-src="summary" id="p-mainsstats" hidden>
+            <div class="pb"><div class="stats" id="mainsStats"><div data-k="imp"></div><div data-k="kwh"></div><div data-k="hrs"></div><div data-k="share"></div><div data-k="q"></div><div data-k="pf"></div></div></div>
+          </div>
           <div class="panel w12" data-src="series">
             <div class="ph"><h3>Grid import</h3><span class="r" data-upd="series"></span></div>
             <div class="pb"><div class="chart"><canvas id="c-mains"></canvas></div></div>
@@ -2767,46 +2810,46 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     redraw($("#m-al"), ALARMS.filter(([k2]) => has(m, k2)).map(([k2, l]) => { const v = pt(m, k2); return sig(l, lost || v === null ? "idle" : on(v) ? "bad" : "ok", lost || v === null ? "—" : on(v) ? "ACTIVE" : "OK"); }).join(""));
   }
 
-  // ---------------------------------------------------------------- solar
+  // ---------------------------------------------------------------- solar PV
+  const SUNI = `<svg class="fan sun" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></svg>`;
+  const PYLON = `<svg class="fan pyl" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M7 21.5L11 3h2l4 18.5"/><path d="M4 7.5h16M5.8 12.5h12.4M9.6 12.5l5.6 9M14.4 12.5l-5.6 9"/></svg>`;
+  const rated = (d) => { const mm = (d.model || "").match(/(\d{2,4})\s*kW/i); return mm ? Number(mm[1]) : 352; };
+  const invNo = (d) => d.id.replace(/^inv-0?/i, "");
+  // an inverter's state: [words, chip class, card class]
+  function invState(d) {
+    if (d.comms !== "ok" && d.comms !== "reading") return ["no data", "warn", "lost"];
+    if (on(pt(d, "fault"))) return ["fault", "bad", "miss"];
+    if (on(pt(d, "running_with_alarm"))) return ["alarm", "bad", "miss"];
+    if (on(pt(d, "grid_connected"))) return on(pt(d, "derated")) ? ["derated", "pv", "on"] : ["generating", "ok", "on"];
+    return on(pt(d, "dormant")) ? ["sleeping", "idle", ""] : on(pt(d, "standby")) ? ["standby", "idle", ""] : ["off", "idle", ""];
+  }
+  // a card grid that keeps its cards in one row (up to 6) or two (up to 12) while they fit
+  function cardGrid(host, n) {
+    host.classList.toggle("fit", n > 0 && n <= 12);
+    host.style.setProperty("--gn", String(Math.max(1, n <= 6 ? n : Math.ceil(n / 2))));
+  }
+  // the trend of the selected range in a band at the bottom of a card
+  function cardSpark(el, vals, color, id) {
+    const band = el.querySelector(".gsp"), key = vals.some(isNum) ? color + vals.join(",") : "";
+    if (band.__k === key) return;
+    band.__k = key; band.innerHTML = key ? sparkSVG(vals, color, id) : ""; el.classList.toggle("has-sp", !!key);
+  }
   function renderSolar(M) {
     const show = M.pv.length > 0; showSec("solar", show); if (!show) return;
     const k = summary.kpi, arr = M.arrays.find((d) => has(d, "inverters_total")) || M.arrays[0] || null, inv = M.inverters;
     const avail = M.pv.some((d) => isNum(pt(d, "available_kw"))) ? M.pv.reduce((a, d) => a + (isNum(pt(d, "available_kw")) ? pt(d, "available_kw") : 0), 0) : null;
     $("#pvSub").textContent = `${fmt(k.pv_kw)} kW now · ${fmt(k.pv_kwh_today)} kWh today` + (inv.length ? ` · ${inv.length} inverters` : "");
     $("#pvRate").textContent = inv.length && rateOf(inv[0]) ? `inverters read ${rateOf(inv[0])}` : "";
-    // link / status tile
-    if (arr && has(arr, "comm_error")) {
-      const bad = arr.comms !== "ok" || on(pt(arr, "comm_error"));
-      stat($("#s-link"), { title: `${arr.id} link`, value: bad ? "NO DATA" : "ONLINE", bg: bad ? "#c4162a" : "#37872d", bg2: bad ? "#f2495c" : "#56a64b", sub: `${arr.vendor} ${arr.model}`.slice(0, 48) });
-    } else {
-      const d0 = arr || M.pv[0];
-      stat($("#s-link"), { title: "Solar devices", value: d0 && d0.comms === "ok" ? "ONLINE" : "NO DATA", bg: d0 && d0.comms === "ok" ? "#37872d" : "#c4162a", bg2: d0 && d0.comms === "ok" ? "#56a64b" : "#f2495c", sub: `${M.pv.length} device${M.pv.length > 1 ? "s" : ""}` });
-    }
-    const working = arr && isNum(pt(arr, "inverters_working")) ? pt(arr, "inverters_working") : inv.length ? inv.filter((d) => on(pt(d, "grid_connected"))).length : arr && isNum(pt(arr, "inverters_online")) ? pt(arr, "inverters_online") : null;
-    const total = arr && isNum(pt(arr, "inverters_total")) ? pt(arr, "inverters_total") : inv.length || null;
-    const faulty = arr && isNum(pt(arr, "inverters_faulty")) ? pt(arr, "inverters_faulty") : inv.filter((d) => on(pt(d, "fault"))).length;
-    stat($("#s-work"), { title: "Inverters working", value: fmt(working), unit: total ? `of ${total}` : "", color: working ? C("--ok") : C("--text-3"), sub: faulty ? `<span style="color:${css("--bad")}">${faulty} faulty</span>` : "none faulty" });
-    stat($("#s-avail"), { title: "Available from the sun", value: fmt(avail), unit: "kW", color: C("--c-avail"), spark: sv("pv_available_kw"), info: "What the inverters could deliver now if nothing held them back." });
-    const held = avail !== null && k.pv_kw !== null ? Math.max(0, avail - k.pv_kw) : null;
-    stat($("#s-out"), { title: "Solar delivered", value: fmt(k.pv_kw), unit: "kW", color: C("--c-pv"), spark: sv("pv_kw"), sub: held !== null ? `${fmt(held)} kW held back` : "" });
-    stat($("#s-today"), { title: "Solar energy today", value: fmt(k.pv_kwh_today), unit: "kWh", color: C("--c-pv"), sub: k.pv_curtailed_kwh_today ? `${fmt(k.pv_curtailed_kwh_today)} kWh curtailed` : "" });
-    const allowed = M.master ? pt(M.master, "pv_curtailment_pct") : null, irr = k.irradiance_wm2;
-    if (allowed !== null) { $("#s-g4t").textContent = "PV allowed by master"; redraw($("#s-g4"), gauge(allowed, { min: 0, max: 100, unit: "%", steps: [[0, C("--warn")], [60, "#eab839"], [99, C("--ok")]] })); }
-    else if (irr !== null) { $("#s-g4t").textContent = "Irradiance"; redraw($("#s-g4"), gauge(irr, { min: 0, max: 1100, unit: "W/m²", steps: [[0, C("--text-3")], [200, "#eab839"], [600, C("--c-pv")]] })); }
-    else { $("#s-g4t").textContent = "Solar share now"; redraw($("#s-g4"), gauge(k.pv_share_now_pct, { min: 0, max: 100, unit: "%", steps: [[0, C("--text-3")], [15, "#eab839"], [40, C("--ok")]] })); }
-    // inverters
+    pvPlant(M, k, arr, inv, avail);
     const many = inv.length > 1;
-    ["p-invbars", "p-inv", "p-invtemp", "p-fleet"].forEach((id) => { $("#" + id).hidden = !many; });
+    ["p-invcards", "p-inv", "p-invtemp", "p-fleet"].forEach((id) => { $("#" + id).hidden = !many; });
     $("#p-pvchart").className = `panel ${many ? "w12" : "w24"}${$("#p-pvchart").classList.contains("stale") ? " stale" : ""}`;
-    if (!many) return;
-    const rated = (d) => (d.model.match(/(\d{3})\s*kW/i) || [])[1] ? Number(d.model.match(/(\d{3})\s*kW/i)[1]) : 352;
-    redraw($("#invBars"), inv.map((d) => { const p = pt(d, "ac_power_kw"), lost = d.comms !== "ok";
-      return `<div class="b" data-dev="${esc(d.id)}" tabindex="0" role="button" title="${esc(d.id)}: all values"><span class="n mono">${esc(d.id.toUpperCase())}</span>${lcd(lost ? 0 : (p || 0) / rated(d), css("--c-pv"))}<span class="val" style="color:${lost ? css("--bad") : css("--c-pv")}">${lost ? "—" : fmt(p)} <small style="font-size:11px;color:${css("--text-3")}">kW</small></span></div>`; }).join(""), "data-dev");
+    if (!many) { $("#p-invrank").hidden = true; return; }
+    invCards(inv);
     $("#invBarsNote").textContent = `rated ${rated(inv[0])} kW each`;
     const tcol = (t) => t === null ? css("--idle") : t >= 70 ? "#c4162a" : t >= 55 ? "#c4581a" : "#37872d";
     redraw($("#fleetBody"), inv.map((d) => {
-      const lost = d.comms !== "ok", p = pt(d, "ac_power_kw"), st = lost ? ["no data", "warn"] : on(pt(d, "fault")) ? ["fault", "bad"] : on(pt(d, "running_with_alarm")) ? ["alarm", "bad"]
-        : on(pt(d, "grid_connected")) ? (on(pt(d, "derated")) ? ["derated", "pv"] : ["generating", "ok"]) : on(pt(d, "dormant")) ? ["sleeping", "idle"] : on(pt(d, "standby")) ? ["standby", "idle"] : ["off", "idle"];
+      const lost = d.comms !== "ok", p = pt(d, "ac_power_kw"), st = invState(d);
       const tc = pt(d, "cabin_temp_c"), tot = pt(d, "energy_total_kwh");
       return `<tr data-dev="${esc(d.id)}" style="cursor:pointer"><td><button type="button" class="ptlink">${esc(d.id.toUpperCase())}</button></td><td><span class="chip ${st[1]}">${st[0]}</span></td>`
         + `<td><span class="mini-lcd">${lcd((p || 0) / rated(d), css("--c-pv"), 20)}<span class="mono">${fmt(p, 1)}</span></span></td><td class="num">${fmt(pt(d, "dc_power_kw"), 1)}</td>`
@@ -2824,6 +2867,111 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
         return `<div class="b wide" data-dev="${esc(d.id)}" tabindex="0" role="button"><span class="n mono">${esc(d.id.toUpperCase())}</span>${lcd(e / top, col, 40)}<span class="val" style="color:${col}">${fmt(e)} kWh <small style="font-size:11px;color:${css("--text-3")}">${rel >= 1 ? "+" : ""}${fmt(100 * (rel - 1), 1)} %</small></span></div>`; }).join(""), "data-dev");
     }
   }
+  // the solar plant as a whole: stat tiles with the selected range behind them, gauges and bar gauges
+  function pvPlant(M, k, arr, inv, avail) {
+    const el = $("#p-pvplant"), tile = (x) => el.querySelector(`#pvStats [data-k="${x}"]`);
+    const d0 = arr || M.pv[0], link = d0 ? (arr && on(pt(arr, "comm_error")) ? "lost" : d0.comms) : "lost";
+    const st = el.querySelector(".st"); st.className = `chip st ${commsCls(link)}`; setText(st, comms(link));
+    setText(el.querySelector(".why"), d0 && link !== "ok" && link !== "reading" ? "the solar gateway does not answer" : "");
+    setText(el.querySelector(".m-dev"), d0 ? `${d0.vendor} ${d0.model}`.trim() : "");
+    const kwp = inv.length ? inv.reduce((a, d) => a + rated(d), 0) : arr && isNum(pt(arr, "rated_capacity_kva")) ? pt(arr, "rated_capacity_kva") : null;
+    el.querySelector(".m-inv").hidden = !inv.length; setText(el.querySelector(".ninv"), String(inv.length));
+    el.querySelector(".m-kwp").hidden = !kwp; setText(el.querySelector(".kwp"), kwp ? `${fmt(kwp)} kWp` : "—");
+    // stat tiles
+    const out = k.pv_kw, held = avail !== null && isNum(out) ? Math.max(0, avail - out) : null, oT = sv("pv_kw"), oS = rangeStats(oT);
+    stile(tile("out"), { title: "Solar delivered", v: out, unit: "kW", color: C("--c-pv"), spark: oT,
+      facts: oS ? [["peak", `${fmt(oS.max)} kW`], ["average", `${fmt(oS.avg)} kW`]] : [] });
+    stile(tile("avail"), { title: "Available from the sun", v: avail, unit: "kW", color: C("--c-avail"), spark: sv("pv_available_kw"),
+      info: "What the inverters could deliver now if nothing held them back.", facts: [["held back", held !== null ? `${fmt(held)} kW` : null]] });
+    stile(tile("today"), { title: "Solar energy today", v: k.pv_kwh_today, unit: "kWh", color: C("--c-pv"), bars: true,
+      spark: oT.map((v) => isNum(v) ? v * SSTEP / 3600 : null), facts: [["curtailed", k.pv_curtailed_kwh_today ? `${fmt(k.pv_curtailed_kwh_today)} kWh` : null]] });
+    const yv = kwp && isNum(k.pv_kwh_today) ? k.pv_kwh_today / kwp : null;
+    stile(tile("yield"), { title: "Specific yield today", v: yv, dec: 2, unit: "kWh/kWp", color: "#73bf69",
+      info: "Energy today per kWp installed: compare it day by day, or with other plants nearby.", facts: kwp ? [["installed", `${fmt(kwp)} kWp`]] : [] });
+    tile("yield").hidden = !kwp;
+    const working = arr && isNum(pt(arr, "inverters_working")) ? pt(arr, "inverters_working") : inv.length ? inv.filter((d) => on(pt(d, "grid_connected"))).length : arr && isNum(pt(arr, "inverters_online")) ? pt(arr, "inverters_online") : null;
+    const total = arr && isNum(pt(arr, "inverters_total")) ? pt(arr, "inverters_total") : inv.length || null;
+    const faulty = arr && isNum(pt(arr, "inverters_faulty")) ? pt(arr, "inverters_faulty") : inv.filter((d) => on(pt(d, "fault"))).length;
+    stile(tile("work"), { title: "Inverters working", v: working, unit: total ? `of ${total}` : "", color: faulty ? C("--warn") : working ? C("--ok") : C("--text-3"),
+      facts: [faulty ? `${faulty} faulty` : "none faulty"] });
+    const ld = sv("load_kw"), shT = oT.map((v, i) => isNum(v) && isNum(ld[i]) && ld[i] > 0 ? Math.min(100, 100 * v / ld[i]) : null);
+    stile(tile("share"), { title: "Solar share of the load", v: k.pv_share_now_pct, dec: k.pv_share_now_pct < 10 ? 1 : 0, unit: "%", color: "#8ab8ff", spark: shT,
+      facts: [["today", isNum(k.pv_share_pct_today) ? `${fmt(k.pv_share_pct_today, 1)} %` : null]] });
+    // the power gauge and its flow
+    const pmax = kwp ? niceMax(kwp) : niceMax(Math.max(avail || 0, out || 0, 100)), mag = isNum(out) ? Math.max(0, out) : 0;
+    agauge(el.querySelector(".ga.pw"), isNum(out) ? mag : null, { min: 0, max: pmax, unit: "kW", steps: [[0, "#cca300"], [pmax * .3, C("--c-pv")]], cap: kwp ? `of ${fmt(kwp)} kWp` : "" });
+    const fl = el.querySelector(".aflow");
+    fl.classList.toggle("idle", !(mag >= 1)); fl.style.setProperty("--dur", (3.2 - 2.6 * Math.min(1, mag / pmax)).toFixed(2) + "s");
+    setText(fl.querySelector(".dir"), mag >= 1 ? "into the bus" : "no sun");
+    const dc = inv.some((d) => isNum(pt(d, "dc_power_kw"))) ? inv.reduce((a, d) => a + (pt(d, "dc_power_kw") || 0), 0) : null;
+    tweenNum(el.querySelector(".n.av"), avail); tweenNum(el.querySelector(".n.hb"), held); tweenNum(el.querySelector(".n.dc"), dc);
+    el.querySelector(".n.dc").parentElement.parentElement.hidden = dc === null;   // the DC item (b, then its span)
+    // what the master allows (or the sun, or the share), the inverters' states
+    const allowed = M.master ? pt(M.master, "pv_curtailment_pct") : null, irr = k.irradiance_wm2, g4 = el.querySelector(".ga.g4");
+    if (allowed !== null) { setText(el.querySelector(".g4t"), "PV allowed by master"); agauge(g4, allowed, { min: 0, max: 100, unit: "%", steps: [[0, C("--warn")], [60, "#eab839"], [99, C("--ok")]] }); }
+    else if (irr !== null) { setText(el.querySelector(".g4t"), "Irradiance"); agauge(g4, irr, { min: 0, max: 1100, unit: "W/m²", steps: [[0, C("--text-3")], [200, "#eab839"], [600, C("--c-pv")]] }); }
+    else { setText(el.querySelector(".g4t"), "Solar share now"); agauge(g4, k.pv_share_now_pct, { min: 0, max: 100, unit: "%", steps: [[0, C("--text-3")], [15, "#eab839"], [40, C("--ok")]] }); }
+    const ibx = el.querySelector(".ibx"), ikey = inv.map((d) => d.id).join(",");
+    if (ibx.__key !== ikey) { ibx.__key = ikey; ibx.innerHTML = inv.map((d) => `<span data-d="${esc(d.id)}" data-no-i18n>${esc(invNo(d))}</span>`).join(""); }
+    [...ibx.children].forEach((x, i) => { const s1 = invState(inv[i]); x.className = s1[2]; x.title = `${inv[i].id.toUpperCase()}: ${s1[0]}`; });
+    [".ibx", ".ilg"].forEach((q) => { el.querySelector(q).hidden = !inv.length; });
+    el.querySelector(".ibx").previousElementSibling.hidden = !inv.length;
+    // every inverter's power and cabin temperature as bar gauges
+    const cols = el.querySelectorAll(".pvb > div");
+    cols[2].hidden = cols[3].hidden = !inv.length;
+    if (inv.length) {
+      barGauge(el.querySelector(".ipw"), inv.map((d) => [invNo(d), d.comms === "ok" || d.comms === "reading" ? pt(d, "ac_power_kw") : null, rated(d)]),
+        { unit: "kW", cells: 20, steps: [[0, C("--c-pv")], [rated(inv[0]) * .98, C("--warn")]] });
+      barGauge(el.querySelector(".itc"), inv.map((d) => [invNo(d), pt(d, "cabin_temp_c"), 80]),
+        { unit: "°C", cells: 20, steps: [[0, C("--ok")], [55, C("--warn")], [70, C("--bad")]] });
+    }
+    const pf = arr ? pt(arr, "power_factor") : null, hz = arr ? pt(arr, "frequency_hz") : null;
+    cols[4].hidden = !isNum(pf) && !isNum(hz);
+    agauge(el.querySelector(".ga.pf"), isNum(pf) ? Math.abs(pf) : null, { min: 0.5, max: 1, dec: 2, labels: ["0.5", "1"], steps: PF_STEPS().map(([t, c]) => [Math.max(.5, t), c]) });
+    agauge(el.querySelector(".ga.hz"), hz, { min: 48, max: 52, dec: 2, unit: "Hz", labels: ["48", "52"], steps: HZ_STEPS() });
+  }
+  // one card per inverter, like the gensets': output against its rating, state, strings, lamps, the day's trend
+  function invCards(inv) {
+    const host = $("#invCards"), key = inv.map((d) => d.id).join(",");
+    if (host.__key !== key) {
+      host.__key = key; cardGrid(host, inv.length);
+      host.innerHTML = inv.map((d) => `<div class="gcard icard" data-dev="${esc(d.id)}" tabindex="0" role="button">
+        <div class="hd">${SUNI}<b data-no-i18n>${esc(d.id.toUpperCase())}</b><span class="chip idle">—</span></div>
+        <div class="ga"></div>
+        <div class="strs"></div>
+        <div class="lamps"><span class="lamp lg"><i></i><span class="t"></span></span><span class="lamp la"><i></i><span class="t"></span></span></div>
+        <div class="foot"></div><div class="gsp" aria-hidden="true"></div></div>`).join("");
+    }
+    [...host.children].forEach((el, i) => {
+      const d = inv[i], [txt, cls, card] = invState(d), p = pt(d, "ac_power_kw"), r = rated(d), lost = card === "lost";
+      el.className = "gcard icard" + (card ? " " + card : "") + (el.classList.contains("has-sp") ? " has-sp" : "");
+      const chip = el.querySelector(".chip"); chip.className = `chip ${cls}`; setText(chip, txt);
+      agauge(el.querySelector(".ga"), lost ? null : isNum(p) ? Math.max(0, p) : 0, { min: 0, max: r, unit: "kW", idle: card !== "on",
+        steps: [[0, "#cca300"], [r * .3, C("--c-pv")], [r * .98, C("--warn")]], cap: lost ? "" : `of ${fmt(r)} kW` });
+      // the strings: each one against the inverter's typical string (only while it works)
+      const ids = Object.keys(d.points).filter((x) => /^string_current_\d+_a$/.test(x)).sort((a, b) => +a.match(/\d+/)[0] - +b.match(/\d+/)[0]);
+      const strs = el.querySelector(".strs");
+      if (strs.childElementCount !== ids.length) strs.innerHTML = ids.map(() => "<i></i>").join("");
+      const vals = ids.map((x) => pt(d, x)), pos = vals.filter((v) => isNum(v) && v > 0.2).sort((a, b) => a - b);
+      const med = pos.length ? pos[Math.floor(pos.length / 2)] : null, works = card === "on" && isNum(p) && p > r * .05 && med;
+      [...strs.children].forEach((c, n) => {
+        const v = vals[n], rel = works && isNum(v) ? v / med : null;
+        c.className = rel === null ? "" : rel >= .8 ? "ok" : rel >= .5 ? "warn" : "bad";
+        c.title = `String ${ids[n].match(/\d+/)[0]}: ${isNum(v) ? fmt(v, 1) + " A" : "—"}`;
+      });
+      strs.hidden = !ids.length;
+      const lg = el.querySelector(".lg"), la = el.querySelector(".la"), grid = on(pt(d, "grid_connected"));
+      lg.className = "lamp lg" + (lost ? "" : grid ? " ok" : ""); setText(lg.querySelector(".t"), grid ? "on grid" : "off grid");
+      const fault = on(pt(d, "fault")), alarm = on(pt(d, "running_with_alarm")), warn = on(pt(d, "warning"));
+      la.className = "lamp la" + (lost ? "" : fault || alarm ? " bad" : warn ? " warn" : " ok");
+      setText(la.querySelector(".t"), fault ? "fault" : alarm ? "alarm" : warn ? "warning" : "no alarm");
+      const e = pt(d, "energy_today_kwh"), eff = pt(d, "efficiency_pct"), tc = pt(d, "cabin_temp_c");
+      const foot = [isNum(e) ? `${fmt(e)} kWh` : "", isNum(eff) && eff > 0 ? `${fmt(eff, 1)} %` : "", isNum(tc) ? `${fmt(tc)} °C` : ""].filter(Boolean).join(" · ");
+      setText(el.querySelector(".foot"), foot);
+      el.querySelector(".foot").title = "Energy today · efficiency · cabin temperature";
+      cardSpark(el, sv(`${d.id}/ac_power_kw`), css("--c-pv"), "isp-" + d.id);
+    });
+  }
 
   // ---------------------------------------------------------------- mains
   function renderMains(M) {
@@ -2831,19 +2979,103 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     const k = summary.kpi;
     $("#mainsSub").textContent = k.grid_available === false ? "grid OFF" : k.grid_available ? `grid on · ${fmt(k.mains_kw)} kW` : "";
     $("#mainsRate").textContent = M.grids.length && rateOf(M.grids[0]) ? `incomers read ${rateOf(M.grids[0])}` : "";
-    $("#mainsTilesTitle").textContent = M.grids.length > 1 ? `Mains incomers (${M.grids.length})` : "Grid connection";
-    redraw($("#mainsTiles"), M.grids.map((d) => {
-      const av = pt(d, "available"), lost = d.comms !== "ok" && d.comms !== "reading", p = pt(d, "power_kw");
-      const row = (l, v, u, dd = 0) => v === null ? "" : `<dt>${l}</dt><dd>${fmt(v, dd)}${u ? " " + u : ""}</dd>`;
-      const trend = sv(`${d.id}/power_kw`);
-      return `<div class="gen ${lost ? "lost" : on(av) ? "run" : "alarm"}${trend.some(isNum) ? " has-sp" : ""}" data-dev="${esc(d.id)}" tabindex="0" role="button">
-        ${trend.some(isNum) ? `<div class="gsp" aria-hidden="true">${sparkSVG(trend, css("--c-grid"), "gsp-" + d.id)}</div>` : ""}
-        <div class="hd"><b>${esc(d.id.replace(/^main-0?/, "MAIN "))}</b><span class="chip ${lost ? "warn" : on(av) ? "info" : "bad"}">${lost ? "no data" : on(av) ? "breaker closed" : "breaker open"}</span></div>
-        <div class="kw" style="color:${css("--c-grid")}">${fmt(p)}<small>kW import</small></div>
-        <dl>${(() => { const at = d.points.power_kw && d.points.power_kw.ts ? Date.parse(d.points.power_kw.ts) : null; return at ? `<dt>Read</dt><dd>${hm(at)} · ${ago(Math.max(0, Math.round((Date.parse(summary.time) - at) / 1000)))} ago</dd>` : ""; })()}${row("Load", pt(d, "load_p_kw"), "kW")}${row("Power factor", pt(d, "mains_pf"), "", 2)}${row("Voltage", pt(d, "voltage_v"), "V")}${row("Frequency", pt(d, "frequency_hz"), "Hz", 2)}${row("Imported total", pt(d, "energy_import_kwh"), "kWh")}${row("Controller battery", pt(d, "battery_v"), "V", 1)}</dl></div>`;
-    }).join("") + M.bess.map((d) => `<div class="gen run" data-dev="${esc(d.id)}" tabindex="0" role="button"><div class="hd"><b>${esc(d.id)}</b><span class="chip info">battery</span></div>
+    $("#mainsTilesTitle").textContent = M.grids.length > 1 ? `Mains incomers (${M.grids.length})` : M.grids.length ? "Mains incomer" : "Battery";
+    mainsBus(M, k);
+    mainsCards(M.grids);
+    mainsStats(M, k);
+    $("#mainsTiles").hidden = !M.bess.length;
+    redraw($("#mainsTiles"), M.bess.map((d) => `<div class="gen run" data-dev="${esc(d.id)}" tabindex="0" role="button"><div class="hd"><b>${esc(d.id)}</b><span class="chip info">battery</span></div>
         <div class="kw" style="color:${css("--c-bess")}">${fmt(pt(d, "soc_pct"))}<small>% charged</small></div><div class="tank"><i style="width:${pt(d, "soc_pct") || 0}%;background:${css("--c-bess")}"></i></div>
         <dl><dt>Power</dt><dd>${fmt(pt(d, "power_kw"))} kW</dd></dl></div>`).join(""), "data-dev");
+  }
+  const mainsMaster = (M) => M.master && has(M.master, "mains_power_kw") ? M.master : null;
+  const incName = (d) => d.id.replace(/^main-0?/i, "MAIN ");
+  // the grid connection like the generator bus: the mains breaker, which incomers are on the grid, import, PF, share
+  function mainsBus(M, k) {
+    const m = mainsMaster(M), grids = M.grids, host = $("#mainsBus");
+    $("#p-mainsbus").hidden = !m && !grids.length;
+    const key = grids.map((d) => d.id).join(",") + (m ? "|m" : "");
+    if (host.__key !== key) {
+      host.__key = key;
+      host.innerHTML = `<div class="ctl"><div class="ah">Mains breaker</div><div class="brk">—</div>
+          ${grids.length ? `<div class="ah">Incomers on the grid</div><div class="gbx">${grids.map((d) => `<span data-d="${esc(d.id)}" data-no-i18n>${esc(d.id.replace(/^main-0?/i, ""))}</span>`).join("")}</div>` : ""}
+          <div class="lamps"><span class="lamp lmf"><i></i><span class="t">Mains fail</span></span><span class="lamp lmq"><i></i><span class="t">Mains voltage and frequency</span></span></div></div>
+        <div><div class="ah">Grid import</div><div class="ga gi"></div></div>
+        <div><div class="ah">Power factor</div><div class="ga gpf"></div></div>
+        <div><div class="ah">Share of the load</div><div class="ga gsh"></div></div>`;
+    }
+    const mcb = m ? pt(m, "mcb_status") : null;
+    const closed = mcb !== null ? on(mcb) : grids.length ? grids.some((d) => on(pt(d, "available"))) : k.grid_available;
+    const brk = host.querySelector(".brk");
+    setText(brk, closed === null || closed === undefined ? "—" : closed ? "Closed: on the grid" : "Open: off the grid");
+    brk.style.color = closed ? C("--c-grid") : closed === false ? css("--text-2") : "";
+    host.querySelectorAll(".gbx span").forEach((x) => {
+      const d = grids.find((g) => g.id === x.dataset.d), lost = !d || (d.comms !== "ok" && d.comms !== "reading");
+      x.className = lost ? "lost" : on(pt(d, "available")) ? "on" : "";
+      x.title = `${incName(d || { id: x.dataset.d })}: ${lost ? "no data" : on(pt(d, "available")) ? "breaker closed" : "breaker open"}`;
+    });
+    const lmf = host.querySelector(".lmf"), lmq = host.querySelector(".lmq");
+    const fail = m ? pt(m, "alarm_mains_fail") : null, vq = m ? [pt(m, "alarm_mains_voltage"), pt(m, "alarm_mains_frequency")] : [null, null];
+    lmf.hidden = fail === null; lmf.className = "lamp lmf" + (fail === null ? "" : on(fail) ? " bad" : " ok");
+    lmq.hidden = vq.every((x) => x === null); lmq.className = "lamp lmq" + (vq.some((x) => on(x)) ? " bad" : " ok");
+    const mk = k.mains_kw, mS = rangeStats(sv("mains_kw")), imax = niceMax(Math.max(mS ? mS.max : 0, isNum(mk) ? mk : 0, 500));
+    agauge(host.querySelector(".gi"), isNum(mk) ? Math.max(0, mk) : null, { min: 0, max: imax, unit: "kW", steps: [[0, C("--c-grid")]],
+      cap: isNum(mk) && mk < -1 ? "export" : mS ? `peak ${fmt(mS.max)} kW` : "" });
+    const pfs = m && isNum(pt(m, "mains_pf")) ? [pt(m, "mains_pf")] : grids.map((d) => pt(d, "mains_pf")).filter(isNum);
+    const pf = pfs.length ? Math.abs(pfs.reduce((a, v) => a + v, 0) / pfs.length) : null;
+    agauge(host.querySelector(".gpf"), closed === false ? null : pf, { min: 0.5, max: 1, dec: 2, labels: ["0.5", "1"], steps: PF_STEPS().map(([t, c]) => [Math.max(.5, t), c]) });
+    const share = isNum(mk) && isNum(k.load_kw) && k.load_kw > 0 ? Math.max(0, Math.min(100, 100 * mk / k.load_kw)) : null;
+    agauge(host.querySelector(".gsh"), share, { min: 0, max: 100, unit: "%", steps: [[0, C("--c-grid")]], cap: isNum(k.load_kw) ? `of ${fmt(k.load_kw)} kW load` : "" });
+  }
+  // one card per incomer, like the gensets': its import against its range, breaker, link, power factor and load
+  function mainsCards(grids) {
+    const host = $("#mainsCards"), key = grids.map((d) => d.id).join(",");
+    host.hidden = !grids.length;
+    if (host.__key !== key) {
+      host.__key = key; cardGrid(host, grids.length);
+      host.innerHTML = grids.map((d) => `<div class="gcard mcard" data-dev="${esc(d.id)}" tabindex="0" role="button">
+        <div class="hd">${PYLON}<b data-no-i18n>${esc(incName(d))}</b><span class="chip idle">—</span></div>
+        <div class="ga"></div>
+        <div class="lamps"><span class="lamp brk"><i></i><span class="t"></span></span><span class="lamp lnk"><i></i><span class="t"></span></span></div>
+        <div class="foot"></div><div class="gsp" aria-hidden="true"></div></div>`).join("");
+    }
+    [...host.children].forEach((el, i) => {
+      const d = grids[i], lost = d.comms !== "ok" && d.comms !== "reading", closed = on(pt(d, "available")), p = pt(d, "power_kw");
+      const trend = sv(`${d.id}/power_kw`), tS = rangeStats(trend), max = niceMax(Math.max(tS ? tS.max : 0, isNum(p) ? Math.abs(p) : 0, 400));
+      el.className = "gcard mcard" + (lost ? " lost" : closed ? " on" : "") + (el.classList.contains("has-sp") ? " has-sp" : "");
+      const [ct, cc] = lost ? ["no data", "warn"] : closed ? ["on the grid", "info"] : ["breaker open", "idle"];
+      const chip = el.querySelector(".chip"); chip.className = `chip ${cc}`; setText(chip, ct);
+      agauge(el.querySelector(".ga"), lost ? null : closed ? Math.abs(p || 0) : 0, { min: 0, max, unit: "kW", idle: !closed,
+        steps: [[0, C("--c-grid")]], cap: lost ? "" : !closed ? "breaker open" : isNum(p) && p < 0 ? "export" : "import" });
+      const bl = el.querySelector(".brk"), ll = el.querySelector(".lnk"), cut = on(pt(d, "comm_error"));
+      bl.className = "lamp brk" + (lost ? "" : closed ? " ok" : ""); setText(bl.querySelector(".t"), closed ? "Breaker closed" : "Breaker open");
+      ll.className = "lamp lnk" + (lost ? " warn" : cut ? " bad" : " ok"); setText(ll.querySelector(".t"), lost ? "no data" : cut ? "link lost" : "link ok");
+      const pf = pt(d, "mains_pf"), load = pt(d, "load_p_kw");
+      const foot = [isNum(pf) && closed && Math.abs(pf) > .05 ? `PF ${fmt(Math.abs(pf), 2)}` : "", isNum(load) ? `${fmt(load)} kW load` : ""].filter(Boolean).join(" · ");
+      setText(el.querySelector(".foot"), foot);
+      cardSpark(el, trend, css("--c-grid"), "msp-" + d.id);
+    });
+  }
+  // the grid in numbers, as stat tiles with the selected range behind them
+  function mainsStats(M, k) {
+    const m = mainsMaster(M), host = $("#mainsStats"), tile = (x) => host.querySelector(`[data-k="${x}"]`);
+    $("#p-mainsstats").hidden = !m && !M.grids.length;
+    const mT = sv("mains_kw"), mS = rangeStats(mT);
+    stile(tile("imp"), { title: "Grid import", v: k.mains_kw, unit: "kW", color: C("--c-grid"), spark: mT,
+      facts: mS ? [["peak", `${fmt(mS.max)} kW`], ["average", `${fmt(mS.avg)} kW`]] : [] });
+    stile(tile("kwh"), { title: "Grid energy today", v: k.grid_kwh_today, unit: "kWh", color: C("--c-grid"), bars: true,
+      spark: mT.map((v) => isNum(v) && v > 0 ? v * SSTEP / 3600 : null), facts: [["share of the load", isNum(k.grid_share_pct_today) ? `${fmt(k.grid_share_pct_today, 1)} %` : null]] });
+    const ga = sv("grid_available"), gS = rangeStats(ga);
+    stile(tile("hrs"), { title: "Grid hours today", v: k.grid_hours_today, dec: 1, unit: "h", color: "#8ab8ff", spark: ga.map((v) => isNum(v) ? v * 100 : null),
+      facts: [["on in this range", gS ? `${fmt(gS.avg * 100)} %` : null]] });
+    const share = isNum(k.mains_kw) && isNum(k.load_kw) && k.load_kw > 0 ? Math.max(0, Math.min(100, 100 * k.mains_kw / k.load_kw)) : null, ld = sv("load_kw");
+    stile(tile("share"), { title: "Grid share now", v: share, unit: "%", color: "#8ab8ff", spark: mT.map((v, i) => isNum(v) && isNum(ld[i]) && ld[i] > 0 ? Math.max(0, Math.min(100, 100 * v / ld[i])) : null),
+      facts: [["site load", isNum(k.load_kw) ? `${fmt(k.load_kw)} kW` : null]] });
+    const qs = m && isNum(pt(m, "mains_q_kvar")) ? pt(m, "mains_q_kvar") : M.grids.some((d) => isNum(pt(d, "mains_import_q_kvar"))) ? M.grids.reduce((a, d) => a + (pt(d, "mains_import_q_kvar") || 0), 0) : null;
+    stile(tile("q"), { title: "Reactive power", v: qs, unit: "kvar", color: "#b877d9", facts: ["from the grid"] });
+    const pfs = m && isNum(pt(m, "mains_pf")) ? [pt(m, "mains_pf")] : M.grids.map((d) => pt(d, "mains_pf")).filter(isNum);
+    const pf = pfs.length && k.grid_available !== false ? Math.abs(pfs.reduce((a, v) => a + v, 0) / pfs.length) : null;
+    stile(tile("pf"), { title: "Power factor", v: pf, dec: 2, color: colorAt(pf, PF_STEPS()), facts: ["of the grid import"] });
   }
   function renderQuality() {
     const k = summary.kpi;
@@ -3007,7 +3239,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     renderSeries();
     if (summary) {                                 // the sparklines, stat tiles and the banner's "since" use the series
       const M = model();
-      renderOverview(M); renderGensets(M); renderAnalyzers(M); renderMains(M);
+      renderOverview(M); renderGensets(M); renderAnalyzers(M); renderMains(M); renderSolar(M);
     }
   }
   function renderSeries() {
