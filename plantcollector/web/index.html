@@ -2685,7 +2685,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
         <div class="pb"><div class="chart"><canvas id="c-an-${id}-${k}"></canvas></div></div><div class="legend" id="lg-an-${id}-${k}"></div></div>`;
     return `<div class="panel w24 anm" data-src="summary" data-an="${id}">
       <div class="ph"><h3 data-dev="${id}" tabindex="0" role="button" title="All values and trend">${nm}</h3><span class="chip idle st">—</span><span class="why"></span>
-        <div class="meta"><span data-no-i18n>${esc(d.vendor)} ${esc(d.model)}</span><span class="m-gw"><small>Gateway</small> <b class="gw" data-no-i18n>—</b></span><span class="m-ui"><small>Unit ID</small> <b class="ui" data-no-i18n>—</b></span><span><small>CT</small> <b class="ct" data-no-i18n>—</b></span></div></div>
+        <div class="meta"><span data-no-i18n>${esc(d.vendor)} ${esc(d.model)}</span><span class="m-gw"><small>Gateway</small> <b class="gw" data-no-i18n>—</b></span><span class="m-ui"><small>Unit ID</small> <b class="ui" data-no-i18n>—</b></span><span class="m-src" hidden><small>Asked from</small> <b class="src" data-no-i18n>—</b></span><span><small>CT</small> <b class="ct" data-no-i18n>—</b></span></div></div>
       <div class="pb">
         <div class="stats astats">${AN_TILES.map((k) => `<div data-k="${k}"></div>`).join("")}</div>
         <div class="anb">
@@ -2707,11 +2707,16 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     const st = el.querySelector(".st"); st.className = `chip st ${commsCls(d.comms)}`; setText(st, comms(d.comms));
     // why there is no data: the reader's own words for it (waiting for the gateway, no answer, no address)
     const err = d.comms === "ok" ? "" : String(((d.points || {}).p_total_kw || {}).err || ""), why = el.querySelector(".why");
-    const say = /takes a new connection in/.test(err) ? err.replace(/^.*?(the gateway takes a new connection in \d+ s).*$/, "$1")
+    const noRows = d.comms !== "ok" && !Object.keys(d.points || {}).length;
+    const say = noRows ? "not read yet"
+      : /takes a new connection in/.test(err) ? err.replace(/^.*?(the gateway takes a new connection in \d+ s).*$/, "$1")
+      : /would ask|no route to/.test(err) ? err
       : /no address in/.test(err) ? err.replace(/^.*?(this PC has no address in [\d.]+x).*$/, "$1")
       : /No response|no response|Input\/Output/.test(err) ? "the gateway does not answer"
       : /no connection|Connection|refused|unreachable/i.test(err) ? "no connection to the gateway" : "";
     setText(why, say); st.title = err;
+    const route = ((summary.meters || {}).routes || {})[d.id];          // the address this PC asks the meter from
+    el.querySelector(".m-src").hidden = !(route && route.from); setText(el.querySelector(".src"), route && route.from ? route.from : "—");
     el.querySelector(".m-gw").hidden = !d.host; el.querySelector(".m-ui").hidden = !d.host;
     setText(el.querySelector(".gw"), d.host || "—"); setText(el.querySelector(".ui"), isNum(d.unit_id) ? String(d.unit_id) : "—");
     const ct = P("ct_primary_a"), hasCt = isNum(ct) && ct > 0; setText(el.querySelector(".ct"), hasCt ? `${fmt(ct)} A` : "—");

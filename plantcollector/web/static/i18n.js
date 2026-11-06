@@ -329,6 +329,11 @@
     // gensets (animated cards, generator bus) and analyzers
     ["Analyzers", "المحللات", "شیکەرەوەکان", "Analizörler"], ["Generator bus", "قضبان المولدات", "باسی مۆلیدەکان", "Jeneratör barası"],
     // 1.0.11: solar plant, inverter cards, grid connection, incomer cards
+    ["The power meters are asked through the PC's plant network: the program no longer waits for an address of its own in 192.168.141.x. The Analyzers tab shows the address the meters are asked from.",
+     "تُسأل عدادات الطاقة عبر شبكة المحطة في الحاسوب: لم يعد البرنامج ينتظر عنواناً خاصاً به في 192.168.141.x. ويعرض تبويب المحللات العنوان الذي تُسأل منه العدادات.",
+     "پێوەرەکانی توانا لە ڕێگەی تۆڕی وێستگەی کۆمپیوتەرەکەوە دەپرسرێن: بەرنامەکە چیتر چاوەڕێی ناونیشانێکی خۆی لە 192.168.141.x ناکات. تابی شیکەرەوەکان ئەو ناونیشانە پیشان دەدات کە پێوەرەکانی لێ دەپرسرێن.",
+     "Güç sayaçları bilgisayarın santral ağı üzerinden sorulur: program artık 192.168.141.x içinde kendi adresini beklemiyor. Analizörler sekmesi sayaçların sorulduğu adresi gösterir."],
+    ["not read yet", "لم تُقرأ بعد", "هێشتا نەخوێندراوەتەوە", "henüz okunmadı"], ["Asked from", "يُسأل من", "پرسیار لە", "Sorulduğu adres"],
     ["Solar PV has a plant panel with stat tiles, gauges and bar gauges, and a card per inverter with its strings. Mains has a grid connection panel and a card per incomer, like the gensets. The power meters come back by themselves after a restart.",
      "للطاقة الشمسية لوحة للمحطة بمربعات قيم ومؤشرات ومؤشرات أعمدة، وبطاقة لكل عاكس مع سلاسله. وللشبكة لوحة لاتصال الشبكة وبطاقة لكل مغذٍّ، مثل المولدات. وتعود عدادات الطاقة من تلقاء نفسها بعد إعادة التشغيل.",
      "خۆر پانێڵێکی وێستگەی هەیە بە خانەی بەها، پیشاندەر و پیشاندەری ستوونی، و کارتێک بۆ هەر ئینڤێرتەرێک لەگەڵ زنجیرەکانی. تۆڕ پانێڵێکی پەیوەندی تۆڕ و کارتێک بۆ هەر هێڵێکی سەرەکی هەیە، وەک مۆلیدەکان. پێوەرەکانی توانا دوای دەستپێکردنەوە خۆیان دەگەڕێنەوە.",
@@ -592,6 +597,8 @@
     [/^(\d+) faulty$/, (m) => [`${m[1]} معطّلة`, `${m[1]} تێکچوو`, `${m[1]} arızalı`]],
     [/^String (\d+): (.+)$/, (m) => [`السلسلة ${m[1]}: ${m[2]}`, `زنجیرەی ${m[1]}: ${m[2]}`, `Dizi ${m[1]}: ${m[2]}`]],
     [/^((?:INV-\d+)|(?:MAIN \d+)): (.+)$/, (m) => ["ar", "ckb", "tr"].map((l) => `${m[1]}: ${tr1(m[2], l)}`)],
+    [/^this PC would ask ([\d.]+) from ([\d.]+), not from its plant network address$/, (m) => [`سيسأل هذا الحاسوب ⁦${m[1]}⁩ من ⁦${m[2]}⁩، وليس من عنوانه على شبكة المحطة`, `ئەم کۆمپیوتەرە ⁦${m[1]}⁩ لە ⁦${m[2]}⁩ دەپرسێت، نەک لە ناونیشانی تۆڕی وێستگەکە`, `bu bilgisayar ${m[1]} adresine santral ağı adresinden değil ${m[2]} adresinden sorardı`]],
+    [/^this PC has no route to ([\d.]+)$/, (m) => [`لا يملك هذا الحاسوب طريقاً إلى ⁦${m[1]}⁩`, `ئەم کۆمپیوتەرە ڕێگای بۆ ⁦${m[1]}⁩ نییە`, `bu bilgisayarın ${m[1]} adresine yolu yok`]],
     [/^the gateway takes a new connection in (\d+) s$/, (m) => [`تقبل البوابة اتصالاً جديداً بعد ${m[1]} ثانية`, `دەروازەکە پەیوەندییەکی نوێ وەردەگرێت لە ${m[1]} چرکەدا`, `ağ geçidi ${m[1]} sn sonra yeni bağlantı kabul eder`]],
     [/^this PC has no address in ([\d.]+x)$/, (m) => [`لا يملك هذا الحاسوب عنواناً في \u2066${m[1]}\u2069`, `ئەم کۆمپیوتەرە ناونیشانی نییە لە \u2066${m[1]}\u2069`, `bu bilgisayarın ${m[1]} ağında adresi yok`]],
     [/^(\d+) of (\d+) gensets on the bus$/, (m) => [`${m[1]} من ${m[2]} مولدات على القضبان`, `${m[1]} لە ${m[2]} مۆلیدە لەسەر باسن`, `${m[2]} jeneratörden ${m[1]} barada`]],

@@ -23,8 +23,12 @@ So:
     new connection was served again 2.5 min after the last one closed;
   - while it waits, and while a connection is not answered, the readings are marked bad ("no data" is written to
     the event log only after `comms_debounce` cycles in a row);
-  - before connecting, it checks that this PC has an address in the meter's network (192.168.141.x): without one the
-    request would go out through another adapter (the CCI Wi-Fi), so it is not sent at all.
+  - before connecting, it checks which address this PC would send from: one in the meter's network (192.168.141.x),
+    or the address it uses for the rest of the plant (the plant network adapter, whose netmask may well cover
+    192.168.141.x: on 2026-11-06 the plant PC reached the gateways that way, with no address of its own in
+    192.168.141.x). Any other address means another adapter (the CCI Wi-Fi), and then the request is not sent at
+    all (meters.any_route: true sends it anyway). 1.0.7 - 1.0.11 wanted an address in 192.168.141.x and never
+    asked the meters on that PC.
 
 The database gets every value once every `store_every_s` (5 min by default), and at once when a meter stops or
 starts answering: two meters, about 24 values each, 288 times a day, so about 14,000 rows a day.
@@ -60,12 +64,28 @@ def route_source(host: str, port: int = 502) -> str | None:
         return None
 
 
-def on_its_network(host: str) -> bool:
-    """True when this PC has an address in the host's /24 (or the host is this PC)."""
+def plant_sources(reg, skip=()) -> set[str]:
+    """The addresses this PC sends from to reach the plant's other Modbus devices: its plant network adapter."""
+    out = set()
+    for d in reg.devices.values():
+        host = (d.connection or {}).get("host")
+        if d.id in skip or d.adapter != "modbus_tcp" or not host or str(host).startswith("127."):
+            continue
+        src = route_source(str(host))
+        if src:
+            out.add(src)
+    return out
+
+
+def on_its_network(host: str, plant: set | frozenset = frozenset(), any_route: bool = False) -> bool:
+    """True when this PC would send to `host` from an address in the host's /24, or from the address it uses for the
+    rest of the plant (`plant`: the same adapter, its netmask covers the host), or any address with any_route."""
     if str(host).startswith("127."):
         return True
     src = route_source(host)
-    return bool(src) and src.split(".")[:3] == str(host).split(".")[:3]
+    if not src:
+        return False
+    return src.split(".")[:3] == str(host).split(".")[:3] or src in plant or any_route
 
 
 def kept_device_ids(reg) -> list[str]:
@@ -99,6 +119,9 @@ class MeterReader:
         self.endpoints = frozenset(self._ep.values())
         dd = getattr(collector, "data_dir", None)
         self.state_path = os.path.join(dd, "meters-connection.json") if dd and cfg.get("remember", True) else None
+        self.any_route = bool(cfg.get("any_route", False))
+        self._plant: tuple[float, frozenset] = (-1e9, frozenset())     # (when, the plant adapter's addresses)
+        self.routes: dict[str, dict] = {}                              # device -> {"from": address, "ok": bool}
         self._seen_written = 0.0
         self._last_store: dict[str, float] = {}
         self._answered: dict[str, bool] = {}
@@ -123,7 +146,16 @@ class MeterReader:
                 "devices": self.device_ids, "cycles": self.cycles, "last_ms": self.last_ms,
                 "last_cycle": self.last_cycle_at.isoformat() if self.last_cycle_at else None,
                 "last_ok": {d: t.isoformat() for d, t in dict(self.last_ok_at).items()},
-                "waiting_s": {f"{h}:{p}": round(t - now) for (h, p), t in dict(self._rest_until).items() if t > now}}
+                "waiting_s": {f"{h}:{p}": round(t - now) for (h, p), t in dict(self._rest_until).items() if t > now},
+                "routes": dict(self.routes)}
+
+    def _plant_sources(self) -> frozenset:
+        """The plant adapter's addresses, looked up again every minute (a cable or an address may change)."""
+        at, got = self._plant
+        if time.monotonic() - at > 60:
+            got = frozenset(plant_sources(self.c.registry, skip=set(self.device_ids)))
+            self._plant = (time.monotonic(), got)
+        return got
 
     # ------------------------------------------------------------------ when a meter connection was last open
     def _note_open(self, force: bool = False) -> None:
@@ -232,10 +264,15 @@ class MeterReader:
             ep = self._ep[did]
             host = str((dev.connection or {}).get("host"))
             now_m = time.monotonic()
-            reach = on_its_network(host)
+            plant = self._plant_sources()
+            reach = on_its_network(host, plant, self.any_route)
+            src = route_source(host) if not str(host).startswith("127.") else "127.0.0.1"
+            self.routes[did] = {"from": src, "ok": bool(reach)}
+            why_not = (f"this PC would ask {host} from {src}, not from its plant network address" if src else
+                       f"this PC has no route to {host}")
             if reach != self._off_net.get(did, True) and not reach:
-                self.c.store.event("meters", f"{did}: this PC has no address in {'.'.join(host.split('.')[:3])}.x, so {host} "
-                                   "is not asked (it would go out through another network)", device_id=did,
+                self.c.store.event("meters", f"{did}: {why_not} ({', '.join(sorted(plant)) or 'none found'}), so it is not "
+                                   "asked (it would go out through another network)", device_id=did,
                                    severity="warning", code="NO_ROUTE")
             self._off_net[did] = reach
             is_open = getattr(ad, "is_open", lambda: True)
@@ -244,8 +281,7 @@ class MeterReader:
             rest = self._rest_until.get(ep, 0.0) - now_m
             failed, ok_blocks, link = 1, 0, False
             if not reach:
-                rows = {p.id: reading(p, None, Quality.BAD, f"this PC has no address in {'.'.join(host.split('.')[:3])}.x")
-                        for p in dev.points}
+                rows = {p.id: reading(p, None, Quality.BAD, why_not) for p in dev.points}
             elif rest > 0:
                 left = f"{int(math.ceil(rest / 5) * 5)} s"
                 rows = {p.id: reading(p, None, Quality.BAD, f"the gateway takes a new connection in {left}") for p in dev.points}

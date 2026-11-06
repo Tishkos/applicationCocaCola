@@ -414,12 +414,40 @@ def test_a_pc_without_an_address_in_the_meters_network_does_not_ask(tmp_path, mo
     c = Collector(_config(tmp_path, gw), str(tmp_path / "d"), initial_poll=False)
     try:
         from plantcollector import meters
-        monkeypatch.setattr(meters, "on_its_network", lambda host: False)
+        monkeypatch.setattr(meters, "on_its_network", lambda host, *a, **k: False)
         c.meters = meters.MeterReader(c, {"every_s": 10})
         c.meters.cycle()
         assert gw.accepted == 0
         v, q = _values(c)["p_total_kw"]
-        assert v is None and q == Quality.BAD and "no address" in c.store.latest("analyzer-1")["p_total_kw"].error
+        assert v is None and q == Quality.BAD and "not from its plant network" in c.store.latest("analyzer-1")["p_total_kw"].error
+        assert c.meters.status()["routes"]["analyzer-1"]["ok"] is False
+    finally:
+        c.close()
+        gw.close()
+
+
+def test_the_meters_are_asked_through_the_plant_adapter(monkeypatch):
+    """The plant PC reaches 192.168.141.x through its plant network adapter (a netmask wider than /24), with no
+    address of its own in 192.168.141.x: the meters are asked. Through another adapter (the Wi-Fi) they are not."""
+    from plantcollector import meters
+    routes = {"192.168.141.3": "192.168.0.50", "192.168.0.10": "192.168.0.50", "10.0.0.9": "10.1.1.5"}
+    monkeypatch.setattr(meters, "route_source", lambda host, port=502: routes.get(host))
+    assert meters.on_its_network("192.168.141.3", {"192.168.0.50"})            # same adapter as the plant's devices
+    assert not meters.on_its_network("192.168.141.3", {"10.1.1.5"})            # another adapter
+    assert meters.on_its_network("192.168.141.3", set(), any_route=True)
+    assert not meters.on_its_network("192.168.9.9", {"192.168.0.50"})          # no route at all
+    routes["192.168.141.3"] = "192.168.141.20"
+    assert meters.on_its_network("192.168.141.3", set())                       # an address in its own /24
+
+
+def test_the_plant_adapter_is_found_from_the_other_devices(tmp_path, monkeypatch):
+    gw = FakeGateway(METER_1)
+    c = Collector(_config(tmp_path, gw), str(tmp_path / "d"), initial_poll=False)
+    try:
+        from plantcollector import meters
+        c.meters = meters.MeterReader(c, {"every_s": 10})
+        c.meters.cycle()
+        assert c.meters.status()["routes"]["analyzer-1"] == {"from": "127.0.0.1", "ok": True}
     finally:
         c.close()
         gw.close()

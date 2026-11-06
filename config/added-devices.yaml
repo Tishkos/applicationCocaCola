@@ -33,3 +33,6 @@ meters:
   store_every_s: 300       # every value written to the database every 5 minutes
   rest_s: 210              # after a connection to a gateway closed (no answer, or a restart of this program), no new
                            # one for 3.5 min: the gateway ignores a new connection for about 2.5 min after one closed
+  any_route: true          # the gateways were found from the plant PC at these two addresses, which it reaches through
+                           # its plant network adapter with no address of its own in 192.168.141.x: ask them whichever
+                           # adapter the PC uses (the panel shows the address it asks from)
