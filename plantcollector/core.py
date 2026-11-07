@@ -155,6 +155,7 @@ class Collector:
         self._sim_history: deque = deque(maxlen=200)       # the demo's live chart (no live reader there)
         # each genset's share of the gensets' power, worked out from the site master (it has no kW per genset)
         self.genshares = GensetShares.for_registry(self.registry)
+        self.device_names: dict[str, str] = self._load_names()    # the plant's own names for its meters
         self._share_lock = threading.Lock()
         if self.simulated and seed_hours > 0:
             self.poll()
@@ -211,6 +212,62 @@ class Collector:
             with open(tmp, "w") as f:
                 json.dump(data, f, indent=2)
             os.replace(tmp, self.settings_path)
+
+    # --- names the plant gives its meters (Settings: the Analyzers tab's rename button) -------------------------
+    NAME_MAX = 40
+    NAMED_KINDS = ("analyzer",)
+
+    def _load_names(self) -> dict[str, str]:
+        raw = self._load_settings().get("device_names") or {}
+        out = {}
+        if isinstance(raw, dict):
+            for did, nm in raw.items():
+                d = self.registry.devices.get(str(did))
+                if d is not None and d.kind in self.NAMED_KINDS and isinstance(nm, str) and nm.strip():
+                    out[d.id] = " ".join(nm.split())[:self.NAME_MAX]
+        return out
+
+    def name_of(self, did: str) -> str:
+        """The name the plant gave the device (settings.json device_names), else the one of the config ("" = none)."""
+        nm = self.device_names.get(did)
+        return nm if nm else self.registry.devices[did].name
+
+    def set_device_name(self, did: str, name) -> str:
+        """Give an analyzer the plant's own name for it (e.g. what its meter feeds), or "" for its default name back.
+        Only the name shown changes: the device id, the readings, the database and the Turkey feed stay as they are."""
+        d = self.registry.devices.get(str(did))
+        if d is None:
+            raise ValueError(f"unknown device {did}")
+        if d.kind not in self.NAMED_KINDS:
+            raise ValueError(f"{did} cannot be renamed here (only {', '.join(self.NAMED_KINDS)}s)")
+        if name is None:
+            name = ""
+        if not isinstance(name, str):
+            raise ValueError("the name must be text")
+        name = " ".join(name.split())
+        if len(name) > self.NAME_MAX:
+            raise ValueError(f"the name can be at most {self.NAME_MAX} characters")
+        if any(ord(ch) < 32 or ch in "<>" for ch in name):
+            raise ValueError("the name cannot contain < or >")
+        old = self.device_names.get(d.id, "")
+        if name == old:
+            return name
+
+        def change(data):
+            names = data.get("device_names") if isinstance(data.get("device_names"), dict) else {}
+            if name:
+                names[d.id] = name
+            else:
+                names.pop(d.id, None)
+            data["device_names"] = names
+        self._update_settings(change)
+        if name:
+            self.device_names[d.id] = name
+        else:
+            self.device_names.pop(d.id, None)
+        self.store.event("settings", f"{d.id} named '{name}'" if name else f"{d.id}: its own name removed", severity="info",
+                         code="SETTINGS", device_id=d.id)
+        return name
 
     def set_poll_interval(self, seconds: int) -> None:
         """Change the polling rate at runtime and remember it. Only the fixed options are allowed;

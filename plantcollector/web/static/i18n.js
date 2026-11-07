@@ -332,6 +332,20 @@
     ["Downloading the new version; the program keeps running.", "جارٍ تنزيل الإصدار الجديد؛ يستمر البرنامج في العمل.", "وەشانی نوێ دادەگیرێت؛ بەرنامەکە بەردەوام کار دەکات.", "Yeni sürüm indiriliyor; program çalışmaya devam ediyor."],
     // gensets (animated cards, generator bus) and analyzers
     ["Analyzers", "المحللات", "شیکەرەوەکان", "Analizörler"], ["Generator bus", "قضبان المولدات", "باسی مۆلیدەکان", "Jeneratör barası"],
+    // 1.0.16: the plant's own names for the analyzers
+    ["Rename this analyzer", "إعادة تسمية هذا المحلل", "ناوی ئەم شیکەرەوەیە بگۆڕە", "Bu analizörü yeniden adlandır"],
+    ["Name of this analyzer", "اسم هذا المحلل", "ناوی ئەم شیکەرەوەیە", "Bu analizörün adı"],
+    ["The plant's own name for this meter, e.g. what it feeds. Leave it empty for the default name.",
+     "اسم المحطة الخاص لهذا العداد، مثلاً ما يغذيه. اتركه فارغاً للاسم الافتراضي.",
+     "ناوی تایبەتی وێستگە بۆ ئەم پێوەرە، بۆ نموونە ئەوەی کە دەیداتێ. بە بەتاڵی بیهێڵەوە بۆ ناوە بنەڕەتییەکە.",
+     "Tesisin bu sayaç için kendi adı, örneğin neyi beslediği. Varsayılan ad için boş bırakın."],
+    ["Saved: the analyzer's new name.", "تم الحفظ: الاسم الجديد للمحلل.", "پاشەکەوت کرا: ناوی نوێی شیکەرەوەکە.", "Kaydedildi: analizörün yeni adı."],
+    ["Saved: the analyzer has its default name again.", "تم الحفظ: عاد المحلل إلى اسمه الافتراضي.", "پاشەکەوت کرا: شیکەرەوەکە دیسان ناوە بنەڕەتییەکەی هەیە.", "Kaydedildi: analizör yeniden varsayılan adını aldı."],
+    ["Cancel", "إلغاء", "هەڵوەشاندنەوە", "İptal"],
+    ["Each analyzer can have the plant's own name, e.g. what its meter feeds: the pencil next to its name on the Analyzers tab. The single-line diagram shows each genset's kW and kVAr.",
+     "يمكن إعطاء كل محلل اسماً خاصاً بالمحطة، مثلاً ما يغذيه عداده: القلم بجانب اسمه في تبويب المحللات. ويعرض المخطط أحادي الخط قيمة kW و kVAr لكل مولد.",
+     "هەر شیکەرەوەیەک دەتوانێت ناوی تایبەتی وێستگەی هەبێت، بۆ نموونە ئەوەی پێوەرەکەی دەیداتێ: قەڵەمەکەی تەنیشت ناوەکەی لە تابی شیکەرەوەکان. هێڵکاری تاک-هێڵ kW و kVAr ی هەر مۆلیدەیەک پیشان دەدات.",
+     "Her analizöre tesisin kendi adı verilebilir, örneğin sayacının neyi beslediği: Analizörler sekmesinde adının yanındaki kalem. Tek hat şeması her jeneratörün kW ve kVAr değerini gösterir."],
     // 1.0.15: each genset's kW and kVAr in the single-line diagram
     ["The master has no kW per genset: this is the genset's share of the gensets' kW and kVAr by its nominal power, as the master's load sharing divides it.",
      "لا يعطي المتحكم الرئيسي قدرة كل مولد بالكيلوواط: هذه حصة المولد من kW و kVAr المولدات حسب قدرته الاسمية، كما يوزعها تقاسم الحمل في المتحكم الرئيسي.",

@@ -98,8 +98,9 @@ def create_app(c: Collector) -> FastAPI:
     @app.post("/api/v1/local/settings")
     def set_settings(body: dict):
         """Any of: poll_interval_s (the site read), live_every_s (the master's live reading, 0 = off),
-        device_every: {row key: seconds} (0 = with every site read; the keys of GET .reading.groups)."""
-        known = ("poll_interval_s", "live_every_s", "device_every")
+        device_every: {row key: seconds} (0 = with every site read; the keys of GET .reading.groups),
+        device_names: {analyzer id: name} (the plant's own name for the meter; "" = its default name back)."""
+        known = ("poll_interval_s", "live_every_s", "device_every", "device_names")
         if not any(k in body for k in known):
             raise HTTPException(400, f"nothing to change: send one of {', '.join(known)}")
         try:
@@ -115,6 +116,11 @@ def create_app(c: Collector) -> FastAPI:
                     if key not in rows:
                         raise ValueError(f"unknown row {key}")
                     c.set_device_every(rows[key], int(sec))
+            if "device_names" in body:
+                if not isinstance(body["device_names"], dict):
+                    raise ValueError("device_names must be {device id: name}")
+                for did, nm in body["device_names"].items():
+                    c.set_device_name(did, nm)
         except (TypeError, ValueError) as exc:
             raise HTTPException(400, str(exc))
         return _settings()
@@ -129,7 +135,7 @@ def create_app(c: Collector) -> FastAPI:
                 "options": [{"value": v, "label": f"{v // 3600} h" if v >= 3600 and v % 3600 == 0 else f"{v // 60} min"} for v in POLL_OPTIONS_S],
                 "source": c.settings_source, "simulated": c.simulated, "config": os.path.basename(c.config_path),
                 "settings_file": c.settings_path, "database": c.db_path, "version": updates.installed_version(),
-                "update": updates.status(c.data_dir), "reading": views.reading_settings(c)}
+                "update": updates.status(c.data_dir), "reading": views.reading_settings(c), "device_names": dict(c.device_names)}
 
     @app.get("/api/v1/local/version")
     def version():

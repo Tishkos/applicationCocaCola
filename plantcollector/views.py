@@ -271,7 +271,7 @@ def summary(c: Collector) -> dict:
     for d in reg.devices.values():
         rows = st.latest(d.id)
         devices.append({
-            "id": d.id, "name": d.name, "kind": d.kind, "vendor": d.vendor, "model": d.model, "adapter": d.adapter,
+            "id": d.id, "name": c.name_of(d.id), "renamed": d.id in c.device_names, "kind": d.kind, "vendor": d.vendor, "model": d.model, "adapter": d.adapter,
             "host": (d.connection or {}).get("host"), "unit_id": (d.connection or {}).get("unit_id"),
             "profile_status": d.profile_status, "comms": device_comms(c, d.id),
             "every_s": c.device_every_s(d.id), "live": lv is not None and d.id in lv.device_ids,
