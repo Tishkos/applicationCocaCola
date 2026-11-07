@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 
 from .adapters import build_adapter
 from .adapters.simulator import SimPlant
+from .genshare import GensetShares, seed_window
 from .registry import Quality, load_registry
 from .store import TelemetryStore
 
@@ -152,6 +153,9 @@ class Collector:
         self.meters = None                       # the meter reader (plantcollector.meters), started by `run`
         from collections import deque
         self._sim_history: deque = deque(maxlen=200)       # the demo's live chart (no live reader there)
+        # each genset's share of the gensets' power, worked out from the site master (it has no kW per genset)
+        self.genshares = GensetShares.for_registry(self.registry)
+        self._share_lock = threading.Lock()
         if self.simulated and seed_hours > 0:
             self.poll()
             self._seed_demo(seed_hours)
@@ -402,7 +406,8 @@ class Collector:
         return self.store.latest(did)
 
     def live_point(self) -> list:
-        """[epoch ms, load, solar, gensets, grid] now, for the live chart."""
+        """[epoch ms, load, solar, gensets, grid, then each genset's share of the gensets (live_columns)] now,
+        for the live chart."""
         from .views import series_specs
         specs = series_specs(self.registry)
         out = [int(self.now().timestamp() * 1000)]
@@ -411,7 +416,34 @@ class Collector:
             xs = [float(x) for x in xs if isinstance(x, (int, float)) and not isinstance(x, bool)]
             out.append(round(sum(xs), 1) if xs else None)
         out[4], out[1], _src = self.mains_checked(out[4], out[1])
+        out.extend(self.genset_split())
         return out
+
+    def live_columns(self) -> list[str]:
+        gs = self.genshares
+        return ["t", "load_kw", "pv_kw", "genset_kw", "mains_kw"] + ([f"g{g}_kw" for g in gs.numbers] if gs else [])
+
+    def genset_split(self) -> list:
+        """Each genset's share of the master's Gensets P now, in the order of genshares.numbers (see genshare.py:
+        the master has no kW per genset; this is its load sharing worked out). [] without a site master."""
+        gs = self.genshares
+        if gs is None:
+            return []
+        if not gs.seeded:
+            with self._share_lock:
+                if not gs.seeded:
+                    try:
+                        gs.seed(self.store, *seed_window(self.now()))
+                    except Exception as exc:          # the history is only a head start; the live readings teach it too
+                        gs.seeded = True
+                        print(f"[collector] genset shares: history not read ({exc})")
+        m = gs.master_id
+        on = {}
+        for g in gs.numbers:
+            v = self.store.value(m, f"g{g}_running")
+            on[g] = None if v is None else bool(v >= 0.5)
+        sp = gs.split(self.store.value(m, "power_kw"), on, self.store.value(m, "running_nominal_kw"))
+        return [sp[g] for g in gs.numbers]
 
     # --- grid import checked against the incomers (see MAINS_ZERO_KW) -------------------------
 

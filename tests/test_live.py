@@ -259,8 +259,11 @@ def test_live_endpoint_and_summary(tmp_path, hosts):
         api = TestClient(create_app(c))
         lv = api.get("/api/v1/local/live").json()
         assert lv["running"] and lv["every_s"] == 1
-        t, load, pv, gen, grid = lv["now"]
+        t, load, pv, gen, grid = lv["now"][:5]
         assert (pv, gen, grid) == (500, 1200, 300) and load == 2000
+        assert lv["columns"][:5] == ["t", "load_kw", "pv_kw", "genset_kw", "mains_kw"] and len(lv["now"]) == len(lv["columns"])
+        each = [v for v in lv["now"][5:] if v is not None]          # each genset's share (the master's load sharing)
+        assert not each or abs(sum(each) - gen) < 1
         assert len(lv["history"]) >= 2
         assert set(lv["links"]) == {"ecu1_comm_fail", "ecu2_comm_fail"}
         s = api.get("/api/v1/local/summary").json()

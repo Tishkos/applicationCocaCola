@@ -1099,7 +1099,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
             <div class="pb" style="padding:0 8px 8px"><svg class="sld" id="flow" viewBox="0 0 1600 600" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Single-line diagram of the plant"></svg></div>
           </div>
           <div class="panel w24" data-src="live" id="p-live">
-            <div class="ph"><h3>Last 15 minutes · live</h3><span class="info" title="What feeds the plant, at the master's live rate (Settings > Reading the devices): solar, gensets and grid stacked, the site load as a dashed line. From the master controller, which already knows every source, so nothing extra is asked of the SAU or the incomers. The Turkey feed does not follow these values; it changes at the site read."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" id="liveNote"></span></div>
+            <div class="ph"><h3>Last 15 minutes · live</h3><span class="info" title="What feeds the plant, at the master's live rate (Settings > Reading the devices): solar, each genset and grid stacked, the site load as a dashed line. From the master controller, which already knows every source, so nothing extra is asked of the SAU or the incomers. The master has no kW per genset: each genset's band is its share of the gensets' power by its nominal power, as the master's load sharing divides it (a genset just starting or stopping carries less for a few seconds). The Turkey feed does not follow these values; it changes at the site read."><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg></span><span class="r" id="liveNote"></span></div>
             <div class="pb"><div class="chart"><canvas id="c-live"></canvas></div></div>
             <div class="legend" id="lg-live"></div>
           </div>
@@ -2182,11 +2182,19 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     const r = liveData; if (!r) return;
     const mins = r.minutes || 15, now = Date.parse(r.time), range = [now - mins * 60e3, now], H = r.history || [];
     $("#p-live h3").textContent = mins >= 60 ? "Last hour · live" : "Last 15 minutes · live";
-    const has = (i) => H.some((p) => p[i] !== null);
-    const pts = (i, f) => H.map((p) => ({ x: p[0], y: p[i] === null ? null : f ? f(p[i]) : p[i] }));
+    const at = (p, i) => p[i] ?? null;               // a point from before an update can be shorter than the columns
+    const has = (i) => H.some((p) => at(p, i) !== null);
+    const pts = (i, f) => H.map((p) => ({ x: p[0], y: at(p, i) === null ? null : f ? f(at(p, i)) : at(p, i) }));
     const ds = [], pos = (v) => Math.max(0, v);
     const push = (label, i, color, group) => { if (has(i)) ds.push({ label, data: pts(i, pos), borderColor: color, backgroundColor: color + "59", fill: ds.length ? "-1" : "origin", stack: "src", borderWidth: 1.2, pointRadius: 0, group }); };
-    push("Solar", 2, C("--c-pv")); push("Gensets", 3, C("--c-gen")); push("Grid import", 4, C("--c-grid"), "Grid");
+    // each genset's share of the gensets' power (the master's load sharing worked out: it has no kW per genset);
+    // the gensets that carried load in the window, else the gensets together
+    const gi = (r.columns || []).map((c, i) => [/^g(\d+)_kw$/.exec(c), i]).filter(([m]) => m).map(([m, i]) => [+m[1], i]);
+    const split = gi.some(([, i]) => has(i)), carried = gi.filter(([, i]) => H.some((p) => (at(p, i) ?? 0) > 0.5));
+    push("Solar", 2, C("--c-pv"));
+    if (split) carried.forEach(([n, i]) => push(`Gen ${n}`, i, GEN_SHADES[(n - 1) % GEN_SHADES.length]));
+    else push("Gensets", 3, C("--c-gen"));
+    push("Grid import", 4, C("--c-grid"), "Grid");
     if (has(1)) ds.push({ label: "Site load", data: pts(1), borderColor: C("--c-load"), backgroundColor: C("--c-load"), stack: "load", borderWidth: 2, borderDash: [6, 4], pointRadius: 0 });
     const o = baseOptions("kW", range, { y: { stacked: true, min: 0, suggestedMax: 10 } });
     o.animation = false;
@@ -2205,6 +2213,8 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       return sig(x.name, unknown ? "idle" : x.failing ? "bad" : "ok", unknown ? "—" : x.failing ? (since ? `COMM FAIL since ${clockS(since)}` : "COMM FAIL") : "OK");
     }).join(""));
   }
+  // one shade of the gensets' orange per genset (dark and light theme alike), next ones clearly apart
+  const GEN_SHADES = ["#ff9830", "#c4581a", "#ffcb7d", "#e8590c", "#ff7383", "#a8743a", "#ffa25e", "#8f4a1c"];
   // how often a device is read, in words: "live, every 5 s", "live, every 1 min", "every 10 min", "every 1 h"
   const liveEvery = (s) => s >= 60 ? everyText(s) : `${fmt(s)} s`;
   const rateOf = (d) => !d || !isNum(d.every_s) ? "" : d.live && isLive() ? `live, every ${liveEvery(d.every_s)}` : `every ${everyText(d.every_s)}`;

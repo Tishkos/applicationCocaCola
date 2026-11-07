@@ -442,7 +442,9 @@ def live_view(c: Collector, minutes: float | None = None) -> dict:
         st["links"] = links
     return {"time": c.now().isoformat(), "every_s": lv.every_s if lv is not None else c.poll_interval_s,
             "running": st.get("running", False), "last_ok": st.get("last_ok"), "backing_off": st.get("backing_off", False),
-            "columns": ["t", "load_kw", "pv_kw", "genset_kw", "mains_kw"], "now": now, "history": hist,
+            "columns": c.live_columns(), "now": now, "history": hist,
+            # the gensets' power split by the master's load sharing (it has no kW per genset): see genshare.py
+            "gensets": c.genshares.status()["gensets"] if c.genshares else [],
             "links": st.get("links", {}), "site_read": c.last_poll_at.isoformat() if c.last_poll_at else None,
             "site_every_s": c.poll_interval_s, "minutes": minutes}
 

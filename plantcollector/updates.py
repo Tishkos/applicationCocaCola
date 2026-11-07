@@ -34,6 +34,7 @@ WHATS_NEW = {
     "1.0.11": "Solar PV has a plant panel with stat tiles, gauges and bar gauges, and a card per inverter with its strings. Mains has a grid connection panel and a card per incomer, like the gensets. The power meters come back by themselves after a restart.",
     "1.0.12": "The power meters are asked through the PC's plant network: the program no longer waits for an address of its own in 192.168.141.x. The Analyzers tab shows the address the meters are asked from.",
     "1.0.13": "The power meters are asked from the PC's own address in their network (192.168.141.50), never through the Wi-Fi. The Analyzers tab says in words what a gateway answered when a meter has no data.",
+    "1.0.14": "The live power chart shows each genset on the bus in its own band: its share of the gensets' power, worked out from the master's load sharing (the master has no kW per genset).",
 }
 
 
