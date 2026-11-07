@@ -155,7 +155,7 @@ class Collector:
         self._sim_history: deque = deque(maxlen=200)       # the demo's live chart (no live reader there)
         # each genset's share of the gensets' power, worked out from the site master (it has no kW per genset)
         self.genshares = GensetShares.for_registry(self.registry)
-        self.device_names: dict[str, str] = self._load_names()    # the plant's own names for its meters
+        self.register_names: dict[str, dict[str, str]] = self._load_register_names()   # the plant's names for registers
         self._share_lock = threading.Lock()
         if self.simulated and seed_hours > 0:
             self.poll()
@@ -213,33 +213,56 @@ class Collector:
                 json.dump(data, f, indent=2)
             os.replace(tmp, self.settings_path)
 
-    # --- names the plant gives its meters (Settings: the Analyzers tab's rename button) -------------------------
+    # --- the plant's own names for the analyzers' registers (Analyzers tab, Detailed view) ----------------------
     NAME_MAX = 40
     NAMED_KINDS = ("analyzer",)
 
-    def _load_names(self) -> dict[str, str]:
-        raw = self._load_settings().get("device_names") or {}
-        out = {}
-        if isinstance(raw, dict):
-            for did, nm in raw.items():
-                d = self.registry.devices.get(str(did))
-                if d is not None and d.kind in self.NAMED_KINDS and isinstance(nm, str) and nm.strip():
-                    out[d.id] = " ".join(nm.split())[:self.NAME_MAX]
-        return out
-
-    def name_of(self, did: str) -> str:
-        """The name the plant gave the device (settings.json device_names), else the one of the config ("" = none)."""
-        nm = self.device_names.get(did)
-        return nm if nm else self.registry.devices[did].name
-
-    def set_device_name(self, did: str, name) -> str:
-        """Give an analyzer the plant's own name for it (e.g. what its meter feeds), or "" for its default name back.
-        Only the name shown changes: the device id, the readings, the database and the Turkey feed stay as they are."""
+    def _named_point(self, did, pid):
         d = self.registry.devices.get(str(did))
         if d is None:
             raise ValueError(f"unknown device {did}")
         if d.kind not in self.NAMED_KINDS:
-            raise ValueError(f"{did} cannot be renamed here (only {', '.join(self.NAMED_KINDS)}s)")
+            raise ValueError(f"the registers of {did} cannot be named here (only those of the {', '.join(self.NAMED_KINDS)}s)")
+        p = d.point(str(pid))
+        if p is None or "address" not in p.raw:
+            raise ValueError(f"{did} has no register {pid}")
+        return d, p
+
+    def _load_register_names(self) -> dict[str, dict[str, str]]:
+        raw = self._load_settings().get("register_names") or {}
+        out: dict[str, dict[str, str]] = {}
+        if isinstance(raw, dict):
+            for did, names in raw.items():
+                if not isinstance(names, dict):
+                    continue
+                for pid, nm in names.items():
+                    try:
+                        d, p = self._named_point(did, pid)
+                    except ValueError:
+                        continue
+                    if isinstance(nm, str) and nm.strip():
+                        out.setdefault(d.id, {})[p.id] = " ".join(nm.split())[:self.NAME_MAX]
+        return out
+
+    def register_list(self, did: str) -> list[dict]:
+        """The registers read from an analyzer: address as sent (0-based) and as its manual counts (from 1), how many
+        registers the value takes, its kind and unit, the profile's description and the plant's own name ("" = none)."""
+        from .adapters.modbus_tcp import _size
+        d = self.registry.devices[did]
+        own = self.register_names.get(did, {})
+        out = []
+        for p in d.points:
+            if "address" not in p.raw:
+                continue
+            a, kind = int(p.raw["address"]), str(p.raw.get("kind", "uint16"))
+            out.append({"id": p.id, "address": a, "manual": a + 1, "words": _size(kind), "kind": kind,
+                        "scale": p.raw.get("scale"), "unit": p.unit, "description": p.description or p.id, "name": own.get(p.id, "")})
+        return sorted(out, key=lambda r: (r["address"], r["id"]))
+
+    def set_register_name(self, did: str, pid: str, name) -> str:
+        """The plant's own name for one register of an analyzer (e.g. what its meter feeds), or "" for none. Only the
+        name shown changes: what is read, the readings, the database and the Turkey feed stay as they are."""
+        d, p = self._named_point(did, pid)
         if name is None:
             name = ""
         if not isinstance(name, str):
@@ -249,24 +272,31 @@ class Collector:
             raise ValueError(f"the name can be at most {self.NAME_MAX} characters")
         if any(ord(ch) < 32 or ch in "<>" for ch in name):
             raise ValueError("the name cannot contain < or >")
-        old = self.device_names.get(d.id, "")
-        if name == old:
+        if name == self.register_names.get(d.id, {}).get(p.id, ""):
             return name
 
         def change(data):
-            names = data.get("device_names") if isinstance(data.get("device_names"), dict) else {}
+            allv = data.get("register_names") if isinstance(data.get("register_names"), dict) else {}
+            mine = allv.get(d.id) if isinstance(allv.get(d.id), dict) else {}
             if name:
-                names[d.id] = name
+                mine[p.id] = name
             else:
-                names.pop(d.id, None)
-            data["device_names"] = names
+                mine.pop(p.id, None)
+            if mine:
+                allv[d.id] = mine
+            else:
+                allv.pop(d.id, None)
+            data["register_names"] = allv
         self._update_settings(change)
         if name:
-            self.device_names[d.id] = name
+            self.register_names.setdefault(d.id, {})[p.id] = name
         else:
-            self.device_names.pop(d.id, None)
-        self.store.event("settings", f"{d.id} named '{name}'" if name else f"{d.id}: its own name removed", severity="info",
-                         code="SETTINGS", device_id=d.id)
+            self.register_names.get(d.id, {}).pop(p.id, None)
+            if not self.register_names.get(d.id):
+                self.register_names.pop(d.id, None)
+        reg = f"register {p.raw['address']} ({p.id})"
+        self.store.event("settings", f"{d.id} {reg} named '{name}'" if name else f"{d.id} {reg}: its own name removed",
+                         severity="info", code="SETTINGS", device_id=d.id)
         return name
 
     def set_poll_interval(self, seconds: int) -> None:

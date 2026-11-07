@@ -99,8 +99,8 @@ def create_app(c: Collector) -> FastAPI:
     def set_settings(body: dict):
         """Any of: poll_interval_s (the site read), live_every_s (the master's live reading, 0 = off),
         device_every: {row key: seconds} (0 = with every site read; the keys of GET .reading.groups),
-        device_names: {analyzer id: name} (the plant's own name for the meter; "" = its default name back)."""
-        known = ("poll_interval_s", "live_every_s", "device_every", "device_names")
+        register_names: {analyzer id: {point id: name}} (the plant's own name for a register; "" = none)."""
+        known = ("poll_interval_s", "live_every_s", "device_every", "register_names")
         if not any(k in body for k in known):
             raise HTTPException(400, f"nothing to change: send one of {', '.join(known)}")
         try:
@@ -116,11 +116,12 @@ def create_app(c: Collector) -> FastAPI:
                     if key not in rows:
                         raise ValueError(f"unknown row {key}")
                     c.set_device_every(rows[key], int(sec))
-            if "device_names" in body:
-                if not isinstance(body["device_names"], dict):
-                    raise ValueError("device_names must be {device id: name}")
-                for did, nm in body["device_names"].items():
-                    c.set_device_name(did, nm)
+            if "register_names" in body:
+                if not isinstance(body["register_names"], dict) or not all(isinstance(v, dict) for v in body["register_names"].values()):
+                    raise ValueError("register_names must be {device id: {point id: name}}")
+                for did, names in body["register_names"].items():
+                    for pid, nm in names.items():
+                        c.set_register_name(did, pid, nm)
         except (TypeError, ValueError) as exc:
             raise HTTPException(400, str(exc))
         return _settings()
@@ -135,7 +136,13 @@ def create_app(c: Collector) -> FastAPI:
                 "options": [{"value": v, "label": f"{v // 3600} h" if v >= 3600 and v % 3600 == 0 else f"{v // 60} min"} for v in POLL_OPTIONS_S],
                 "source": c.settings_source, "simulated": c.simulated, "config": os.path.basename(c.config_path),
                 "settings_file": c.settings_path, "database": c.db_path, "version": updates.installed_version(),
-                "update": updates.status(c.data_dir), "reading": views.reading_settings(c), "device_names": dict(c.device_names)}
+                "update": updates.status(c.data_dir), "reading": views.reading_settings(c)}
+
+    @app.get("/api/v1/local/registers")
+    def registers():
+        """Every register read from each analyzer: address as sent and as the meter's manual counts it, kind, unit,
+        description and the plant's own name (set with POST /api/v1/local/settings register_names)."""
+        return {d.id: c.register_list(d.id) for d in c.registry.devices.values() if d.kind in c.NAMED_KINDS}
 
     @app.get("/api/v1/local/version")
     def version():

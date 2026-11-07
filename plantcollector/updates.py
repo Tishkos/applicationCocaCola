@@ -36,7 +36,7 @@ WHATS_NEW = {
     "1.0.13": "The power meters are asked from the PC's own address in their network (192.168.141.50), never through the Wi-Fi. The Analyzers tab says in words what a gateway answered when a meter has no data.",
     "1.0.14": "The live power chart shows each genset on the bus in its own band: its share of the gensets' power, worked out from the master's load sharing (the master has no kW per genset).",
     "1.0.15": "The single-line diagram shows each genset's kW and kVAr, like the incomers: its share of the gensets' power by the master's load sharing. The live power chart shows each genset in its own band.",
-    "1.0.16": "Each analyzer can have the plant's own name, e.g. what its meter feeds: the pencil next to its name on the Analyzers tab. The single-line diagram shows each genset's kW and kVAr.",
+    "1.0.16": "Analyzers have a Simple / Detailed switch: Detailed lists every register read from each meter under its widgets, and each register's name can be changed. The single-line diagram shows each genset's kW and kVAr.",
 }
 
 

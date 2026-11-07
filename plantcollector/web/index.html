@@ -976,14 +976,30 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
 .anm .ph .chip { margin-inline-start: 8px; }
 .anm .ph .why { margin-inline-start: 8px; font-size: calc(12px * var(--zoom)); color: var(--text-2); }
 .anm .ph h3 { cursor: pointer; }
-.anm .ph .anren { display: inline-grid; place-items: center; width: calc(26px * var(--zoom)); height: calc(26px * var(--zoom)); margin-inline-start: 4px; padding: 0;
-  border: 1px solid transparent; border-radius: 2px; background: none; color: var(--text-3); cursor: pointer; }
-.anm .ph .anren:hover, .anm .ph .anren:focus-visible { color: var(--text); border-color: var(--border-2); background: var(--panel-2); }
-.anm .ph .anren svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.anm .ph .anrf { display: inline-flex; align-items: center; gap: 6px; }
-.anm .ph .anrf input { width: calc(230px * var(--zoom)); height: calc(30px * var(--zoom)); padding: 0 10px; border: 1px solid var(--primary-bg, #3d71d9); border-radius: 2px;
-  background: var(--panel-3); color: var(--text); font-size: calc(14px * var(--zoom)); font-weight: 600; }
-.anm .ph .anrf .btn { height: calc(30px * var(--zoom)); }
+.row.collapsed > .antool { display: none; }
+.antool { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 10px; }
+.antool .hint { color: var(--text-3); font-size: calc(12px * var(--zoom)); }
+.anreg { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 12px; }
+.anreg .ah small { color: var(--text-3); font-weight: 400; text-transform: none; letter-spacing: 0; }
+.anreg .rtbl { overflow-x: auto; }
+.regs { width: 100%; border-collapse: collapse; font-size: calc(13px * var(--zoom)); }
+.regs th { text-align: start; font-weight: 600; color: var(--text-2); padding: 6px 10px; border-bottom: 1px solid var(--border-2); white-space: nowrap; }
+.regs td { padding: 3px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; color: var(--text); }
+.regs th.r, .regs td.r { text-align: end; }
+.regs td.mono, .regs td.v { font-family: var(--mono); }
+.regs td.ty { color: var(--text-3); }
+.regs tbody tr:hover { background: var(--panel-2); }
+.regs td.rn { width: 46%; position: relative; }
+.regs td.rn input { width: 100%; min-width: calc(220px * var(--zoom)); height: calc(28px * var(--zoom)); padding: 0 26px 0 8px; border: 1px solid transparent; border-radius: 2px;
+  background: transparent; color: var(--strong); font: inherit; font-weight: 500; cursor: text; }
+.regs td.rn input::placeholder { color: var(--text-2); font-weight: 400; }
+.regs td.rn input:hover { border-color: var(--border-2); border-style: dashed; }
+.regs td.rn input:focus { border-color: var(--primary-bg, #3d71d9); border-style: solid; background: var(--panel-3); outline: none; }
+.regs td.rn .ok { position: absolute; inset-inline-end: 18px; top: 50%; transform: translateY(-50%); color: var(--ok); font-style: normal; opacity: 0; transition: opacity .3s; }
+.regs tr.saved td.rn .ok { opacity: 1; }
+.regs td.rn .orig { display: none; padding: 0 9px 3px; color: var(--text-3); font-size: calc(11px * var(--zoom)); }
+.regs td.rn.named .orig { display: block; }
+[dir="rtl"] .regs td.mono, [dir="rtl"] .regs td.v { direction: ltr; unicode-bidi: isolate; }
 .phb, .vb { display: grid; grid-template-columns: calc(44px * var(--zoom)) 1fr calc(64px * var(--zoom)); align-items: center; gap: 8px; font-size: calc(12px * var(--zoom)); }
 .phb .l, .vb .l { color: var(--text-2); font-family: var(--mono); }
 .phb b, .vb b { text-align: end; font-family: var(--mono); color: var(--strong); font-weight: 500; }
@@ -1305,6 +1321,8 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       <!-- ========================================================== analyzers -->
       <section class="row" id="analyzers" hidden>
         <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Analyzers</h2><span class="sub" id="anSub"></span><span class="sub rate" id="anRate"></span><span class="upd" data-upd="summary"></span></button>
+        <div class="antool"><div class="seg anmode" role="group" aria-label="Analyzer detail"><button type="button" data-anv="simple">Simple</button><button type="button" data-anv="detail">Detailed</button></div>
+          <span class="hint" id="anHint"></span></div>
         <div class="grid" id="anGrid"></div>
       </section>
 
@@ -2709,9 +2727,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
         <div class="ph"><h3><span data-no-i18n>${nm}</span> · <span>${title}</span></h3><span class="r" data-upd="series"></span></div>
         <div class="pb"><div class="chart"><canvas id="c-an-${id}-${k}"></canvas></div></div><div class="legend" id="lg-an-${id}-${k}"></div></div>`;
     return `<div class="panel w24 anm" data-src="summary" data-an="${id}">
-      <div class="ph"><h3 data-dev="${id}" tabindex="0" role="button" title="All values and trend"${d.renamed ? " data-no-i18n" : ""}>${nm}</h3>
-        <button type="button" class="anren" data-ren="${id}" title="Rename this analyzer" aria-label="Rename this analyzer"><svg viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4zM13.5 6.5l4 4"/></svg></button>
-        <span class="chip idle st">—</span><span class="why"></span>
+      <div class="ph"><h3 data-dev="${id}" tabindex="0" role="button" title="All values and trend">${nm}</h3><span class="chip idle st">—</span><span class="why"></span>
         <div class="meta"><span data-no-i18n>${esc(d.vendor)} ${esc(d.model)}</span><span class="m-gw"><small>Gateway</small> <b class="gw" data-no-i18n>—</b></span><span class="m-ui"><small>Unit ID</small> <b class="ui" data-no-i18n>—</b></span><span class="m-src" hidden><small>Asked from</small> <b class="src" data-no-i18n>—</b></span><span><small>CT</small> <b class="ct" data-no-i18n>—</b></span></div></div>
       <div class="pb">
         <div class="stats astats">${AN_TILES.map((k) => `<div data-k="${k}"></div>`).join("")}</div>
@@ -2725,11 +2741,80 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
           <div><div class="ah">Energy counters</div>
             <div class="ec"><span>Energy in</span><b><span class="n ein">—</span><em>MWh</em></b></div>
             <div class="ec"><span>Energy out</span><b><span class="n eout">—</span><em>MWh</em></b></div></div>
-        </div></div></div>`
+        </div>
+        <div class="anreg"${anMode === "detail" ? "" : " hidden"}><div class="ah">Registers <small class="rcount"></small></div>
+          <div class="rtbl"><table class="regs"><thead><tr><th>Address</th><th title="The meter's manual counts the registers from 1">In the manual</th><th>Name</th><th class="r">Value</th><th>Unit</th><th>Type</th></tr></thead><tbody></tbody></table></div></div>
+      </div></div>`
       + chart("p", "Power") + chart("i", "Currents") + chart("v", "Voltage", " anc3");
   }
+  // ---- Detailed: every register read from the meter, with the plant's own name for it (kept in settings.json;
+  // only the name shown changes: what is read, the readings, the database and the Turkey feed stay as they are)
+  let anMode = saved("pc.anview") === "detail" ? "detail" : "simple", regMeta = null, regLoading = false;
+  const REG_TIP = "Type the plant's own name for this register, e.g. what the meter feeds, and press Enter. Empty = the name of the meter's register list.";
+  async function loadRegs() {
+    if (regLoading) return; regLoading = true;
+    try { regMeta = await getJSON("/api/v1/local/registers"); } catch (e) { regMeta = null; }
+    regLoading = false;
+    $$("#anGrid .anm").forEach((x) => { x.__regKey = null; });
+    if (summary) renderAnalyzers(model());
+  }
+  const paintAn = () => {
+    $$("[data-anv]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.anv === anMode)));
+    $("#anHint").textContent = anMode === "detail" ? "Every register read from each meter is under its widgets; click a name to change it." : "";
+    $$("#anGrid .anreg").forEach((x) => { x.hidden = anMode !== "detail"; });
+  };
+  $$("[data-anv]").forEach((b) => b.addEventListener("click", () => {
+    anMode = b.dataset.anv; save("pc.anview", anMode); paintAn();
+    if (anMode === "detail" && !regMeta) loadRegs(); else if (summary) renderAnalyzers(model());
+  }));
+  paintAn();
+  if (anMode === "detail") later(loadRegs);
+  const regVal = (r, x) => {
+    if (!x || x.v === null || x.v === undefined || x.q === "bad") return "—";
+    const v = x.v; if (typeof v !== "number") return String(v);
+    return fmt(v, r.unit === "" ? 3 : r.unit === "Hz" ? 2 : r.unit === "kWh" ? 0 : Math.abs(v) < 10 ? 1 : 0);
+  };
+  function anRegs(el, d) {
+    const box = el.querySelector(".anreg"); if (!box || box.hidden) return;
+    const rows = regMeta && regMeta[d.id];
+    if (!rows) { setText(box.querySelector(".rcount"), regLoading ? "· loading…" : ""); return; }
+    const tb = box.querySelector("tbody"), key = JSON.stringify(rows.map((r) => [r.id, r.name]));
+    if (el.__regKey !== key && !tb.contains(document.activeElement)) {
+      el.__regKey = key;
+      setText(box.querySelector(".rcount"), `· ${rows.length} read from this meter`);
+      tb.innerHTML = rows.map((r) => `<tr data-pid="${esc(r.id)}"><td class="mono" data-no-i18n>${r.address}</td><td class="mono" data-no-i18n>${r.manual}</td>
+        <td class="rn${r.name ? " named" : ""}"><input type="text" maxlength="40" spellcheck="false" autocomplete="off" data-no-i18n value="${esc(r.name)}" data-was="${esc(r.name)}"
+          placeholder="${esc(r.description)}" aria-label="Name of register ${r.address}" title="${esc(REG_TIP)}"><i class="ok" aria-hidden="true">✓</i><small class="orig" data-no-i18n>${esc(r.description)}</small></td>
+        <td class="r mono v" data-no-i18n>—</td><td data-no-i18n>${esc(r.unit)}</td><td class="mono ty" data-no-i18n>${esc(r.kind)}${r.words > 1 ? ` · ${r.words}` : ""}</td></tr>`).join("");
+    }
+    const P = d.points || {};
+    rows.forEach((r) => { const td = tb.querySelector(`tr[data-pid="${CSS.escape(r.id)}"] .v`); if (td) setText(td, regVal(r, P[r.id])); });
+  }
+  async function saveRegName(inp) {
+    const tr = inp.closest("tr"), panel = inp.closest(".anm"); if (!tr || !panel) return;
+    const pid = tr.dataset.pid, did = panel.dataset.an, was = inp.dataset.was || "", name = inp.value.trim().replace(/\s+/g, " ");
+    if (name === was) { inp.value = was; return; }
+    inp.disabled = true;
+    try {
+      await getJSON("/api/v1/local/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ register_names: { [did]: { [pid]: name } } }) });
+      inp.dataset.was = name; inp.value = name; inp.closest("td").classList.toggle("named", !!name);
+      const r = regMeta && (regMeta[did] || []).find((x) => x.id === pid); if (r) r.name = name;
+      panel.__regKey = regMeta ? JSON.stringify((regMeta[did] || []).map((x) => [x.id, x.name])) : null;
+      tr.classList.add("saved"); setTimeout(() => tr.classList.remove("saved"), 1600);
+      toast(name ? "Saved: the register's name." : "Saved: the register has the name of the meter's list again.");
+    } catch (err) { inp.value = was; toast(`Not saved: ${why(err)}.`, true); }
+    inp.disabled = false;
+  }
+  document.addEventListener("keydown", (e) => {
+    const inp = e.target.closest && e.target.closest(".regs .rn input"); if (!inp) return;
+    if (e.key === "Enter") { e.preventDefault(); inp.blur(); }
+    else if (e.key === "Escape") { e.preventDefault(); inp.value = inp.dataset.was || ""; inp.blur(); }
+  });
+  document.addEventListener("focusout", (e) => { const inp = e.target.closest && e.target.closest(".regs .rn input"); if (inp) saveRegName(inp); });
+
   function anUpdate(el, d) {
     if (!el) return;
+    anRegs(el, d);
     const P = (k) => pt(d, k), trend = (k) => sv(`${d.id}/${k}`), tile = (k) => el.querySelector(`.astats [data-k="${k}"]`);
     const st = el.querySelector(".st"); st.className = `chip st ${commsCls(d.comms)}`; setText(st, comms(d.comms));
     // why there is no data: the reader's own words for it (waiting for the gateway, no answer, no address)
@@ -2821,46 +2906,14 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     showSec("analyzers", list.length > 0); if (!list.length) return;
     $("#anSub").textContent = `${list.filter((d) => d.comms === "ok").length} of ${list.length} online`;
     $("#anRate").textContent = rateOf(list[0]) ? `read ${rateOf(list[0])}` : "";
-    const grid = $("#anGrid"), key = list.map((d) => d.id + "=" + anName(d)).join(",");
-    if (grid.__key !== key && !grid.querySelector(".anrf")) {      // not while a name is being typed
+    const grid = $("#anGrid"), key = list.map((d) => d.id).join(",");
+    if (grid.__key !== key && !grid.contains(document.activeElement)) {
       Object.keys(charts).filter((c) => c.startsWith("c-an-")).forEach((c) => { charts[c].destroy(); delete charts[c]; });
       grid.__key = key; grid.innerHTML = list.map(anPanel).join("");
       later(anCharts);
     }
     list.forEach((d) => anUpdate([...grid.children].find((x) => x.dataset.an === d.id), d));
   }
-
-  // the plant's own name for an analyzer (what its meter feeds): typed in its panel, kept in settings.json. Only the
-  // name shown changes; the device id, its readings and the Turkey feed stay as they are.
-  function anRenameOpen(btn) {
-    const panel = btn.closest(".anm"), id = btn.dataset.ren, d = model().analyzers.find((x) => x.id === id);
-    if (!panel || !d || panel.querySelector(".anrf")) return;
-    const h3 = panel.querySelector(".ph h3"), mm = /^analyzer-(\d+)$/.exec(id), dflt = mm ? `Analyzer ${mm[1]}` : id;
-    const f = document.createElement("form"); f.className = "anrf";
-    f.innerHTML = `<input type="text" maxlength="40" spellcheck="false" autocomplete="off" data-no-i18n aria-label="Name of this analyzer"
-        title="The plant's own name for this meter, e.g. what it feeds. Leave it empty for the default name.">
-      <button type="submit" class="btn primary">Save</button><button type="button" class="btn" data-x>Cancel</button>`;
-    const inp = f.querySelector("input"); inp.value = d.renamed ? d.name : ""; inp.placeholder = dflt;
-    h3.hidden = true; btn.hidden = true; h3.after(f); inp.focus(); inp.select();
-    const close = () => { f.remove(); h3.hidden = false; btn.hidden = false; renderAnalyzers(model()); };
-    f.querySelector("[data-x]").addEventListener("click", close);
-    inp.addEventListener("keydown", (e) => { if (e.key === "Escape") { e.preventDefault(); close(); btn.focus(); } });
-    f.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const name = inp.value.trim().replace(/\s+/g, " ");
-      f.querySelectorAll("button, input").forEach((x) => { x.disabled = true; });
-      try {
-        await getJSON("/api/v1/local/settings", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ device_names: { [id]: name } }) });
-        toast(name ? "Saved: the analyzer's new name." : "Saved: the analyzer has its default name again.");
-        f.remove(); h3.hidden = false; btn.hidden = false;
-        await loadSummary();
-      } catch (err) {
-        toast(`Not saved: ${why(err)}.`, true);
-        f.querySelectorAll("button, input").forEach((x) => { x.disabled = false; }); inp.focus();
-      }
-    });
-  }
-  document.addEventListener("click", (e) => { const b = e.target.closest("[data-ren]"); if (b) { e.preventDefault(); anRenameOpen(b); } });
 
   // ---------------------------------------------------------------- master controller
   const HEALTHY = [["system_ready", "System ready"], ["bus_healthy", "Bus healthy"], ["mains_available", "Mains available"], ["pv_operable", "PV operable"], ["pvcb_status", "PV breaker"], ["mode_auto", "In AUTO"]];
@@ -3177,7 +3230,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
         const p = d.points[k];
         return `<dt>${l}</dt><dd class="${p.q === "good" ? "" : p.q}">${p.q === "bad" ? "n/a" : fmt(p.v, dec !== undefined ? dec : typeof p.v === "number" && !Number.isInteger(p.v) ? 1 : 0)}${p.q === "bad" || !p.unit ? "" : " " + p.unit}</dd>`;
       }).join("");
-      return `<div class="dev" data-src="summary" data-dev="${esc(d.id)}" tabindex="0" role="button" aria-label="${esc(d.name || d.id)}: all values and trend"><div class="hd"><b${d.renamed ? " data-no-i18n" : ""}>${esc(d.name || d.id)}</b><span class="kind">${d.kind}</span><span class="chip ${commsCls(d.comms)}">${comms(d.comms)}</span></div>
+      return `<div class="dev" data-src="summary" data-dev="${esc(d.id)}" tabindex="0" role="button" aria-label="${esc(d.name || d.id)}: all values and trend"><div class="hd"><b>${esc(d.name || d.id)}</b><span class="kind">${d.kind}</span><span class="chip ${commsCls(d.comms)}">${comms(d.comms)}</span></div>
         <div class="model" title="${esc(d.vendor + " " + d.model)}">${esc(d.vendor)} ${esc(d.model)}</div>${rateOf(d) ? `<div class="model rate">${esc(rateOf(d))}</div>` : ""}<dl>${rows}</dl></div>`;
     }).join(""), "data-dev");
   }
