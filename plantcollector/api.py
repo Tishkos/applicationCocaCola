@@ -138,11 +138,29 @@ def create_app(c: Collector) -> FastAPI:
                 "settings_file": c.settings_path, "database": c.db_path, "version": updates.installed_version(),
                 "update": updates.status(c.data_dir), "reading": views.reading_settings(c)}
 
+    @app.post("/api/v1/local/analyzers")
+    def add_analyzer(body: dict):
+        """Add a power meter of the same type as the plant's analyzers (Schneider PM800): {host, port (502),
+        unit_id (its Modbus address), name (optional)}. Read-only, every 15 s, on the gateway's kept connection."""
+        try:
+            return c.add_analyzer(body.get("host"), body.get("port", 502), body.get("unit_id"), body.get("name", ""))
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.delete("/api/v1/local/analyzers/{device_id}")
+    def remove_analyzer(device_id: str):
+        """Stop reading an analyzer added from the dashboard (its readings stay in the database)."""
+        try:
+            c.remove_analyzer(device_id)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        return {"removed": device_id}
+
     @app.get("/api/v1/local/registers")
     def registers():
         """Every register read from each analyzer: address as sent and as the meter's manual counts it, kind, unit,
         description and the plant's own name (set with POST /api/v1/local/settings register_names)."""
-        return {d.id: c.register_list(d.id) for d in c.registry.devices.values() if d.kind in c.NAMED_KINDS}
+        return {d.id: c.register_list(d.id) for d in c.registry.devices.values() if d.kind in c.NAMED_KINDS and d.id not in c.removed}
 
     @app.get("/api/v1/local/version")
     def version():

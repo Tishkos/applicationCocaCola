@@ -125,15 +125,20 @@ def load_registry(site_config_path: str) -> Registry:
     reg = Registry(site=site, extra={k: v for k, v in cfg.items() if k not in ("site", "devices")})
     reg.extra["added_devices"] = [str(e.get("id")) for e in more]
     for entry in cfg.get("devices", []):
-        prof_path = entry["profile"]
-        if not os.path.isabs(prof_path):
-            prof_path = os.path.join(PROFILES_DIR, prof_path)
-        prof = _yaml(prof_path)
-        prof.pop("commands", None)                       # profiles may document commands; we never use them
-        merged = {**prof, **{k: v for k, v in entry.items() if k != "profile"}}
-        if merged.get("kind") not in ("genset", "pv", "grid", "bess", "meter", "analyzer", "controller"):
-            merged["kind"] = "other"
-        lim = merged.get("limits") or {}
-        merged["limits"] = {k: v for k, v in lim.items() if v is not None}
-        reg.devices[entry["id"]] = Device(**merged)
+        reg.devices[entry["id"]] = build_device(entry)
     return reg
+
+
+def build_device(entry: dict) -> Device:
+    """A device from one config entry: its profile, with the entry's own keys (id, adapter, connection, ...) on top."""
+    prof_path = entry["profile"]
+    if not os.path.isabs(prof_path):
+        prof_path = os.path.join(PROFILES_DIR, prof_path)
+    prof = _yaml(prof_path)
+    prof.pop("commands", None)                           # profiles may document commands; we never use them
+    merged = {**prof, **{k: v for k, v in entry.items() if k != "profile"}}
+    if merged.get("kind") not in ("genset", "pv", "grid", "bess", "meter", "analyzer", "controller"):
+        merged["kind"] = "other"
+    lim = merged.get("limits") or {}
+    merged["limits"] = {k: v for k, v in lim.items() if v is not None}
+    return Device(**merged)

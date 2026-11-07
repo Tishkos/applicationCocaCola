@@ -234,6 +234,33 @@ class MeterReader:
             self._wake.wait(max(0.2, nxt))
             self._wake.clear()
 
+    # ------------------------------------------------------------------ meters added or removed while running
+    # The cycle runs in its own thread: every table it reads is replaced, never changed in place, and a removed
+    # meter keeps its entries (the cycle may be reading it right now); it is only left out of device_ids.
+    def add_device(self, did: str) -> None:
+        """Read one more kept meter from the next cycle on (a meter behind a gateway already read here shares
+        that gateway's one connection: the adapters of one host and port share their client)."""
+        if did in self.device_ids:
+            return
+        dev = self.c.registry.devices[did]
+        self._bad_run = {**self._bad_run, did: 0}
+        self._ok_run = {**self._ok_run, did: 0}
+        self._ep = {**self._ep, did: endpoint(dev)}
+        self.endpoints = frozenset(self._ep[d] for d in self.device_ids + [did])
+        self.device_ids = self.device_ids + [did]
+        self._wake.set()
+
+    def remove_device(self, did: str) -> bool:
+        """Stop reading a meter. True when no other meter uses its gateway any more (its connection may close)."""
+        if did not in self.device_ids:
+            return False
+        ep = self._ep.get(did)
+        self.device_ids = [d for d in self.device_ids if d != did]
+        self.endpoints = frozenset(self._ep[d] for d in self.device_ids)
+        self.routes.pop(did, None)
+        self.last_ok_at.pop(did, None)
+        return ep not in self.endpoints
+
     # ------------------------------------------------------------------ one cycle
     def _rest(self, ep: tuple, now_m: float, why: str, device_id: str | None = None) -> None:
         """Close the connection to a gateway (if open) and open no new one for rest_s."""
@@ -259,9 +286,11 @@ class MeterReader:
         for did in self.device_ids:
             if self.stop.is_set():
                 break
-            ad = self.c.adapters[did]
-            dev = self.c.registry.devices[did]
-            ep = self._ep[did]
+            ad = self.c.adapters.get(did)
+            dev = self.c.registry.devices.get(did)
+            ep = self._ep.get(did)
+            if ad is None or dev is None or ep is None:
+                continue                                 # added or removed while this cycle runs
             host = str((dev.connection or {}).get("host"))
             now_m = time.monotonic()
             plant = self._plant_sources()
@@ -335,7 +364,7 @@ class MeterReader:
             since = max(self._quiet_since.get(ep, now_m), self._conn_since[ep])
             limit = self.reopen_after_s if self._conn_answered.get(ep) else self.first_answer_s
             if now_m - since >= limit:
-                did = next(d for d, e in self._ep.items() if e == ep)
+                did = next((d for d in self.device_ids if self._ep.get(d) == ep), None) or next(d for d, e in self._ep.items() if e == ep)
                 self._rest(ep, now_m, f"no answer on its connection for {limit / 60:.1f} min, so it is closed", did)
         self.last_ms = round((time.perf_counter() - t0) * 1000, 1)
         self.cycles += 1

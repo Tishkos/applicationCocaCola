@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import bisect
 import json
+import re
 import os
 import threading
 import time
@@ -95,6 +96,12 @@ class Collector:
             if saved.get("poll_interval_s") in POLL_OPTIONS_S:
                 self.registry.site.poll_interval_s = float(saved["poll_interval_s"])
                 self.settings_source = "settings.json"
+        # analyzers added from the dashboard (Analyzers tab > Add analyzer): same meter type, by gateway IP and address
+        self.user_added: set[str] = set()
+        self.removed: set[str] = set()           # removed from the dashboard while running: gone at the next start
+        self._devices_lock = threading.Lock()
+        if not self.simulated:
+            self._load_added_analyzers()
         # the PC's own plant address, when it has a second network in the same range (config network.source_address)
         from .adapters import modbus_tcp
         modbus_tcp.set_source_address((self.registry.extra.get("network") or {}).get("source_address"))
@@ -212,6 +219,129 @@ class Collector:
             with open(tmp, "w") as f:
                 json.dump(data, f, indent=2)
             os.replace(tmp, self.settings_path)
+
+    # --- analyzers added from the dashboard: a meter of the same type as the plant's two (the PM800 profile),
+    # by its gateway's IP address and its Modbus address. Read-only, by the meter reader on the gateway's kept
+    # connection (shared with any meter already read behind that gateway). Kept in settings.json (added_analyzers).
+    ADD_PROFILE = "pm800_meter.yaml"
+    ADD_MAX = 16
+
+    @staticmethod
+    def _analyzer_entry(did: str, host: str, port: int, unit_id: int, name: str = "") -> dict:
+        return {"id": did, "name": name, "profile": Collector.ADD_PROFILE, "adapter": "modbus_tcp",
+                "connection": {"host": host, "port": port, "unit_id": unit_id, "timeout": 5, "max_block": 16, "keep_open": True}}
+
+    def _check_analyzer(self, host, port, unit_id, name, skip: str | None = None) -> tuple[str, int, int, str]:
+        import ipaddress
+        try:
+            ip = ipaddress.IPv4Address(str(host or "").strip())
+        except ValueError:
+            raise ValueError("the gateway's IP address must look like 192.168.141.3")
+        if ip.is_unspecified or ip.is_multicast or str(ip) == "255.255.255.255":
+            raise ValueError(f"{ip} is not a device's address")
+        try:
+            port, unit_id = int(port), int(unit_id)
+        except (TypeError, ValueError):
+            raise ValueError("the port and the Modbus address must be numbers")
+        if not 1 <= port <= 65535:
+            raise ValueError("the port must be 1 to 65535 (Modbus TCP: 502)")
+        if not 1 <= unit_id <= 247:
+            raise ValueError("the Modbus address (unit ID) must be 1 to 247")
+        name = self._clean_name(name)
+        # never a plant controller or the SAU: only meter gateways (another device's address is refused)
+        others = {str((d.connection or {}).get("host")): d.id for d in self.registry.devices.values() if d.kind != "analyzer"}
+        others.update({str(h): "a genset controller" for h in ((self.registry.extra.get("probe") or {}).get("hosts") or [])})
+        if str(ip) in others:
+            who = others[str(ip)]
+            raise ValueError(f"{ip} is {who if ' ' in who else 'the address of ' + who}: only the gateway of a power meter can be added here")
+        for d in self.registry.devices.values():
+            c = d.connection or {}
+            if d.id != skip and d.id not in self.removed and str(c.get("host")) == str(ip) and int(c.get("port", 502)) == port \
+                    and int(c.get("unit_id", 1)) == unit_id:
+                raise ValueError(f"{d.id} already reads {ip} port {port} address {unit_id}")
+        return str(ip), port, unit_id, name
+
+    def _clean_name(self, name) -> str:
+        if name is None:
+            return ""
+        if not isinstance(name, str):
+            raise ValueError("the name must be text")
+        name = " ".join(name.split())
+        if len(name) > self.NAME_MAX:
+            raise ValueError(f"the name can be at most {self.NAME_MAX} characters")
+        if any(ord(ch) < 32 or ch in "<>" for ch in name):
+            raise ValueError("the name cannot contain < or >")
+        return name
+
+    def _load_added_analyzers(self) -> None:
+        from .registry import build_device
+        for e in self._load_settings().get("added_analyzers") or []:
+            try:
+                did = str(e["id"])
+                if not did.startswith("analyzer-") or did in self.registry.devices:
+                    continue
+                host, port, unit, name = self._check_analyzer(e.get("host"), e.get("port", 502), e.get("unit_id"), e.get("name", ""))
+                self.registry.devices[did] = build_device(self._analyzer_entry(did, host, port, unit, name))
+                self.user_added.add(did)
+            except Exception as exc:              # a hand edit gone wrong must never stop the collector
+                print(f"[collector] an added analyzer in settings.json is not valid ({exc}); left out")
+
+    def add_analyzer(self, host, port=502, unit_id=1, name="") -> dict:
+        """Add a meter of the plant's analyzers' type, read from now on. Returns its id and connection."""
+        if self.simulated:
+            raise ValueError("the demo has its own two analyzers; analyzers are added on the plant PC")
+        from .registry import build_device
+        with self._devices_lock:
+            host, port, unit_id, name = self._check_analyzer(host, port, unit_id, name)
+            if len([d for d in self.user_added if d not in self.removed]) >= self.ADD_MAX:
+                raise ValueError(f"at most {self.ADD_MAX} analyzers can be added here")
+            data = self._load_settings()
+            used = [int(d.split("-")[1]) for d in self.registry.devices if re.match(r"^analyzer-\d+$", d)]
+            n = max(used + [int(data.get("analyzer_last") or 0), 2]) + 1        # never an id used before
+            did = f"analyzer-{n}"
+            dev = build_device(self._analyzer_entry(did, host, port, unit_id, name))
+            ad = build_adapter(dev, plant=self.plant)
+
+            def change(data):
+                lst = [x for x in (data.get("added_analyzers") or []) if isinstance(x, dict)]
+                lst.append({"id": did, "host": host, "port": port, "unit_id": unit_id, "name": name})
+                data["added_analyzers"] = lst
+                data["analyzer_last"] = n
+            self._update_settings(change)
+            # replaced, never changed in place: the site read and the meter reader may be going through them
+            self.registry.devices = {**self.registry.devices, did: dev}
+            self.adapters = {**self.adapters, did: ad}
+            self.user_added.add(did)
+        if self.meters is not None:
+            self.meters.add_device(did)
+        elif getattr(self, "_meters_wanted", False):
+            self.start_meters()
+        self.store.event("settings", f"{did} added: {host} port {port}, Modbus address {unit_id}" + (f" ({name})" if name else ""),
+                         severity="info", code="SETTINGS", device_id=did)
+        return {"id": did, "host": host, "port": port, "unit_id": unit_id, "name": name}
+
+    def remove_analyzer(self, did: str) -> None:
+        """Stop reading an analyzer added from the dashboard. Its readings stay in the database; it is gone from the
+        dashboard now and from the program at its next start."""
+        did = str(did)
+        if did not in self.user_added or did in self.removed:
+            raise ValueError(f"{did} was not added from the dashboard" if did not in self.user_added else f"{did} is removed already")
+        with self._devices_lock:
+            def change(data):
+                data["added_analyzers"] = [x for x in (data.get("added_analyzers") or []) if isinstance(x, dict) and x.get("id") != did]
+            self._update_settings(change)
+            self.removed.add(did)
+            self._comms_lost.discard(did)
+            self._alarm_on.discard(did)
+        last = self.meters.remove_device(did) if self.meters is not None else True
+        if last:                                       # no other meter behind that gateway: free its connection
+            try:
+                self.adapters[did].close()
+            except Exception:
+                pass
+        dev = self.registry.devices[did]
+        self.store.event("settings", f"{did} removed ({dev.connection.get('host')} address {dev.connection.get('unit_id')}); "
+                         "its readings stay in the database", severity="info", code="SETTINGS", device_id=did)
 
     # --- the plant's own names for the analyzers' registers (Analyzers tab, Detailed view) ----------------------
     NAME_MAX = 40
@@ -396,6 +526,7 @@ class Collector:
         """Start the meter reader for the devices whose connection is kept open (real plant only)."""
         if self.simulated or self.meters is not None:
             return False
+        self._meters_wanted = True
         from .meters import MeterReader
         cfg = self.registry.extra.get("meters")
         try:
@@ -702,8 +833,10 @@ class Collector:
             if live is not None and did in live.device_ids and not live.failures_in_row:
                 continue                         # read every few seconds by the live reader; its values are current
                                                  # (while it backs off, the site read reads the device itself)
-            if meters is not None and did in meters.device_ids:
-                continue
+            if did in self.removed:
+                continue                         # removed from the dashboard
+            if meters is not None and (did in meters.device_ids or (self.registry.devices[did].connection or {}).get("keep_open")):
+                continue                         # a kept meter: read by the meter reader on its one connection
             if not self.read_kept and (self.registry.devices[did].connection or {}).get("keep_open"):
                 continue                         # read by the meter reader on its kept connection; a second connection
                                                  # would only be ignored by the meters' gateway

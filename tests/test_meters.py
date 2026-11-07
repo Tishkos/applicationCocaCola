@@ -100,12 +100,14 @@ class FakeGateway:
                 while len(buf) >= 12:
                     tid, _proto, length, unit, fc, start, count = struct.unpack(">HHHBBHH", buf[:12])
                     buf = buf[6 + length:]
-                    if not serve or unit != self.unit or fc not in (3, 4) or count > 125:
+                    if not serve or unit not in (self.unit if isinstance(self.unit, (set, frozenset)) else {self.unit}) \
+                            or fc not in (3, 4) or count > 125:
                         with self.lock:
                             self.ignored += 1
                         continue                 # like the real gateway: no answer at all
                     last = time.monotonic()
-                    vals = [self.regs.get(a, 0x8000) for a in range(start, start + count)]
+                    regs = self.regs.get(unit, self.regs) if isinstance(self.unit, (set, frozenset)) else self.regs
+                    vals = [regs.get(a, 0x8000) for a in range(start, start + count)]
                     pdu = struct.pack(">BB", fc, 2 * count) + b"".join(struct.pack(">H", v) for v in vals)
                     conn.sendall(struct.pack(">HHHB", tid, 0, len(pdu) + 1, unit) + pdu)
                     with self.lock:

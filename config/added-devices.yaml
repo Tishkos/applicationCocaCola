@@ -18,6 +18,8 @@ devices:
   # for a few minutes after the last one closed, so each is read on one kept connection (keep_open, see
   # plantcollector/meters.py), 16 registers per request. The PC needs an address in 192.168.141.x (192.168.141.99).
   # Unit ids found by a read-only search on 2026-11-06: 17 behind gateway 1, 1 behind gateway 2.
+  # analyzer-3 and up are the ids of analyzers added from the dashboard (Analyzers tab > Add analyzer, kept in
+  # data\settings.json): never give a device here one of those ids.
   - id: analyzer-1
     profile: pm800_meter.yaml
     adapter: modbus_tcp

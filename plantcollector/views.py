@@ -269,9 +269,11 @@ def summary(c: Collector) -> dict:
     }
     devices = []
     for d in reg.devices.values():
+        if d.id in c.removed:
+            continue                             # removed from the dashboard (gone from the program at its next start)
         rows = st.latest(d.id)
         devices.append({
-            "id": d.id, "name": d.name, "kind": d.kind, "vendor": d.vendor, "model": d.model, "adapter": d.adapter,
+            "id": d.id, "name": d.name, "added": d.id in c.user_added, "kind": d.kind, "vendor": d.vendor, "model": d.model, "adapter": d.adapter,
             "host": (d.connection or {}).get("host"), "unit_id": (d.connection or {}).get("unit_id"),
             "profile_status": d.profile_status, "comms": device_comms(c, d.id),
             "every_s": c.device_every_s(d.id), "live": lv is not None and d.id in lv.device_ids,
