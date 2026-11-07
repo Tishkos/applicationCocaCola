@@ -104,3 +104,31 @@ def test_collector_live_point_has_a_column_per_genset(tmp_path):
     total = c.store.value(c.genshares.master_id, "power_kw")
     if shares_now and total is not None:
         assert abs(sum(shares_now) - total) < 1.0
+
+
+def test_weights_add_up_and_split_the_kvar_too(tmp_path):
+    import os
+    from datetime import datetime, timezone
+    from plantcollector.core import Collector
+    from plantcollector.store import Reading
+    cfg = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config", "site.demo.yaml")
+    c = Collector(cfg, str(tmp_path), initial_poll=False, fresh=True)
+    c.genshares.seeded = True
+    ts = datetime.now(timezone.utc)
+    vals = {"power_kw": 1275.0, "gensets_q_kvar": 510.0, "running_nominal_kw": 2550.0}
+    vals.update({f"g{g}_running": (1.0 if g in (4, 5) else 0.0) for g in c.genshares.numbers})
+    c.store.ingest("neo-01", {p: Reading(p, v, "", ts) for p, v in vals.items()})
+    c.genshares.observe(0b10000, 1400.0)
+    c.genshares.observe(0b10000, 1400.0)
+    each = {e["n"]: e for e in c.genset_each()}
+    assert each[5]["kw"] == 700.0 and each[4]["kw"] == 575.0 and each[1]["kw"] == 0.0
+    assert each[5]["kvar"] == 280.0 and each[4]["kvar"] == 230.0 and each[1]["kvar"] == 0.0
+    from plantcollector import views
+    assert views.summary(c)["kpi"]["gensets_each"] == c.genset_each()
+
+
+def test_weights_none_without_breakers():
+    s = shares()
+    assert s.weights(on()) is None
+    w = s.weights(on(1, 2, 3))
+    assert abs(sum(w.values()) - 1) < 1e-9 and w[4] == w[5] == 0.0

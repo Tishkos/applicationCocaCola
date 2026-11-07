@@ -480,6 +480,7 @@ html[lang="ar"] .nm, html[lang="ckb"] .nm, html[lang="ar"] .cap, html[lang="ckb"
 .sld text { font-family: var(--sans); }
 .sld .nm { font-size: 13px; font-weight: 600; letter-spacing: 1.2px; text-transform: uppercase; }
 .sld .kw { fill: var(--strong); font-size: 26px; font-weight: 600; }
+.sld .kw.gk { font-size: 22px; } .sld .kv.gq { font-size: 13px; }
 .sld .kv { fill: var(--text-2); font-size: 14px; font-family: var(--mono); }
 .sld .st { font-size: 12.5px; font-weight: 600; letter-spacing: .4px; }
 .sld .cap { fill: var(--text-3); font-size: 11px; font-weight: 600; letter-spacing: 1px; }
@@ -2213,6 +2214,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       return sig(x.name, unknown ? "idle" : x.failing ? "bad" : "ok", unknown ? "—" : x.failing ? (since ? `COMM FAIL since ${clockS(since)}` : "COMM FAIL") : "OK");
     }).join(""));
   }
+  const GEN_SHARE_TIP = "The master has no kW per genset: this is the genset's share of the gensets' kW and kVAr by its nominal power, as the master's load sharing divides it.";
   // one shade of the gensets' orange per genset (dark and light theme alike), next ones clearly apart
   const GEN_SHADES = ["#ff9830", "#c4581a", "#ffcb7d", "#e8590c", "#ff7383", "#a8743a", "#ffa25e", "#8f4a1c"];
   // how often a device is read, in words: "live, every 5 s", "live, every 1 min", "every 10 min", "every 1 h"
@@ -2408,9 +2410,11 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       lost: !!arr && arr.comms !== "ok" && arr.comms !== "reading" } : null;
     // ---- gensets below the bus: the master's breaker bits, or one device per genset
     let gens = [];
+    // with a master: each genset's share of the gensets' kW and kVAr by its load sharing (summary.kpi.gensets_each)
+    const each = Object.fromEntries((k.gensets_each || []).map((e) => [e.n, e]));
     if (m) gens = Object.keys(m.points).filter((x) => /^g\d+_running$/.test(x)).sort((a, b) => parseInt(a.slice(1)) - parseInt(b.slice(1)))
-      .map((b) => ({ name: `Gen ${parseInt(b.slice(1))}`, closed: on(pt(m, b)), kw: null }));
-    else gens = M.units.map((d) => ({ name: d.id.replace(/^genset-0?/i, "Gen "), closed: on(pt(d, "running")) || (pt(d, "power_kw") || 0) > 1, kw: pt(d, "power_kw"), alarm: on(pt(d, "alarm_active")) }));
+      .map((b) => { const n = parseInt(b.slice(1)), e = each[n]; return { name: `Gen ${n}`, closed: on(pt(m, b)), kw: e ? e.kw : null, kvar: e ? e.kvar : null, shared: !!e }; });
+    else gens = M.units.map((d) => ({ name: d.id.replace(/^genset-0?/i, "Gen "), closed: on(pt(d, "running")) || (pt(d, "power_kw") || 0) > 1, kw: pt(d, "power_kw"), kvar: pt(d, "reactive_kvar"), alarm: on(pt(d, "alarm_active")) }));
     const bess = M.bess[0] ? { kw: pt(M.bess[0], "power_kw"), soc: pt(M.bess[0], "soc_pct") } : null;
     // Simple view: the incomers as one grid feeder, the gensets as one genset feeder
     const simple = sldMode === "simple", nIn = grids.length, nGen = gens.length;
@@ -2418,7 +2422,8 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     if (simple && grids.length > 1) grids = [{ id: "grid", name: "Grid", kw: total(grids.map((x) => x.kw)), kvar: total(grids.map((x) => x.kvar)),
       closed: grids.some((x) => x.closed), src: k.grid_available === true, lost: grids.every((x) => x.lost) }];
     if (simple && gens.length > 1) { const on1 = gens.filter((x) => x.closed).length;
-      gens = [{ name: "Gensets", closed: on1 > 0, kw: isNum(k.genset_kw) ? k.genset_kw : total(gens.map((x) => x.kw)), alarm: gens.some((x) => x.alarm), note: `${on1} of ${gens.length} on line` }]; }
+      gens = [{ name: "Gensets", closed: on1 > 0, kw: isNum(k.genset_kw) ? k.genset_kw : total(gens.map((x) => x.kw)), kvar: m && has(m, "gensets_q_kvar") ? pt(m, "gensets_q_kvar") : total(gens.map((x) => x.kvar)),
+        alarm: gens.some((x) => x.alarm), note: `${on1} of ${gens.length} on line` }]; }
     // ---- positions
     const gx = grids.map((_, i) => 170 + i * 235), LX = Math.max(820, (gx[gx.length - 1] || 0) + 270), PX = 1340;
     const n = gens.length, gsp = n > 6 ? 120 : 150, gx0 = Math.max(170, 560 - (n - 1) * gsp / 2), genX = gens.map((_, i) => gx0 + i * gsp);
@@ -2432,14 +2437,14 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     if (kwOf(load.kw) >= 1 && busLive) trains.push([LX, BUS_Y - 14, LX, 150, load.kw]);
     if (pv && pv.closed && kwOf(pv.kw) >= 1) trains.push([PX, 245, PX, BUS_Y - 14, pv.kw]);
     const genKw = kwOf(k.genset_kw), nOn = gens.filter((g) => g.closed).length;
-    gens.forEach((g, i) => { const v = g.kw !== null ? kwOf(g.kw) : (g.closed ? genKw / Math.max(1, nOn) : 0); if (g.closed && v >= 1) trains.push([genX[i], 395, genX[i], BUS_Y + 14, v]); });
+    gens.forEach((g, i) => { const v = isNum(g.kw) ? kwOf(g.kw) : (g.closed ? genKw / Math.max(1, nOn) : 0); if (g.closed && v >= 1) trains.push([genX[i], 395, genX[i], BUS_Y + 14, v]); });
     if (bess && Math.abs(kwOf(bess.kw)) >= 1) trains.push(bess.kw > 0 ? [BX, 395, BX, BUS_Y + 14, bess.kw] : [BX, BUS_Y + 14, BX, 395, bess.kw]);
     // along the bus: from the delivering taps towards the load tap
-    const leftSrc = [...grids.map((g, i) => g.closed && kwOf(g.kw) > 1 ? gx[i] : null), ...gens.map((g, i) => g.closed && genX[i] < LX && (g.kw === null ? genKw > 1 : g.kw > 1) ? genX[i] : null)].filter((x) => x !== null);
-    const rightSrc = [pv && pv.closed && kwOf(pv.kw) > 1 ? PX : null, ...gens.map((g, i) => g.closed && genX[i] > LX && (g.kw === null ? genKw > 1 : g.kw > 1) ? genX[i] : null), bess && kwOf(bess.kw) > 1 ? BX : null].filter((x) => x !== null);
+    const leftSrc = [...grids.map((g, i) => g.closed && kwOf(g.kw) > 1 ? gx[i] : null), ...gens.map((g, i) => g.closed && genX[i] < LX && (!isNum(g.kw) ? genKw > 1 : g.kw > 1) ? genX[i] : null)].filter((x) => x !== null);
+    const rightSrc = [pv && pv.closed && kwOf(pv.kw) > 1 ? PX : null, ...gens.map((g, i) => g.closed && genX[i] > LX && (!isNum(g.kw) ? genKw > 1 : g.kw > 1) ? genX[i] : null), bess && kwOf(bess.kw) > 1 ? BX : null].filter((x) => x !== null);
     if (leftSrc.length && busLive) trains.push([Math.min(...leftSrc) + 16, BUS_Y, LX - 26, BUS_Y, k.load_kw]);
     if (rightSrc.length && busLive) trains.push([Math.max(...rightSrc) - 16, BUS_Y, LX + 26, BUS_Y, kwOf(k.pv_kw) || 1]);
-    const key = [sldMode, document.documentElement.dataset.theme, busLive, JSON.stringify(grids.map((g) => [g.closed, g.src, g.lost])), pv && [pv.closed, pv.lost, !!pv.allowed], gens.map((g) => g.closed + "" + (g.alarm || "")).join(""),
+    const key = [sldMode, document.documentElement.dataset.theme, busLive, JSON.stringify(grids.map((g) => [g.closed, g.src, g.lost])), pv && [pv.closed, pv.lost, !!pv.allowed], gens.map((g) => g.closed + "" + (g.alarm || "") + (g.shared ? "s" : "")).join(""),
       bess ? 1 : 0, trains.map((t) => t.slice(0, 4).join(",") + ":" + bucket(t[4])).join(";")].join("|");
     const svg = $("#flow");
     if (key !== flowKey) {
@@ -2489,12 +2494,14 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       gens.forEach((gn, i) => {
         const x = genX[i], live = gn.closed, c = gn.alarm ? css("--bad") : live ? C("--c-gen") : css("--text-2");
         g += `<circle cx="${x}" cy="${BUS_Y}" r="6" fill="${col(busLive)}"/>` + wire(x, BUS_Y, x, 356, busLive && live)
-          + breaker(x, 356, 400, gn.closed, busLive, live, "GCB") + wire(x, 400, x, 448, live)
-          + `<circle cx="${x}" cy="${480}" r="30" fill="${C("--panel-2")}" stroke="${col(live)}" stroke-width="3"${live ? ` filter="${GLOW}"` : ""}/>`
-          + `<text x="${x}" y="${489}" text-anchor="middle" style="font-size:26px;font-weight:700" fill="${col(live)}">G</text>`
-          + `<text x="${x}" y="532" text-anchor="middle" class="nm" fill="${c}">${esc(gn.name)}</text>`
-          + `<text x="${x}" y="551" text-anchor="middle" class="st" fill="${gn.alarm ? css("--bad") : live ? LIVE : css("--text-3")}">${gn.alarm ? "ALARM" : gn.note ? gn.note : live ? (gn.kw !== null ? "" : "ON LINE") : "STANDBY"}</text>`
-          + (gn.kw !== null ? `<text x="${x}" y="573" text-anchor="middle" class="bv" id="sk-u${i}"></text>` : "");
+          + breaker(x, 356, 400, gn.closed, busLive, live, "GCB") + wire(x, 400, x, 428, live)
+          + `<circle cx="${x}" cy="${455}" r="27" fill="${C("--panel-2")}" stroke="${col(live)}" stroke-width="3"${live ? ` filter="${GLOW}"` : ""}/>`
+          + `<text x="${x}" y="${464}" text-anchor="middle" style="font-size:24px;font-weight:700" fill="${col(live)}">G</text>`
+          + `<text x="${x}" y="500" text-anchor="middle" class="nm" fill="${c}">${esc(gn.name)}</text>`
+          // like the incomers: kW and kVAr (with a master, each genset's share by its load sharing: see the title)
+          + `<g>${gn.shared ? `<title>${esc(GEN_SHARE_TIP)}</title>` : ""}<text x="${x}" y="526" text-anchor="middle" class="kw gk" id="sk-u${i}"></text>`
+          + `<text x="${x}" y="545" text-anchor="middle" class="kv gq" id="sv-u${i}"></text></g>`
+          + `<text x="${x}" y="565" text-anchor="middle" class="st" fill="${gn.alarm ? css("--bad") : live ? LIVE : css("--text-3")}">${gn.alarm ? "ALARM" : gn.note ? gn.note : live ? "ON LINE" : "STANDBY"}</text>`;
       });
       if (m && gens.length > 1) {
         const cx = (genX[0] + genX[genX.length - 1]) / 2;
@@ -2524,7 +2531,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     grids.forEach((gr, i) => { set(`sk-g${i}`, gr.lost ? "no data" : kwT(gr.kw) + (isNum(gr.kw) && gr.kw < -1 ? " ↑" : "")); set(`sv-g${i}`, kvT(gr.kvar)); });
     set("sk-l", kwT(load.kw)); set("sv-l", kvT(load.kvar));
     if (pv) { set("sk-p", pv.lost ? "no data" : kwT(pv.kw)); set("sv-p", kvT(pv.kvar)); set("sw-p", pv.work); set("sl-p", isNum(pv.allowed) ? `${fmt(pv.allowed)} %` : ""); }
-    gens.forEach((gn, i) => { if (gn.kw !== null) set(`sk-u${i}`, kwT(gn.kw)); });
+    gens.forEach((gn, i) => { set(`sk-u${i}`, (gn.shared && isNum(gn.kw) && Math.abs(gn.kw) >= 1 ? "≈" : "") + kwT(gn.kw)); set(`sv-u${i}`, kvT(gn.kvar)); });
     if (m && gens.length > 1) set("sg-t", `Gensets ${kwT(k.genset_kw)} · ${kvT(pt(m, "gensets_q_kvar")) || "—"} · ${gens.filter((x) => x.closed).length} of ${gens.length} on line`);
     if (bess) { set("sk-b", kwT(bess.kw)); set("sv-b", isNum(bess.soc) ? `${fmt(bess.soc)} % charged` : ""); }
     set("sb-v", isNum(k.voltage_v) ? `${fmt(k.voltage_v)} V` : "—"); set("sb-f", isNum(k.frequency_hz) ? `${fmt(k.frequency_hz, 2)} Hz` : "—");

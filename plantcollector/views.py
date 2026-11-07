@@ -264,6 +264,8 @@ def summary(c: Collector) -> dict:
         "pv_curtailed_kwh_today": tot["pv_curtailed_kwh"],
         "grid_kwh_today": tot["grid_kwh"], "grid_hours_today": tot["grid_hours"], "grid_share_pct_today": tot["grid_share_pct"],
         "grid_available": (live.get("grid_available") or 0) >= 0.5 if live.get("grid_available") is not None else None,
+        # each genset's share of the gensets' kW and kVAr by the master's load sharing (it has no kW per genset)
+        "gensets_each": c.genset_each(),
     }
     devices = []
     for d in reg.devices.values():

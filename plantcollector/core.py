@@ -426,6 +426,11 @@ class Collector:
     def genset_split(self) -> list:
         """Each genset's share of the master's Gensets P now, in the order of genshares.numbers (see genshare.py:
         the master has no kW per genset; this is its load sharing worked out). [] without a site master."""
+        return [e["kw"] for e in self.genset_each()]
+
+    def genset_each(self) -> list[dict]:
+        """[{n, kw, kvar}] per genset of the site master: its share of the gensets' P and Q by the load sharing
+        (0 off the bus, None when not known). [] without a site master."""
         gs = self.genshares
         if gs is None:
             return []
@@ -442,8 +447,13 @@ class Collector:
         for g in gs.numbers:
             v = self.store.value(m, f"g{g}_running")
             on[g] = None if v is None else bool(v >= 0.5)
-        sp = gs.split(self.store.value(m, "power_kw"), on, self.store.value(m, "running_nominal_kw"))
-        return [sp[g] for g in gs.numbers]
+        rn = self.store.value(m, "running_nominal_kw")
+        sp = gs.split(self.store.value(m, "power_kw"), on, rn)
+        q = self.store.value(m, "gensets_q_kvar")
+        w = gs.weights(on, rn) if isinstance(q, (int, float)) and not isinstance(q, bool) else None
+        if w is None and isinstance(q, (int, float)) and all(on.get(g) is False for g in gs.numbers) and abs(q) < 5:
+            w = {g: 0.0 for g in gs.numbers}
+        return [{"n": g, "kw": sp[g], "kvar": None if w is None else round(float(q) * w[g], 1)} for g in gs.numbers]
 
     # --- grid import checked against the incomers (see MAINS_ZERO_KW) -------------------------
 

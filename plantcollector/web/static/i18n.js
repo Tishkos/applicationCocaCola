@@ -332,6 +332,15 @@
     ["Downloading the new version; the program keeps running.", "جارٍ تنزيل الإصدار الجديد؛ يستمر البرنامج في العمل.", "وەشانی نوێ دادەگیرێت؛ بەرنامەکە بەردەوام کار دەکات.", "Yeni sürüm indiriliyor; program çalışmaya devam ediyor."],
     // gensets (animated cards, generator bus) and analyzers
     ["Analyzers", "المحللات", "شیکەرەوەکان", "Analizörler"], ["Generator bus", "قضبان المولدات", "باسی مۆلیدەکان", "Jeneratör barası"],
+    // 1.0.15: each genset's kW and kVAr in the single-line diagram
+    ["The master has no kW per genset: this is the genset's share of the gensets' kW and kVAr by its nominal power, as the master's load sharing divides it.",
+     "لا يعطي المتحكم الرئيسي قدرة كل مولد بالكيلوواط: هذه حصة المولد من kW و kVAr المولدات حسب قدرته الاسمية، كما يوزعها تقاسم الحمل في المتحكم الرئيسي.",
+     "کۆنترۆڵەری سەرەکی kW ی هەر مۆلیدەیەک نادات: ئەمە بەشی مۆلیدەکەیە لە kW و kVAr ی مۆلیدەکان بەپێی توانای ناوەکییەکەی، وەک دابەشکردنی لۆدی کۆنترۆڵەری سەرەکی دابەشی دەکات.",
+     "Ana kontrolör jeneratör başına kW vermez: bu, ana kontrolörün yük paylaşımının böldüğü gibi, jeneratörün nominal gücüne göre jeneratörlerin kW ve kVAr değerindeki payıdır."],
+    ["The single-line diagram shows each genset's kW and kVAr, like the incomers: its share of the gensets' power by the master's load sharing. The live power chart shows each genset in its own band.",
+     "يعرض المخطط أحادي الخط قيمة kW و kVAr لكل مولد مثل المغذيات: حصته من قدرة المولدات حسب تقاسم الحمل في المتحكم الرئيسي. ويعرض مخطط القدرة المباشر كل مولد في شريط خاص به.",
+     "هێڵکاری تاک-هێڵ kW و kVAr ی هەر مۆلیدەیەک پیشان دەدات، وەک هێڵە هاتووەکان: بەشی خۆی لە توانای مۆلیدەکان بەپێی دابەشکردنی لۆدی کۆنترۆڵەری سەرەکی. هێڵکاری توانای ڕاستەوخۆ هەر مۆلیدەیەک لە پارچەیەکی تایبەتی خۆیدا پیشان دەدات.",
+     "Tek hat şeması, girişler gibi her jeneratörün kW ve kVAr değerini gösterir: ana kontrolörün yük paylaşımına göre jeneratörlerin gücündeki payı. Canlı güç grafiği her jeneratörü kendi bandında gösterir."],
     // 1.0.14: each genset in the live power chart
     ["The live power chart shows each genset on the bus in its own band: its share of the gensets' power, worked out from the master's load sharing (the master has no kW per genset).",
      "يعرض مخطط القدرة المباشر كل مولد على القضبان في شريط خاص به: حصته من قدرة المولدات، محسوبة من تقاسم الحمل في المتحكم الرئيسي (لا يعطي المتحكم الرئيسي قدرة كل مولد).",

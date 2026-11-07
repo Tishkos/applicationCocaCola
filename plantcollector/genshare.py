@@ -146,15 +146,14 @@ class GensetShares:
             return dict(known)
 
     # ------------------------------------------------------------------ the split
-    def split(self, total_kw, on: dict[int, bool | None], running_nominal=None) -> dict[int, float | None]:
-        """{genset number: kW} for the gensets' power `total_kw` with the breakers `on`: 0 for a genset off the
-        bus, None for every genset when a breaker or the power is not known."""
-        if not isinstance(total_kw, (int, float)) or isinstance(total_kw, bool) or any(on.get(g) is None for g in self.numbers):
-            return {g: None for g in self.numbers}
+    def weights(self, on: dict[int, bool | None], running_nominal=None) -> dict[int, float] | None:
+        """{genset number: its part of the gensets' load (0..1; the parts add up to 1)} for the breakers `on`; 0 for a
+        genset off the bus. None when a breaker is not known or no genset is on the bus."""
+        if any(on.get(g) is None for g in self.numbers):
+            return None
         S = [g for g in self.numbers if on[g]]
-        out: dict[int, float | None] = {g: 0.0 for g in self.numbers}
         if not S:
-            return out if abs(float(total_kw)) < 5 else {g: None for g in self.numbers}
+            return None
         mask = sum(1 << (g - 1) for g in S)
         rn = float(running_nominal) if isinstance(running_nominal, (int, float)) and not isinstance(running_nominal, bool) and running_nominal > 0 else None
         if rn is not None:
@@ -174,9 +173,17 @@ class GensetShares:
             for g in unk:
                 w[g] = each
         tw = sum(w.values())
-        for g in S:
-            out[g] = round(float(total_kw) * w[g] / tw, 1)
-        return out
+        return {g: (w[g] / tw if g in w else 0.0) for g in self.numbers}
+
+    def split(self, total_kw, on: dict[int, bool | None], running_nominal=None) -> dict[int, float | None]:
+        """{genset number: kW} for the gensets' power `total_kw` with the breakers `on`: 0 for a genset off the
+        bus, None for every genset when a breaker or the power is not known."""
+        if not isinstance(total_kw, (int, float)) or isinstance(total_kw, bool) or any(on.get(g) is None for g in self.numbers):
+            return {g: None for g in self.numbers}
+        if not any(on[g] for g in self.numbers):
+            return {g: 0.0 for g in self.numbers} if abs(float(total_kw)) < 5 else {g: None for g in self.numbers}
+        w = self.weights(on, running_nominal)
+        return {g: round(float(total_kw) * w[g], 1) for g in self.numbers}
 
     def status(self) -> dict:
         nom = self.nominals()
