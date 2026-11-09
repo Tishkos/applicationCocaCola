@@ -173,6 +173,7 @@ Function .onInit
   !insertmacro ReadChoice "Desktop" $Desk
   !insertmacro ReadChoice "Turkey" $Turkey
   !insertmacro ReadChoice "StartWindow" $StartWin
+  Call ReadTurkeyFromSettings                      ; the settings file wins over the remembered box (turkey on|off by hand)
   !insertmacro ReadChoice "SourceAddress" $SrcAddr
   ; the command line wins
   ${GetParameters} $R0
@@ -188,15 +189,13 @@ Function .onInit
   !insertmacro OptArg "/STARTWINDOW=" $StartWin
   !insertmacro OptArg "/IMPORT=" $ImportDir
   !insertmacro OptArg "/SOURCE=" $SrcAddr
-  ${If} $Turkey == ""
-    Call ReadTurkeyFromSettings
-  ${EndIf}
 FunctionEnd
 
 Function ReadTurkeyFromSettings
   ; The box for Turkey's feed starts as the settings file of an earlier install says (publish.modbus_tcp.enabled), so
-  ; running this Setup again never switches the feed by surprise. No file, or no plain "enabled: true/false" line in
-  ; the modbus_tcp block: $Turkey stays "" (the box starts ticked, as a new install recommends).
+  ; running this Setup again, or an update, never switches the feed by surprise: the file wins over the box remembered
+  ; in the registry (the feed may have been switched by hand since, with `turkey on|off`). No file, or no plain
+  ; "enabled: true/false" line in the modbus_tcp block: $Turkey stays as it was ("" on a new PC: the box starts ticked).
   ReadEnvStr $R0 PROGRAMDATA
   StrCpy $R0 "$R0\${APPNAME}\config\site.plant.yaml"
   ${IfNot} ${FileExists} $R0

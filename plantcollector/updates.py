@@ -39,6 +39,7 @@ WHATS_NEW = {
     "1.0.16": "Analyzers have a Simple / Detailed switch: Detailed lists every register read from each meter under its widgets, and each register's name can be changed. The single-line diagram shows each genset's kW and kVAr.",
     "1.0.17": "An analyzer of the same type can be added with its gateway's IP address and its Modbus address: Add analyzer on the Analyzers tab. Detailed lists every register of each meter, and each register's name can be changed.",
     "1.0.18": "The Gensets and Grid import tiles show the energy so far today in kWh, like Site load and Solar PV. The Setup has two new boxes: Turkey's Modbus feed, switched on in the settings by itself, and opening the window when a user signs in to Windows.",
+    "1.0.19": "The Gensets and Grid import tiles show the energy so far today in kWh, like Site load and Solar PV. The Setup has two new boxes: Turkey's Modbus feed, switched on in the settings by itself, and opening the window when a user signs in to Windows.",
 }
 
 
