@@ -383,6 +383,28 @@ def cmd_report_trace(a) -> int:
     return 0
 
 
+def cmd_turkey(a) -> int:
+    """Switch the Turkey Modbus feed on or off in the settings file, or say what it is (the Setup runs this)."""
+    from . import turkeyfeed
+    cfg = a.config
+    if not os.path.exists(cfg):
+        print(f"[turkey] settings file not found: {cfg}")
+        return 2
+    if a.state == "status":
+        st = turkeyfeed.state(cfg)
+        print(f"[turkey] Modbus feed in {cfg}: " + ("on" if st else "off" if st is False else "not set (off)"))
+        return 0 if st else 1
+    on = a.state == "on"
+    try:
+        changed = turkeyfeed.apply(cfg, on)
+    except OSError as exc:
+        print(f"[turkey] settings file not changed: {exc}")
+        return 3
+    print(f"[turkey] Modbus feed {'on' if on else 'off'} in {cfg}" + ("" if changed else " (it already was)")
+          + ("; the background service serves it on TCP 502 after its next start" if on else ""))
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(prog="plantcollector", description="read-only plant data collector")
     ap.add_argument("--config", default=os.path.join("config", "site.yaml"))
@@ -465,6 +487,10 @@ def main(argv=None) -> int:
     q.add_argument("--address", type=int, default=0, help="holding register to read (default 0)")
     q.add_argument("--timeout", type=float, default=3.0)
     q.set_defaults(fn=cmd_probe)
+
+    tk = sub.add_parser("turkey", help="the Turkey Modbus feed's switch in the settings file: on, off or status")
+    tk.add_argument("state", choices=["on", "off", "status"])
+    tk.set_defaults(fn=cmd_turkey)
 
     a = ap.parse_args(argv)
     return a.fn(a)

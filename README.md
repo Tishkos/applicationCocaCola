@@ -99,8 +99,12 @@ Uninstall: Settings > Apps > CCI Plant Monitoring. It removes the program (with 
 the processes, the firewall rules and the shortcuts. The history and settings stay unless "Collected data
 and settings" is ticked (silent: `uninstall.exe /S /DELETEDATA`).
 
-Silent install: `Setup.exe /S [/AUTOUPDATE=1|0] [/FIREWALL=1|0] [/DESKTOP=1|0] [/IMPORT=<folder>]
-[/SOURCE=<this PC's plant IP>]`; the updater runs `/S /UPDATE` (the earlier choices).
+Silent install: `Setup.exe /S [/AUTOUPDATE=1|0] [/FIREWALL=1|0] [/DESKTOP=1|0] [/TURKEY=1|0] [/STARTWINDOW=1|0]
+[/IMPORT=<folder>] [/SOURCE=<this PC's plant IP>]`; the updater runs `/S /UPDATE` (the earlier choices).
+`/TURKEY` is the wizard's "Turkey's Modbus feed" box: it switches `publish.modbus_tcp.enabled` in the settings
+(through the program's own `turkey on|off` command, which changes that one value and nothing else); `/STARTWINDOW`
+is the "Open the window when a user signs in" box (a shortcut in the all-users Startup folder). Left out, both stay
+as they are.
 
 Building: `installer/build.sh 1.2.3` (Linux; needs Python 3.13 with pip, zstd, nsis, gcc-mingw-w64-x86-64).
 `installer/build_runtime.py` makes `build/stage`: the Windows Python from conda-forge (exactly the files and
@@ -170,7 +174,9 @@ How it behaves:
 - **Modbus TCP server for the CCI / DT Turkey platform**: the same 305 tags at fixed holding registers
   (`docs\TURKEY_MODBUS.md`, also at `/api/v1/tags/registers`), refreshed after every site read, read-only.
   Their platform polls this PC over the VPN; the field devices are never polled from outside.
-  Switched on with `publish.modbus_tcp.enabled: true` in `config\site.plant.yaml`; the filled-in tag
+  Switched on with the "Turkey's Modbus feed" box of the Setup, which sets `publish.modbus_tcp.enabled: true` in
+  `config\site.plant.yaml` (by hand, from the program folder: `runtime\python.exe -m plantcollector.cli --config
+  "C:\ProgramData\CCI Plant Monitoring\config\site.plant.yaml" turkey on|off|status`, then restart the service); the filled-in tag
   lists for Turkey are in `docs\turkey\` (regenerate with `python tools\turkey_register_map.py --host <vpn-ip>`).
 - **Data** in `data\telemetry.sqlite`: every reading with timestamp and quality (good / stale / bad).
   A bad read is stored as bad, never as a zero.

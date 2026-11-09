@@ -348,6 +348,11 @@
     ["Remove", "إزالة", "لابردن", "Kaldır"], ["Keep", "إبقاء", "بیهێڵەوە", "Tut"], ["Remove it? Its readings stay.", "إزالته؟ تبقى قراءاته.", "لایببەیت؟ خوێندنەوەکانی دەمێننەوە.", "Kaldırılsın mı? Okumaları kalır."],
     ["Stop reading this analyzer (added here); its readings stay in the database", "إيقاف قراءة هذا المحلل (أُضيف هنا)؛ تبقى قراءاته في قاعدة البيانات", "وەستاندنی خوێندنەوەی ئەم شیکەرەوەیە (لێرە زیاد کراوە)؛ خوێندنەوەکانی لە بنکەی داتادا دەمێننەوە", "Bu analizörü okumayı durdur (burada eklendi); okumaları veritabanında kalır"],
     ["Removed: the analyzer is not read any more; its readings stay in the database.", "تمت الإزالة: لم يعد المحلل يُقرأ؛ تبقى قراءاته في قاعدة البيانات.", "لابرا: شیکەرەوەکە چیتر ناخوێندرێتەوە؛ خوێندنەوەکانی لە بنکەی داتادا دەمێننەوە.", "Kaldırıldı: analizör artık okunmuyor; okumaları veritabanında kalır."],
+    // 1.0.18: kWh today on the Gensets and Grid import tiles; the Setup's Turkey feed and window-at-sign-in boxes
+    ["The Gensets and Grid import tiles show the energy so far today in kWh, like Site load and Solar PV. The Setup has two new boxes: Turkey's Modbus feed, switched on in the settings by itself, and opening the window when a user signs in to Windows.",
+     "تعرض بطاقتا المولدات واستيراد الشبكة الطاقة حتى الآن اليوم بالـ kWh، مثل حمل الموقع والطاقة الشمسية. في برنامج التثبيت خياران جديدان: بث Modbus لتركيا، يُفعَّل في الإعدادات تلقائياً، وفتح النافذة عند تسجيل دخول المستخدم إلى Windows.",
+     "خشتەکانی مۆلیدەکان و هاوردەی گرید وزەی تا ئێستای ئەمڕۆ بە kWh پیشان دەدەن، وەک باری وێستگە و خۆر. دامەزرێنەر دوو بژاردەی نوێی هەیە: پەخشی Modbus ی تورکیا، کە خۆی لە ڕێکخستنەکاندا چالاک دەکرێت، و کردنەوەی پەنجەرەکە کاتێک بەکارهێنەر دەچێتە ناو Windows.",
+     "Jeneratörler ve Şebeke ithali kutuları bugünkü enerjiyi kWh olarak gösterir, Tesis yükü ve Güneş PV gibi. Kurulumda iki yeni kutu var: ayarlarda kendiliğinden açılan Türkiye Modbus beslemesi ve bir kullanıcı Windows'a giriş yaptığında pencerenin açılması."],
     ["An analyzer of the same type can be added with its gateway's IP address and its Modbus address: Add analyzer on the Analyzers tab. Detailed lists every register of each meter, and each register's name can be changed.",
      "يمكن إضافة محلل من النوع نفسه بعنوان IP لبوابته وعنوان Modbus الخاص به: إضافة محلل في تبويب المحللات. ويعرض المفصّل كل سجل لكل عداد، ويمكن تغيير اسم كل سجل.",
      "شیکەرەوەیەکی هەمان جۆر دەکرێت بە ناونیشانی IP ی دەروازەکەی و ناونیشانی Modbus ی خۆی زیاد بکرێت: شیکەرەوە زیاد بکە لە تابی شیکەرەوەکان. ورد هەموو ڕیجستەرەکانی هەر پێوەرێک پیشان دەدات، و ناوی هەر ڕیجستەرێک دەگۆڕدرێت.",
@@ -710,6 +715,8 @@
     [/^all (\d+) devices answering$/, (m) => [`جميع الأجهزة الـ ${m[1]} تستجيب`, `هەموو ${m[1]} ئامێرەکە وەڵام دەدەنەوە`, `${m[1]} cihazın tümü yanıt veriyor`]],
     [/^(\d+) devices? not answering$/, (m) => [`${m[1]} أجهزة لا تستجيب`, `${m[1]} ئامێر وەڵام نادەنەوە`, `${m[1]} cihaz yanıt vermiyor`]],
     [/^([\d,.]+) kWh today$/, (m) => [`${m[1]} kWh اليوم`, `${m[1]} kWh ئەمڕۆ`, `bugün ${m[1]} kWh`]],
+    // the Gensets and Grid tiles: the energy today, then what the tile said before (running count, grid state)
+    [/^([\d,.]+) kWh today · (.+)$/, (m) => [`${m[1]} kWh اليوم · ${trl(m[2], 'ar')}`, `${m[1]} kWh ئەمڕۆ · ${trl(m[2], 'ckb')}`, `bugün ${m[1]} kWh · ${trl(m[2], 'tr')}`]],
     [/^(.+) \+ solar$/, (m) => [`${tr1(m[1], "ar")} + الطاقة الشمسية`, `${tr1(m[1], "ckb")} + خۆر`, `${tr1(m[1], "tr")} + güneş`]],
     [/^Mains incomers \((\d+)\)$/, (m) => [`مغذيات الشبكة (${m[1]})`, `هێڵەکانی تۆڕ (${m[1]})`, `Şebeke girişleri (${m[1]})`]],
     [/^Gensets on (\S+) \(breaker and CAN bus\)$/, (m) => [`المولدات على ${m[1]} (القاطع وناقل CAN)`, `مۆلیدەکان لەسەر ${m[1]} (پچڕێنەر و CAN)`, `${m[1]} üzerindeki jeneratörler (kesici ve CAN)`]],

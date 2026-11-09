@@ -10,8 +10,11 @@
 #          (at startup and every 5 minutes if it is not running, as SYSTEM)
 #       3. the updater: Windows task "PlantCollectorUpdater" (scripts\updater.ps1, GitHub Releases)
 #       4. firewall rules for Turkey's Modbus port and the dashboard (optional)
-#       5. the "CCI Plant Monitoring" shortcut (Start Menu, Desktop) to "CCI Plant Monitoring.exe": the window
+#       5. the "CCI Plant Monitoring" shortcut (Start Menu, Desktop) to "CCI Plant Monitoring.exe": the window,
+#          and the same shortcut in the all-users Startup folder when the window is to open at sign-in (optional)
 #       6. starts the service and waits until it answers
+#   The Setup's "Turkey Modbus feed" box switches publish.modbus_tcp.enabled in the settings (step 1, through the
+#   program's own `turkey on|off` command, which changes that one value and nothing else in the file).
 #
 # Everything is safe to run again (the Setup does it on every update). Output goes to the Setup's window and to
 # C:\ProgramData\CCI Plant Monitoring\install.log.
@@ -25,6 +28,8 @@ param(
     [string]$Desktop = "1",
     [string]$Import = "",
     [string]$SourceAddress = "",
+    [string]$Turkey = "",        # "1" switches Turkey's Modbus feed on in the settings, "0" off, "" leaves it as it is
+    [string]$StartWindow = "",   # "1" opens the window when a user signs in, "0" not, "" leaves it as it is
     [string]$Version = "",
     [int]$Port = 8080
 )
@@ -239,6 +244,32 @@ if ($cfgText -notmatch "(?m)^network:") {
     }
 }
 
+# Turkey's Modbus feed (TCP 502): the Setup's box switches publish.modbus_tcp.enabled in the settings file through the
+# program's own command, which changes that one value and keeps every other line. Not touched when no choice was made
+# (an update by the updater, or an old Setup's choices without this box).
+if ($Turkey -eq "1" -or $Turkey -eq "0") {
+    $word = $(if ($Turkey -eq "1") { "on" } else { "off" })
+    $py = Join-Path $InstallDir "runtime\python.exe"
+    $rc = -1
+    try {
+        $ErrorActionPreference = "Continue"
+        $env:PYTHONHOME = Join-Path $InstallDir "runtime"
+        $env:PYTHONPATH = $InstallDir
+        $out = & $py -s -m plantcollector.cli --config "$cfg" --data "$DataDir" turkey $word 2>&1
+        $rc = $LASTEXITCODE
+        foreach ($l in @($out)) { if ("$l".Trim()) { Say "$l" } }
+    } catch { Say "note: $($_.Exception.Message)" }
+    finally {
+        $ErrorActionPreference = "Stop"
+        Remove-Item Env:PYTHONHOME, Env:PYTHONPATH -ErrorAction SilentlyContinue
+    }
+    if ($rc -ne 0) { Say "WARNING: Turkey's Modbus feed could not be switched $word (code $rc): set publish.modbus_tcp.enabled in $cfg by hand" }
+    elseif ($Turkey -eq "1") { Say "Turkey's Modbus feed: on, TCP 502 on every address of this PC (the firewall box opens the port)" }
+    else { Say "Turkey's Modbus feed: off" }
+} else {
+    Say "Turkey's Modbus feed: as in the settings (not changed)"
+}
+
 # the updater's settings (kept on an update; the Setup's choice wins only for 'auto')
 $us = Join-Path $UpdDir "settings.json"
 $u = [ordered]@{ auto = ($AutoUpdate -eq "1"); window_start_hour = 1; window_end_hour = 5; skip = "" }
@@ -320,6 +351,23 @@ try {
     if ($Desktop -ne "1") { $p.NoDesktop = $true }
     & $sc @p | ForEach-Object { Say $_ }
 } catch { Say "WARNING: shortcut not written: $($_.Exception.Message)" }
+
+# the window at sign-in: the Start Menu shortcut copied into the all-users Startup folder (the service runs anyway;
+# this only opens the window, so nobody has to open a browser on "localhost"). Left as it is when no choice was made.
+try {
+    $startupLnk = Join-Path ([Environment]::GetFolderPath("CommonStartup")) "CCI Plant Monitoring.lnk"
+    $menuLnk = Join-Path ([Environment]::GetFolderPath("CommonPrograms")) "CCI Plant Monitoring.lnk"
+    if ($StartWindow -eq "1") {
+        if (Test-Path $menuLnk) { Copy-Item $menuLnk $startupLnk -Force; Say "window: opens when a user signs in to Windows ($startupLnk)" }
+        else { Say "WARNING: no Start Menu shortcut to copy into the Startup folder; the window does not open at sign-in" }
+    } elseif ($StartWindow -eq "0") {
+        if (Test-Path $startupLnk) { Remove-Item $startupLnk -Force }
+        Say "window: not opened at sign-in (Start Menu and Desktop only)"
+    } elseif (Test-Path $startupLnk) {
+        Copy-Item $menuLnk $startupLnk -Force                # kept, renewed to this version's shortcut
+        Say "window: still opens when a user signs in"
+    }
+} catch { Say "WARNING: Startup shortcut not written: $($_.Exception.Message)" }
 
 $wv = $false
 foreach ($k in "HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",

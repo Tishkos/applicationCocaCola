@@ -50,6 +50,7 @@ Get-NetFirewallRule -Group "CCI Plant Monitoring" -ErrorAction SilentlyContinue 
 Say "firewall rules removed"
 
 $dirs = @([Environment]::GetFolderPath("CommonDesktopDirectory"), [Environment]::GetFolderPath("CommonPrograms"),
+          [Environment]::GetFolderPath("CommonStartup"), [Environment]::GetFolderPath("Startup"),
           [Environment]::GetFolderPath("Desktop"), (Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"))
 foreach ($d in $dirs) {
     $l = Join-Path $d "CCI Plant Monitoring.lnk"

@@ -4,8 +4,8 @@
 ;
 ; Standalone: the Setup carries everything (Python, packages, the program, CCI Plant Monitoring.exe and
 ; CCI Plant Monitoring Service.exe). Nothing is downloaded and nothing else needs to be on the PC.
-; The wizard: Welcome, folder, options (automatic updates, firewall, Desktop shortcut, an earlier copy to bring over,
-; this PC's plant address), progress, finish ("Open CCI Plant Monitoring").
+; The wizard: Welcome, folder, options (automatic updates, firewall, Turkey's Modbus feed, Desktop shortcut, the window
+; at sign-in, an earlier copy to bring over, this PC's plant address), progress, finish ("Open CCI Plant Monitoring").
 ; scripts\install.ps1 registers the background service, the updater, the firewall rules and the shortcuts;
 ; on uninstall, scripts\uninstall.ps1 removes them. Settings and data live in C:\ProgramData\CCI Plant Monitoring and are kept
 ; by an update; the uninstaller deletes them only when asked ("Collected data and settings").
@@ -13,7 +13,9 @@
 ; Command line:
 ;   /S                silent (the updater uses /S /UPDATE: the earlier choices, no pages)
 ;   /UPDATE           keep every earlier choice, skip the options
-;   /AUTOUPDATE=1|0  /FIREWALL=1|0  /DESKTOP=1|0  /IMPORT=<folder>  /SOURCE=<this PC's plant IP>
+;   /AUTOUPDATE=1|0  /FIREWALL=1|0  /DESKTOP=1|0  /TURKEY=1|0  /STARTWINDOW=1|0  /IMPORT=<folder>  /SOURCE=<this PC's plant IP>
+;   (/TURKEY switches Turkey's Modbus feed on or off in the settings; /STARTWINDOW opens the window at sign-in;
+;    left out on an update, both stay as they are)
 ;   uninstall.exe /S [/DELETEDATA]
 
 Unicode true
@@ -59,6 +61,8 @@ VIAddVersionKey "LegalCopyright" "${PUBLISHER}"
 Var AutoUpd     ; 1 | 0
 Var Fw          ; 1 | 0
 Var Desk        ; 1 | 0
+Var Turkey      ; 1 | 0 | "" (not chosen: the settings stay as they are)
+Var StartWin    ; 1 | 0 | "" (not chosen: as it is)
 Var ImportDir
 Var SrcAddr
 Var IsUpdate    ; 1 = /UPDATE
@@ -67,6 +71,8 @@ Var FinishText
 Var hAuto
 Var hFw
 Var hDesk
+Var hTurkey
+Var hStartWin
 Var hImport
 Var hSrc
 
@@ -149,6 +155,8 @@ Function .onInit
   StrCpy $AutoUpd "1"
   StrCpy $Fw "1"
   StrCpy $Desk "1"
+  StrCpy $Turkey ""
+  StrCpy $StartWin ""
   StrCpy $ImportDir ""
   StrCpy $SrcAddr ""
   StrCpy $IsUpdate "0"
@@ -163,6 +171,8 @@ Function .onInit
   !insertmacro ReadChoice "AutoUpdate" $AutoUpd
   !insertmacro ReadChoice "Firewall" $Fw
   !insertmacro ReadChoice "Desktop" $Desk
+  !insertmacro ReadChoice "Turkey" $Turkey
+  !insertmacro ReadChoice "StartWindow" $StartWin
   !insertmacro ReadChoice "SourceAddress" $SrcAddr
   ; the command line wins
   ${GetParameters} $R0
@@ -174,8 +184,56 @@ Function .onInit
   !insertmacro OptArg "/AUTOUPDATE=" $AutoUpd
   !insertmacro OptArg "/FIREWALL=" $Fw
   !insertmacro OptArg "/DESKTOP=" $Desk
+  !insertmacro OptArg "/TURKEY=" $Turkey
+  !insertmacro OptArg "/STARTWINDOW=" $StartWin
   !insertmacro OptArg "/IMPORT=" $ImportDir
   !insertmacro OptArg "/SOURCE=" $SrcAddr
+  ${If} $Turkey == ""
+    Call ReadTurkeyFromSettings
+  ${EndIf}
+FunctionEnd
+
+Function ReadTurkeyFromSettings
+  ; The box for Turkey's feed starts as the settings file of an earlier install says (publish.modbus_tcp.enabled), so
+  ; running this Setup again never switches the feed by surprise. No file, or no plain "enabled: true/false" line in
+  ; the modbus_tcp block: $Turkey stays "" (the box starts ticked, as a new install recommends).
+  ReadEnvStr $R0 PROGRAMDATA
+  StrCpy $R0 "$R0\${APPNAME}\config\site.plant.yaml"
+  ${IfNot} ${FileExists} $R0
+    Return
+  ${EndIf}
+  ClearErrors
+  FileOpen $R1 $R0 r
+  ${If} ${Errors}
+    Return
+  ${EndIf}
+  StrCpy $R2 "0"                                   ; 1 = the lines after "  modbus_tcp:"
+  ${Do}
+    FileRead $R1 $R3
+    ${If} ${Errors}
+      ${Break}
+    ${EndIf}
+    StrCpy $R4 $R3 13
+    ${If} $R4 == "  modbus_tcp:"
+      StrCpy $R2 "1"
+    ${ElseIf} $R2 == "1"
+      StrCpy $R4 $R3 17
+      ${If} $R4 == "    enabled: true"
+        StrCpy $Turkey "1"
+        ${Break}
+      ${EndIf}
+      StrCpy $R4 $R3 18
+      ${If} $R4 == "    enabled: false"
+        StrCpy $Turkey "0"
+        ${Break}
+      ${EndIf}
+      StrCpy $R4 $R3 2
+      ${If} $R4 != "  "                            ; the block ended without a switch
+        ${Break}
+      ${EndIf}
+    ${EndIf}
+  ${Loop}
+  FileClose $R1
 FunctionEnd
 
 Function .onVerifyInstDir
@@ -203,45 +261,55 @@ Function OptionsPage
   ${If} $IsUpdate == "1"
     Abort
   ${EndIf}
-  !insertmacro MUI_HEADER_TEXT "Options" "Updates, firewall, shortcuts and an earlier copy."
+  !insertmacro MUI_HEADER_TEXT "Options" "Updates, firewall, Turkey's feed, the window and an earlier copy."
   nsDialogs::Create 1018
   Pop $0
   ${If} $0 == error
     Abort
   ${EndIf}
 
-  ${NSD_CreateLabel} 0 0 100% 20u "The service reads the plant (read-only), stores every reading and serves Turkey's Modbus feed. Choose how it updates and who may connect:"
+  ${NSD_CreateLabel} 0 0 100% 16u "The service reads the plant (read-only), stores every reading and can serve Turkey's Modbus feed. Choose:"
   Pop $0
-  ${NSD_CreateCheckBox} 0 24u 100% 11u "Automatic updates from GitHub (installed at night, 01:00-05:00)"
+  ${NSD_CreateCheckBox} 0 17u 100% 11u "Automatic updates from GitHub (installed at night, 01:00-05:00)"
   Pop $hAuto
   ${If} $AutoUpd == "1"
     ${NSD_Check} $hAuto
   ${EndIf}
-  ${NSD_CreateCheckBox} 0 37u 100% 11u "Firewall: allow Turkey's Modbus (TCP 502) and the dashboard (TCP 8080)"
+  ${NSD_CreateCheckBox} 0 29u 100% 11u "Firewall: allow Turkey's Modbus (TCP 502) and the dashboard (TCP 8080)"
   Pop $hFw
   ${If} $Fw == "1"
     ${NSD_Check} $hFw
   ${EndIf}
-  ${NSD_CreateCheckBox} 0 50u 100% 11u "Shortcut on the Desktop (the Start Menu always gets one)"
+  ${NSD_CreateCheckBox} 0 41u 100% 11u "Turkey's Modbus feed: serve the plant's readings on TCP 502 (switched on in the settings)"
+  Pop $hTurkey
+  ${If} $Turkey != "0"
+    ${NSD_Check} $hTurkey
+  ${EndIf}
+  ${NSD_CreateCheckBox} 0 53u 100% 11u "Open the ${APPNAME} window when a user signs in to Windows"
+  Pop $hStartWin
+  ${If} $StartWin != "0"
+    ${NSD_Check} $hStartWin
+  ${EndIf}
+  ${NSD_CreateCheckBox} 0 65u 100% 11u "Shortcut on the Desktop (the Start Menu always gets one)"
   Pop $hDesk
   ${If} $Desk == "1"
     ${NSD_Check} $hDesk
   ${EndIf}
 
-  ${NSD_CreateLabel} 0 67u 100% 18u "Optional: an earlier copy to bring settings and history from (one that ran as the Windows task is found by itself)"
+  ${NSD_CreateLabel} 0 80u 100% 10u "Optional: an earlier copy to bring settings and history from (one that ran as the Windows task is found by itself)"
   Pop $0
-  ${NSD_CreateDirRequest} 0 86u 78% 12u "$ImportDir"
+  ${NSD_CreateDirRequest} 0 91u 78% 12u "$ImportDir"
   Pop $hImport
-  ${NSD_CreateBrowseButton} 80% 85u 20% 14u "Browse..."
+  ${NSD_CreateBrowseButton} 80% 90u 20% 14u "Browse..."
   Pop $0
   ${NSD_OnClick} $0 BrowseImport
 
-  ${NSD_CreateLabel} 0 105u 64% 18u "This PC's plant address, only if two of its adapters are in the plant's range (empty: automatic)"
+  ${NSD_CreateLabel} 0 108u 64% 18u "This PC's plant address, only if two of its adapters are in the plant's range (empty: automatic)"
   Pop $0
-  ${NSD_CreateText} 66% 107u 34% 12u "$SrcAddr"
+  ${NSD_CreateText} 66% 110u 34% 12u "$SrcAddr"
   Pop $hSrc
   ${If} $Installed == "1"
-    ${NSD_CreateLabel} 0 127u 100% 10u "Installed in $INSTDIR: updated there; settings and history stay."
+    ${NSD_CreateLabel} 0 128u 100% 10u "Installed in $INSTDIR: updated there; settings and history stay."
     Pop $0
   ${EndIf}
   nsDialogs::Show
@@ -273,6 +341,18 @@ Function OptionsLeave
     StrCpy $Desk "1"
   ${Else}
     StrCpy $Desk "0"
+  ${EndIf}
+  ${NSD_GetState} $hTurkey $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $Turkey "1"
+  ${Else}
+    StrCpy $Turkey "0"
+  ${EndIf}
+  ${NSD_GetState} $hStartWin $0
+  ${If} $0 == ${BST_CHECKED}
+    StrCpy $StartWin "1"
+  ${Else}
+    StrCpy $StartWin "0"
   ${EndIf}
   ${NSD_GetText} $hImport $ImportDir
   ${NSD_GetText} $hSrc $SrcAddr
@@ -331,6 +411,12 @@ Section "Install"
   WriteRegStr HKLM "${REGKEY}" "AutoUpdate" "$AutoUpd"
   WriteRegStr HKLM "${REGKEY}" "Firewall" "$Fw"
   WriteRegStr HKLM "${REGKEY}" "Desktop" "$Desk"
+  ${If} $Turkey != ""
+    WriteRegStr HKLM "${REGKEY}" "Turkey" "$Turkey"
+  ${EndIf}
+  ${If} $StartWin != ""
+    WriteRegStr HKLM "${REGKEY}" "StartWindow" "$StartWin"
+  ${EndIf}
   WriteRegStr HKLM "${REGKEY}" "SourceAddress" "$SrcAddr"
   WriteRegStr HKLM "${UNINSTKEY}" "DisplayName" "${APPNAME}"
   WriteRegStr HKLM "${UNINSTKEY}" "DisplayVersion" "${VERSION}"
@@ -352,6 +438,12 @@ Section "Install"
   ${EndIf}
   ${If} $SrcAddr != ""
     StrCpy $1 '$1 -SourceAddress "$SrcAddr"'
+  ${EndIf}
+  ${If} $Turkey != ""
+    StrCpy $1 '$1 -Turkey $Turkey'
+  ${EndIf}
+  ${If} $StartWin != ""
+    StrCpy $1 '$1 -StartWindow $StartWin'
   ${EndIf}
   nsExec::ExecToLog $1
   Pop $0
