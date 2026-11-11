@@ -429,6 +429,96 @@ class Collector:
                          severity="info", code="SETTINGS", device_id=d.id)
         return name
 
+    # --- the dashboard's own settings as a file: a backup to keep, restored here or on another PC ---------------
+    BACKUP_FORMAT = "cci-plant-monitoring-settings"
+
+    def settings_backup(self) -> dict:
+        """What the dashboard itself set up: the analyzers added here, the register names, the reading rates.
+        Everything in it is also in data\\settings.json; this is the same, in a file to keep elsewhere."""
+        from .updates import installed_version
+        data = self._load_settings()
+        gone = self.removed
+        added = [dict(e) for e in (data.get("added_analyzers") or []) if isinstance(e, dict) and str(e.get("id")) not in gone]
+        names = {d: dict(v) for d, v in (data.get("register_names") or {}).items() if isinstance(v, dict) and v and d not in gone}
+        every = {d: int(v) for d, v in (data.get("device_every_s") or {}).items() if isinstance(v, (int, float)) and d not in gone} \
+            if isinstance(data.get("device_every_s"), dict) else {}
+        return {"format": self.BACKUP_FORMAT, "version": 1, "site": self.registry.site.site_id,
+                "saved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"), "program": installed_version(),
+                "added_analyzers": added, "register_names": names,
+                "poll_interval_s": data.get("poll_interval_s"), "live_every_s": data.get("live_every_s"), "device_every_s": every}
+
+    def _find_analyzer(self, host, port, unit_id) -> str | None:
+        """The id of the device (not removed) already reading this gateway address and Modbus address, if any."""
+        for d in self.registry.devices.values():
+            c = d.connection or {}
+            if d.id not in self.removed and str(c.get("host")) == str(host) and int(c.get("port", 502)) == int(port) \
+                    and int(c.get("unit_id", 1)) == int(unit_id):
+                return d.id
+        return None
+
+    def settings_restore(self, body: dict) -> dict:
+        """Apply a backup from settings_backup(): analyzers missing here are added (one already reading the same
+        address is used as it is), register names follow the analyzers to their ids here, the reading rates are set.
+        Nothing is removed. Returns a report; a part that cannot be applied is listed, the rest still is."""
+        if not isinstance(body, dict) or body.get("format") != self.BACKUP_FORMAT:
+            raise ValueError("this is not a settings backup of CCI Plant Monitoring")
+        rep = {"analyzers_added": [], "analyzers_present": [], "analyzers_failed": [], "names_set": 0, "names_failed": [],
+               "rates_set": [], "rates_failed": []}
+        idmap: dict[str, str] = {}
+        for e in body.get("added_analyzers") or []:
+            if not isinstance(e, dict):
+                continue
+            old = str(e.get("id", ""))
+            host, port, unit, name = e.get("host"), e.get("port", 502), e.get("unit_id"), e.get("name", "")
+            try:
+                have = self._find_analyzer(host, port, unit)
+            except (TypeError, ValueError):
+                have = None
+            if have:
+                idmap[old] = have
+                rep["analyzers_present"].append({"id": have, "host": host, "unit_id": unit})
+                continue
+            try:
+                r = self.add_analyzer(host, port, unit, name)
+                idmap[old] = r["id"]
+                rep["analyzers_added"].append(r)
+            except (TypeError, ValueError) as exc:
+                rep["analyzers_failed"].append({"id": old, "host": host, "unit_id": unit, "error": str(exc)})
+        names = body.get("register_names") or {}
+        if isinstance(names, dict):
+            for did, mine in names.items():
+                if not isinstance(mine, dict):
+                    continue
+                tgt = idmap.get(str(did), str(did))
+                for pid, name in mine.items():
+                    try:
+                        had = self.register_names.get(tgt, {}).get(str(pid), "")
+                        if self.set_register_name(tgt, str(pid), name) != had:
+                            rep["names_set"] += 1
+                    except (TypeError, ValueError) as exc:
+                        rep["names_failed"].append(f"{tgt}.{pid}: {exc}")
+        for key, fn in (("poll_interval_s", self.set_poll_interval), ("live_every_s", self.set_live_every)):
+            v = body.get(key)
+            if isinstance(v, (int, float)) and not isinstance(v, bool):
+                try:
+                    fn(int(v))
+                    rep["rates_set"].append(f"{key}={int(v)}")
+                except (TypeError, ValueError) as exc:
+                    rep["rates_failed"].append(f"{key}: {exc}")
+        every = body.get("device_every_s") or {}
+        if isinstance(every, dict):
+            for did, v in every.items():
+                tgt = idmap.get(str(did), str(did))
+                if isinstance(v, (int, float)) and not isinstance(v, bool):
+                    try:
+                        self.set_device_every([tgt], int(v))
+                        rep["rates_set"].append(f"{tgt}={int(v)}")
+                    except (TypeError, ValueError) as exc:
+                        rep["rates_failed"].append(f"{tgt}: {exc}")
+        self.store.event("settings", f"settings restored from a backup: {len(rep['analyzers_added'])} analyzers added, "
+                         f"{rep['names_set']} register names, {len(rep['rates_set'])} rates", severity="info", code="SETTINGS")
+        return rep
+
     def set_poll_interval(self, seconds: int) -> None:
         """Change the polling rate at runtime and remember it. Only the fixed options are allowed;
         never below POLL_MIN_S, to keep the load on the SAU gateway small."""

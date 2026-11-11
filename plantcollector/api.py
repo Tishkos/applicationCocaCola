@@ -11,7 +11,9 @@ HTTP API + dashboard. Nothing here can write to a device; the one POST triggers 
   /api/v1/local/alarms            event log (hours=)
   /api/v1/local/tags              every point with its latest value
   /api/v1/local/daily             daily totals (date=YYYY-MM-DD)
-  /api/v1/local/export.csv|xlsx   wide table (from=, to=, step=)
+  /api/v1/local/export.csv|xlsx   wide table (from=, to=, step=, devices=)
+  /api/v1/local/consumption[.csv|.xlsx]  plant load consumption per analyzer (from=, to=)
+  /api/v1/local/settings/backup, POST /settings/restore  the dashboard's own setup as a file
   /api/v1/local/report.xlsx       daily report workbook (date=)
   /api/v1/tags                    the DT Turkey tag list with live values
   /api/v1/tags/{name}             one tag
@@ -20,6 +22,7 @@ HTTP API + dashboard. Nothing here can write to a device; the one POST triggers 
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -252,16 +255,63 @@ def create_app(c: Collector) -> FastAPI:
 
     @app.get("/api/v1/local/export.{fmt}")
     def export_window(fmt: str, frm: str | None = Query(None, alias="from"), to: str | None = None,
-                      step: int = Query(300, ge=10), hours: float | None = Query(None, gt=0)):
+                      step: int = Query(300, ge=10), hours: float | None = Query(None, gt=0),
+                      devices: str | None = Query(None, description="device ids, comma-separated; empty = all")):
+        """Every reading of the chosen devices (all when `devices` is empty) as one wide table, averaged per step.
+        Column headers carry the plant's own register names where they were given on the Analyzers tab."""
         if fmt not in ("csv", "xlsx"):
             raise HTTPException(404)
         since, until = views.parse_range(frm, to, hours, c.now())
         if until - since > timedelta(days=MAX_EXPORT_DAYS):
             raise HTTPException(400, f"range longer than {MAX_EXPORT_DAYS} days; export in pieces")
-        headers, rows = export.wide_table(c, since, until, step)
-        name = f"{c.registry.site.site_id}_{since.strftime('%Y%m%d-%H%M')}_{until.strftime('%Y%m%d-%H%M')}_{step}s.{fmt}"
-        data = export.to_csv(headers, rows) if fmt == "csv" else export.to_xlsx(c, headers, rows, since, until, step)
+        wanted = [x for x in (devices or "").split(",") if x.strip()] or None
+        try:
+            chosen = export.export_devices(c, wanted)
+            headers, rows = export.wide_table(c, since, until, step, wanted)
+        except ValueError as exc:
+            raise HTTPException(400, str(exc))
+        part = "" if wanted is None else ("_" + (chosen[0].id if len(chosen) == 1 else f"{len(chosen)}devices"))
+        name = f"{c.registry.site.site_id}{part}_{since.strftime('%Y%m%d-%H%M')}_{until.strftime('%Y%m%d-%H%M')}_{step}s.{fmt}"
+        data = export.to_csv(headers, rows) if fmt == "csv" else export.to_xlsx(c, headers, rows, since, until, step, wanted)
         return _file(data, name, fmt)
+
+    @app.get("/api/v1/local/consumption")
+    def consumption(frm: str | None = Query(None, alias="from"), to: str | None = None, hours: float | None = Query(None, gt=0)):
+        """Plant load consumption: each analyzer's energy over the window from its own counter (or from its kW
+        when the counter is not read), the kW now, the share of the metered total, and the site load to compare."""
+        since, until = views.parse_range(frm, to, hours, c.now())
+        if until - since > timedelta(days=MAX_EXPORT_DAYS):
+            raise HTTPException(400, f"range longer than {MAX_EXPORT_DAYS} days")
+        return views.consumption(c, since, until)
+
+    @app.get("/api/v1/local/consumption.{fmt}")
+    def consumption_file(fmt: str, frm: str | None = Query(None, alias="from"), to: str | None = None, hours: float | None = Query(None, gt=0)):
+        if fmt not in ("csv", "xlsx"):
+            raise HTTPException(404)
+        since, until = views.parse_range(frm, to, hours, c.now())
+        if until - since > timedelta(days=MAX_EXPORT_DAYS):
+            raise HTTPException(400, f"range longer than {MAX_EXPORT_DAYS} days")
+        data = views.consumption(c, since, until)
+        name = f"{c.registry.site.site_id}_consumption_{since.strftime('%Y%m%d-%H%M')}_{until.strftime('%Y%m%d-%H%M')}.{fmt}"
+        return _file(export.consumption_csv(data) if fmt == "csv" else export.consumption_xlsx(c, data), name, fmt)
+
+    @app.get("/api/v1/local/settings/backup")
+    def settings_backup():
+        """The dashboard's own settings as a file to keep: the analyzers added here, the register names, the reading
+        rates. Restored with POST /api/v1/local/settings/restore, on this PC or another."""
+        data = c.settings_backup()
+        name = f"cci-plant-monitoring-settings_{c.registry.site.site_id}_{c.now().strftime('%Y-%m-%d')}.json"
+        return Response(content=json.dumps(data, indent=2, ensure_ascii=False).encode("utf-8"), media_type="application/json",
+                        headers={"Content-Disposition": f'attachment; filename="{name}"'})
+
+    @app.post("/api/v1/local/settings/restore")
+    def settings_restore(body: dict):
+        """Apply a settings backup: analyzers not present yet are added, register names and reading rates are set.
+        Returns what was done; an analyzer that cannot be added (duplicate address, limit) is reported, not fatal."""
+        try:
+            return c.settings_restore(body)
+        except (TypeError, ValueError) as exc:
+            raise HTTPException(400, str(exc))
 
     @app.get("/api/v1/local/report.xlsx")
     def report(date: str | None = None):

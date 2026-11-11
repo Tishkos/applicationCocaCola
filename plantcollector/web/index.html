@@ -171,6 +171,20 @@ code { font-family: var(--mono); font-size: .92em; background: var(--panel-2); p
 .stat .pb { display: flex; flex-direction: column; justify-content: center; padding: 0 12px 10px; min-height: calc(110px * var(--zoom)); overflow: hidden; }
 .stat .v { position: relative; z-index: 1; font-size: calc(40px * var(--zoom)); font-weight: 500; line-height: 1.05; letter-spacing: -.5px; white-space: nowrap; color: var(--strong); }
 .stat .v small { font-size: .5em; font-weight: 500; margin-left: 4px; letter-spacing: 0; opacity: .85; }
+.cstool { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-bottom: 12px; }
+.cstool .csbtns { margin-left: auto; display: flex; gap: 8px; }
+.cscustom { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 14px; padding: 0; }
+table.cons td.l { color: var(--text-3); }
+table.cons tfoot td { font-weight: 600; border-top: 1px solid var(--border); }
+table.cons tfoot tr.dim td { font-weight: 400; color: var(--text-2); }
+table.cons .csbar { display: inline-block; height: 6px; border-radius: 3px; background: var(--c-an); vertical-align: middle; margin-right: 6px; opacity: .8; }
+.xdev { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 14px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2, var(--panel)); max-height: 260px; overflow: auto; }
+.xdev label { display: flex; align-items: center; gap: 8px; font-size: calc(12.5px * var(--zoom)); cursor: pointer; min-width: 0; }
+.xdev label input { margin: 0; accent-color: var(--primary); }
+.xdev label span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.xdev label small { color: var(--text-3); margin-left: auto; padding-left: 6px; flex: none; }
+.xdev .xg { grid-column: 1 / -1; font-size: calc(11px * var(--zoom)); letter-spacing: .04em; text-transform: uppercase; color: var(--text-3); margin-top: 6px; }
+.xdev .xg:first-child { margin-top: 0; }
 .stat .s { text-shadow: 0 1px 3px var(--panel), 0 0 2px var(--panel); position: relative; z-index: 1; color: var(--text-2); font-size: calc(12px * var(--zoom)); line-height: 1.3; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 .stat .spark { position: absolute; left: 0; right: 0; bottom: 0; height: 55%; width: 100%; pointer-events: none; }
 .stat.bg .pb { color: #fff; }
@@ -251,7 +265,7 @@ code { font-family: var(--mono); font-size: .92em; background: var(--panel-2); p
 table { width: 100%; border-collapse: collapse; font-size: calc(12.5px * var(--zoom)); }
 th { position: sticky; top: 0; background: var(--panel); text-align: left; font-weight: 500; color: var(--text-2); padding: 7px 10px; border-bottom: 1px solid var(--border-2); white-space: nowrap; z-index: 1; }
 td { padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
-td.num, th.num { text-align: right; }
+td.num, th.num, th.rt { text-align: right; }
 td.note { white-space: normal; color: var(--text-3); min-width: 200px; }
 tbody tr:hover { background: var(--hover); }
 tr.sel { background: rgba(110,159,255,.1); }
@@ -471,7 +485,7 @@ html[lang="ar"] .nm, html[lang="ckb"] .nm, html[lang="ar"] .cap, html[lang="ckb"
 [dir="rtl"] .crumbs .sep, [dir="rtl"] .chev { transform: scaleX(-1); }
 [dir="rtl"] .row.collapsed > .rh .chev { transform: rotate(90deg); }
 [dir="rtl"] .legend, [dir="rtl"] .kv, [dir="rtl"] th, [dir="rtl"] td { text-align: start; }
-[dir="rtl"] td.num, [dir="rtl"] th.num { text-align: left; }
+[dir="rtl"] td.num, [dir="rtl"] th.num, [dir="rtl"] th.rt { text-align: left; }
 .lang-menu button[aria-checked="true"]::after { content: "✓"; margin-inline-start: auto; }
 
 /* single-line diagram */
@@ -1069,6 +1083,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       <a href="#solar" data-sec="solar"><svg viewBox="0 0 24 24"><path d="M5.2 12.5h13.6l2.4 8H2.8z"/><path d="M12 12.5v8M4 16.5h16"/><circle cx="12" cy="5.8" r="2.3"/><path d="M12 1.8v.7M7.3 5.8h.7M16 5.8h.7"/></svg><span>Solar PV</span></a>
       <a href="#mains" data-sec="mains"><svg viewBox="0 0 24 24"><path d="M7 21.5L11 3h2l4 18.5"/><path d="M4 7.5h16M5.8 12.5h12.4M9.6 12.5l5.6 9M14.4 12.5l-5.6 9"/><path d="M4.5 7.5v2M19.5 7.5v2"/></svg><span>Mains &amp; grid</span></a>
       <a href="#analyzers" data-sec="analyzers" hidden><svg viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="17" rx="2.5"/><path d="M6.8 14.2a5.2 5.2 0 0 1 10.4 0"/><path d="M12 14.2l2.6-3"/><path d="M7 17.6h10"/></svg><span>Analyzers</span></a>
+      <a href="#consumption" data-sec="consumption" hidden><svg viewBox="0 0 24 24"><path d="M4 19h16M6 16V9M10 16V5M14 16v-6M18 16v-3"/></svg><span>Plant load consumption</span></a>
       <a href="#quality"><svg viewBox="0 0 24 24"><path d="M2.5 12h2c1.7 0 2-6.5 3.75-6.5S10.3 18.5 12 18.5s2-13 3.75-13S17.8 12 19.5 12h2"/></svg><span>Power quality</span></a>
       <div class="grp">Operate</div>
       <a href="#devices"><svg viewBox="0 0 24 24"><rect x="3" y="3.5" width="18" height="7" rx="2"/><rect x="3" y="13.5" width="18" height="7" rx="2"/><path d="M7 7h.01M7 17h.01M11 7h6M11 17h6"/></svg><span>Devices</span></a>
@@ -1418,6 +1433,27 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       </section>
 
       <!-- ========================================================== export -->
+      <section class="row" id="consumption" hidden>
+        <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Plant load consumption</h2><span class="sub">each feeder's energy from its meter's counter, kWh and kW</span></button>
+        <div class="grid">
+          <div class="panel w24">
+            <div class="ph"><h3>Consumption per feeder</h3><span class="r" id="csRange">—</span></div>
+            <div class="pb">
+              <div class="cstool">
+                <div class="chips" id="csQuick"><button type="button" class="chip-b" data-cq="today">Today</button><button type="button" class="chip-b" data-cq="yesterday">Yesterday</button><button type="button" class="chip-b" data-cq="week">Last 7 days</button><button type="button" class="chip-b" data-cq="month">This month</button><button type="button" class="chip-b" data-cq="custom">Custom…</button></div>
+                <div class="form cscustom" id="csCustom" hidden>
+                  <label>From <span class="dt" data-time><input type="text" id="csFrom" placeholder="YYYY-MM-DD HH:MM" autocomplete="off" spellcheck="false"><button type="button" title="Pick a date" aria-label="Pick the From date"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></button><input type="date" tabindex="-1" aria-hidden="true"></span></label>
+                  <label>To <span class="dt" data-time><input type="text" id="csTo" placeholder="YYYY-MM-DD HH:MM" autocomplete="off" spellcheck="false"><button type="button" title="Pick a date" aria-label="Pick the To date"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/></svg></button><input type="date" tabindex="-1" aria-hidden="true"></span></label>
+                  <button class="btn" type="button" id="csApply">Show</button>
+                </div>
+                <span class="csbtns"><button class="btn primary" type="button" id="csXlsx"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"/></svg>Excel</button><button class="btn" type="button" id="csCsv">CSV</button></span>
+              </div>
+              <div class="tablewrap"><table class="cons"><thead><tr><th>Feeder</th><th>Meter</th><th class="rt">kW now</th><th class="rt">Counter now (kWh)</th><th class="rt">Counter at start (kWh)</th><th class="rt">Consumption (kWh)</th><th class="rt">Share</th><th>How</th></tr></thead><tbody id="csBody"></tbody><tfoot id="csFoot"></tfoot></table></div>
+              <div class="hint" id="csHint">Consumption = the meter's own energy counter at the end of the period minus at its start, so it is exact even when readings were missed. "From kW" means the counter is not read from that meter and the energy was integrated from its kW readings instead. The site load row comes from the master's load reading; "not metered" is the rest of the plant that no analyzer covers. A feeder's name is the meter's name, or the name you gave its energy register on the Analyzers tab.</div>
+            </div>
+          </div>
+        </div>
+      </section>
       <section class="row" id="export">
         <button class="rh" type="button"><svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg><h2>Export</h2><span class="sub">every reading of every device, as Excel or CSV</span></button>
         <div class="grid">
@@ -1465,11 +1501,15 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
                   </div>
                   <div class="chips"><button type="button" class="chip-b" data-quick="24">Last 24 h</button><button type="button" class="chip-b" data-quick="168">Last 7 days</button><button type="button" class="chip-b" data-quick="720">Last 30 days</button></div>
                 </div></div>
-                <div class="xstep"><span class="xn">2</span><div class="xbody"><b>Resolution</b><small>one row every</small>
+                <div class="xstep"><span class="xn">2</span><div class="xbody"><b>Devices</b><small>all of them, one kind, or your own choice</small>
+                  <div class="chips" id="exKinds"></div>
+                  <div class="xdev" id="exDev" hidden></div>
+                </div></div>
+                <div class="xstep"><span class="xn">3</span><div class="xbody"><b>Resolution</b><small>one row every</small>
                   <select id="exStep" hidden><option value="60">1 minute</option><option value="300" selected>5 minutes</option><option value="900">15 minutes</option><option value="3600">1 hour</option></select>
                   <div class="chips" data-for="exStep"><button type="button" class="chip-b" data-v="60">1 min</button><button type="button" class="chip-b" data-v="300">5 min</button><button type="button" class="chip-b" data-v="900">15 min</button><button type="button" class="chip-b" data-v="3600">1 hour</button></div>
                 </div></div>
-                <div class="xstep"><span class="xn">3</span><div class="xbody"><b>Format</b>
+                <div class="xstep"><span class="xn">4</span><div class="xbody"><b>Format</b>
                   <select id="exFmt" hidden><option value="xlsx">Excel (.xlsx)</option><option value="csv">CSV</option></select>
                   <div class="xfmts" data-for="exFmt">
                     <button type="button" class="xfmt" data-v="xlsx"><span class="xfi" style="background:#1d6f42">X</span><span><b>Excel</b><small>formatted workbook, plant-local and UTC time</small></span></button>
@@ -1485,7 +1525,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
                 <span class="note" id="exInfo" role="status"></span>
               </div>
             </div>
-            <div class="hint">Times are 24-hour, in <span id="exZone">this computer's local time</span>. Up to 62 days per file; a bad or missing reading is an empty cell, never a zero.</div>
+            <div class="hint">Times are 24-hour, in <span id="exZone">this computer's local time</span>. Up to 62 days per file; a bad or missing reading is an empty cell, never a zero. A register named on the Analyzers tab is a column with that name.</div>
           </div>
 
           <div class="panel w8">
@@ -1567,6 +1607,12 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
             <div class="updprog" id="updProg" hidden role="status"><span class="spin" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b id="updProgT"></b><small id="updProgS"></small></div></div>
             <div class="actions"><button class="btn" type="button" id="updCheck" hidden><svg viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg><span>Check for updates</span></button><button class="btn primary" type="button" id="updInstall" hidden data-act="download"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg><span>Download</span></button><span class="note" id="updNote" role="status"></span></div>
             <div class="hint">The updater looks for a newer release every 4 hours. With automatic updates on, it installs it at night (01:00–05:00). The settings and the history stay. Installing stops the collector for about a minute, Turkey's feed included. If the new version does not start, the updater puts the previous one back. The buttons work only in the window on the PC the collector runs on.</div>
+          </div>
+          <div class="panel w12" id="p-backup">
+            <div class="ph"><h3>Your setup: backup and restore</h3><span class="r">added analyzers, register names, reading rates</span></div>
+            <dl class="about" id="bkList"></dl>
+            <div class="actions"><a class="btn" href="/api/v1/local/settings/backup" data-dl><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M4 20h16"/></svg><span>Download backup (.json)</span></a><button class="btn" type="button" id="bkRestore"><svg viewBox="0 0 24 24"><path d="M12 20V9M7 14l5-5 5 5M4 4h16"/></svg><span>Restore from a backup…</span></button><input type="file" id="bkFile" accept=".json,application/json" hidden><span class="note" id="bkNote" role="status"></span></div>
+            <div class="hint">Everything you set up on the dashboard is kept in <code>data\settings.json</code>. An update keeps it, and so does the uninstaller unless "Collected data and settings" is ticked there. The backup is that setup as one file: keep a copy, or restore it on another PC. Restoring adds what is missing and changes nothing else; an analyzer already read here is left as it is.</div>
           </div>
           <div class="panel w12">
             <div class="ph"><h3>About this collector</h3></div>
@@ -2976,7 +3022,9 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
   }
   function renderAnalyzers(M) {
     const list = M.analyzers;
-    showSec("analyzers", list.length > 0); if (!list.length) return;
+    showSec("analyzers", list.length > 0); showSec("consumption", list.length > 0);
+    if (list.length && !csData && !$("#consumption").hidden) loadConsumption();
+    if (!list.length) return;
     $("#anSub").textContent = `${list.filter((d) => d.comms === "ok").length} of ${list.length} online`;
     $("#anRate").textContent = rateOf(list[0]) ? `read ${rateOf(list[0])}` : "";
     const grid = $("#anGrid"), key = list.map((d) => d.id).join(",");
@@ -3819,7 +3867,44 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     return { from, to, error };
   }
   // columns of the export = every point of every device; the size is an estimate for the summary box
-  const nCols = () => (points.length || (summary ? summary.devices.reduce((a, d) => a + Object.keys(d.points).length, 0) : 0)) + 2;
+  // ---- which devices an export covers: null = all, else a Set of device ids
+  const KIND_LABEL = { analyzer: "Analyzers", inverter: "Inverters", genset: "Gensets", mains: "Mains", pv: "Solar", battery: "Battery", weather: "Weather" };
+  const kindLabel = (k) => KIND_LABEL[k] || (k ? k[0].toUpperCase() + k.slice(1) : "Other");
+  let exDev = null, exDevKind = null;
+  const exDevices = () => summary ? summary.devices : [];
+  const chosenDevices = () => exDevices().filter((d) => !exDev || exDev.has(d.id));
+  const nCols = () => (points.length || chosenDevices().reduce((a, d) => a + Object.keys(d.points).length, 0)) + 2;
+  function paintDevices() {
+    const devs = exDevices(), kinds = [];
+    devs.forEach((d) => { if (!kinds.includes(d.kind)) kinds.push(d.kind); });
+    const count = (k) => devs.filter((d) => d.kind === k).length;
+    const box = $("#exKinds");
+    box.innerHTML = [`<button type="button" class="chip-b" data-dk="*">All devices (${devs.length})</button>`]
+      .concat(kinds.map((k) => `<button type="button" class="chip-b" data-dk="${esc(k)}">${esc(kindLabel(k))} (${count(k)})</button>`))
+      .concat([`<button type="button" class="chip-b" data-dk="pick">Choose…</button>`]).join("");
+    const list = $("#exDev");
+    list.innerHTML = kinds.map((k) => `<div class="xg">${esc(kindLabel(k))}</div>` + devs.filter((d) => d.kind === k).map((d) =>
+      `<label><input type="checkbox" value="${esc(d.id)}" ${!exDev || exDev.has(d.id) ? "checked" : ""}><span title="${esc(d.name || d.id)}">${esc(d.id)}${d.name && d.name !== d.id ? ` · ${esc(d.name)}` : ""}${d.added ? " · added" : ""}</span><small>${Object.keys(d.points).length}</small></label>`).join("")).join("");
+    $$("[data-dk]", box).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.dk === "*" ? exDev === null : b.dataset.dk === "pick" ? exDevKind === "pick" : exDevKind === b.dataset.dk)));
+    list.hidden = exDevKind !== "pick";
+  }
+  $("#exKinds").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-dk]"); if (!b) return;
+    const k = b.dataset.dk;
+    if (k === "*") { exDev = null; exDevKind = null; }
+    else if (k === "pick") { exDevKind = "pick"; if (!exDev) exDev = new Set(exDevices().map((d) => d.id)); }
+    else { exDevKind = k; exDev = new Set(exDevices().filter((d) => d.kind === k).map((d) => d.id)); }
+    paintDevices(); showWindow();
+  });
+  $("#exDev").addEventListener("change", (e) => {
+    const cb = e.target; if (cb.type !== "checkbox") return;
+    if (!exDev) exDev = new Set(exDevices().map((d) => d.id));
+    cb.checked ? exDev.add(cb.value) : exDev.delete(cb.value);
+    if (exDev.size === exDevices().length) { exDev = null; exDevKind = null; }
+    paintDevices(); showWindow();
+  });
+  const devParam = () => exDev ? `&devices=${encodeURIComponent([...exDev].join(","))}` : "";
+  const devText = () => { const n = chosenDevices().length, all = exDevices().length; return exDev === null ? `all (${all})` : exDevKind && exDevKind !== "pick" ? `${kindLabel(exDevKind)} (${n})` : `${n} of ${all}`; };
   const sizeText = (rows, fmtx) => { const b = rows * nCols() * (fmtx === "csv" ? 7 : 4.5) + 8000; return b > 1048576 ? `${fmt(b / 1048576, 1)} MB` : `${fmt(Math.max(1, b / 1024))} KB`; };
   function showWindow() {
     const w = exWindow(), s = stepMs(), el = $("#exInfo");
@@ -3827,7 +3912,8 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     el.textContent = w.error || "";
     const rows = w.error ? null : Math.floor(w.to / s) - Math.floor(w.from / s) + 1, f = $("#exFmt").value;
     $("#exSpan").textContent = w.error ? "—" : span(w.to - w.from);
-    $("#exSum").innerHTML = w.error ? "" : [["From", stamp(w.from)], ["To", stamp(w.to)], ["Rows", fmt(rows)], ["Columns", fmt(nCols())], ["Size, about", sizeText(rows, f)]]
+    if (exDev && !chosenDevices().length) { el.classList.add("bad"); el.textContent = "Choose at least one device."; }
+    $("#exSum").innerHTML = w.error ? "" : [["From", stamp(w.from)], ["To", stamp(w.to)], ["Devices", devText()], ["Rows", fmt(rows)], ["Columns", fmt(nCols())], ["Size, about", sizeText(rows, f)]]
       .map(([k1, v]) => `<div><span>${k1}</span><b>${v}</b></div>`).join("");
     $$("[data-quick]").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.quick) === quick)));
     $$("[data-for]").forEach((g) => { const sel = $("#" + g.dataset.for); $$("[data-v]", g).forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.v === sel.value))); });
@@ -3849,7 +3935,8 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     ["today", "yesterday", "week", "month"].forEach((kd) => {
       const r = quickRange(kd), rows = Math.floor(r.to / (r.step * 1000)) - Math.floor(r.from / (r.step * 1000)) + 1;
       $(`#xq-${kd}-r`).textContent = `${dayLabel(r.from)} ${hm(r.from)} → ${kd === "yesterday" ? dayLabel(r.to) + " " + hm(r.to) : "now"}`;
-      $(`#xq-${kd}-m`).textContent = `${fmt(rows)} rows · ${fmt(nCols())} columns · about ${sizeText(rows, "xlsx")}`;
+      const cols = exDevices().reduce((a, d) => a + Object.keys(d.points).length, 0) + 2;
+      $(`#xq-${kd}-m`).textContent = `${fmt(rows)} rows · ${fmt(cols)} columns · about ${sizeText(rows, "xlsx")}`;
     });
   }
   $$("[data-xq]").forEach((b) => b.addEventListener("click", () => {
@@ -3861,8 +3948,12 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     quick = h; exFrom.value = stamp(to - h * 3600e3); exTo.value = stamp(to); showWindow();
   }
   const utcToday = () => new Date().toISOString().slice(0, 10);
+  let devSig = "";
   function refreshDefaults() {
     paintQuick();
+    const sig = exDevices().map((d) => d.id).join(",");
+    if (sig !== devSig) { devSig = sig; if (exDev) exDev = new Set([...exDev].filter((id) => sig.split(",").includes(id))); paintDevices(); showWindow(); }
+    paintBackup();
     const at = document.activeElement;
     if (quick && at !== exFrom && at !== exTo) setQuick(quick);
     if (repToday && at !== repDate) repDate.value = utcToday();
@@ -3890,7 +3981,8 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
     if (quick) setQuick(quick);
     const w = exWindow();
     if (w.error) { toast(w.error, true); return; }
-    download(`/api/v1/local/export.${$("#exFmt").value}?from=${encodeURIComponent(new Date(w.from).toISOString())}&to=${encodeURIComponent(new Date(w.to).toISOString())}&step=${$("#exStep").value}`, $("#exGo"));
+    if (exDev && !chosenDevices().length) { toast("Choose at least one device.", true); return; }
+    download(`/api/v1/local/export.${$("#exFmt").value}?from=${encodeURIComponent(new Date(w.from).toISOString())}&to=${encodeURIComponent(new Date(w.to).toISOString())}&step=${$("#exStep").value}${devParam()}`, $("#exGo"));
   });
   $("#repGo").addEventListener("click", () => {
     if (repToday) repDate.value = utcToday();
@@ -3925,6 +4017,84 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
       ["Polls since start", summary ? summary.collector.polls : "—"], ["Rows stored", summary ? summary.collector.rows.toLocaleString() : "—"],
       ["Running since", summary ? stamp(Date.now() - summary.collector.uptime_s * 1000) : "—"]].map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("");
   }
+  // ---- your setup: backup and restore (Settings)
+  function paintBackup() {
+    if (!summary) return;
+    const added = summary.devices.filter((d) => d.added), an = summary.devices.filter((d) => d.kind === "analyzer");
+    if (!regMeta && !regLoading) loadRegs().then(() => { if (regMeta) paintBackup(); });
+    const named = regMeta ? Object.values(regMeta).reduce((a, l) => a + l.filter((r) => r.name).length, 0) : null;
+    $("#bkList").innerHTML = [["Analyzers", `${an.length}` + (added.length ? ` (${added.length} added on the dashboard: ${added.map((d) => d.id).join(", ")})` : " (none added on the dashboard)")],
+      ["Registers with your own name", named === null ? "—" : named], ["Devices in all", summary.devices.length]].map(([k, v]) => `<dt>${k}</dt><dd>${esc(String(v))}</dd>`).join("");
+  }
+  $("#bkRestore").addEventListener("click", () => $("#bkFile").click());
+  $("#bkFile").addEventListener("change", async () => {
+    const f = $("#bkFile").files[0]; $("#bkFile").value = "";
+    if (!f) return;
+    const note = $("#bkNote"); note.classList.remove("bad"); note.textContent = `Restoring from ${f.name}…`;
+    try {
+      const body = JSON.parse(await f.text());
+      const r = await fetch("/api/v1/local/settings/restore", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!r.ok) throw new Error(await failText(r));
+      const rep = await r.json();
+      const bits = [`${rep.analyzers_added.length} analyzer${rep.analyzers_added.length === 1 ? "" : "s"} added`, rep.analyzers_present.length ? `${rep.analyzers_present.length} already here` : "",
+        `${rep.names_set} register name${rep.names_set === 1 ? "" : "s"}`, rep.rates_set.length ? `${rep.rates_set.length} reading rate${rep.rates_set.length === 1 ? "" : "s"}` : ""].filter(Boolean);
+      const bad = rep.analyzers_failed.map((x) => `${x.host} address ${x.unit_id}: ${x.error}`).concat(rep.names_failed, rep.rates_failed);
+      note.textContent = `Restored: ${bits.join(", ")}.` + (bad.length ? ` Not applied: ${bad.join("; ")}.` : "");
+      note.classList.toggle("bad", !!bad.length && !rep.analyzers_added.length && !rep.names_set);
+      toast("Settings restored");
+      loadSummary(); loadSettings();
+    } catch (e) { note.classList.add("bad"); note.textContent = `Restore failed: ${why(e)}.`; }
+  });
+
+  // ---- plant load consumption: each analyzer's energy over a period from its meter's counter
+  let csKind = "today", csData = null, csBusy = false;
+  function csWindow() {
+    if (csKind !== "custom") { const r = quickRange(csKind); return { from: r.from, to: r.to }; }
+    const from = parseStamp($("#csFrom").value), to = parseStamp($("#csTo").value);
+    if (from === null || to === null || from >= to) return null;
+    return { from, to };
+  }
+  const csQuery = () => { const w = csWindow(); return w ? `from=${encodeURIComponent(new Date(w.from).toISOString())}&to=${encodeURIComponent(new Date(w.to).toISOString())}` : null; };
+  async function loadConsumption() {
+    if ($("#consumption").hidden || csBusy) return;
+    const q = csQuery();
+    if (!q) { $("#csHint").textContent = "Enter both times as YYYY-MM-DD HH:MM, From before To."; return; }
+    csBusy = true;
+    try { csData = await getJSON(`/api/v1/local/consumption?${q}`); renderConsumption(); } catch (e) { toast(`Consumption: ${why(e)}`, true); }
+    csBusy = false;
+  }
+  function renderConsumption() {
+    const d = csData; if (!d) return;
+    const w = csWindow();
+    $("#csRange").textContent = w ? `${stamp(w.from)} → ${csKind === "today" || csKind === "week" || csKind === "month" ? "now" : stamp(w.to)}` : "—";
+    $$("[data-cq]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.cq === csKind)));
+    const n = (v, dp = 1) => v === null || v === undefined ? "—" : fmt(v, dp);
+    const maxShare = Math.max(1, ...d.rows.map((r) => r.share_pct || 0));
+    $("#csBody").innerHTML = d.rows.map((r) => {
+      const label = r.name || r.register || r.id;
+      const how = r.method === "counter" ? "counter" : r.method === "from kW" ? "from kW" : "not read";
+      return `<tr><td><b>${esc(label)}</b>${r.added ? ' <span class="chip">added</span>' : ""}</td><td class="l">${esc(r.id)}${r.register && r.name ? ` · ${esc(r.register)}` : ""}</td><td class="num">${n(r.kw_now, 0)}</td><td class="num">${n(r.counter_kwh, 0)}</td><td class="num">${n(r.start_kwh, 0)}</td><td class="num"><b>${n(r.kwh)}</b></td><td class="num">${r.share_pct === null ? "—" : `<span class="csbar" style="width:${Math.round(60 * r.share_pct / maxShare)}px"></span>${fmt(r.share_pct, 1)} %`}</td><td class="l" title="${esc(r.note || "")}">${how}${r.note ? ' <span class="num">ⓘ</span>' : ""}</td></tr>`;
+    }).join("") || `<tr><td colspan="8" class="l">No analyzer readings in this period.</td></tr>`;
+    const foot = [`<tr><td>All meters</td><td class="l">${d.rows.length} ${d.rows.length === 1 ? "analyzer" : "analyzers"}, ${d.counters} with a counter</td><td></td><td></td><td></td><td class="num">${n(d.metered_total_kwh)}</td><td class="num">${d.metered_total_kwh ? "100 %" : "—"}</td><td></td></tr>`];
+    if (d.site_load_kwh !== null) foot.push(`<tr class="dim"><td>Site load (master)</td><td class="l">the whole plant</td><td></td><td></td><td></td><td class="num">${n(d.site_load_kwh)}</td><td></td><td class="l">from kW</td></tr>`,
+      `<tr class="dim"><td>Not metered</td><td class="l">site load minus all meters</td><td></td><td></td><td></td><td class="num">${n(d.unmetered_kwh)}</td><td class="num">${d.site_load_kwh ? fmt(100 * d.unmetered_kwh / d.site_load_kwh, 1) + " %" : "—"}</td><td></td></tr>`);
+    $("#csFoot").innerHTML = foot.join("");
+  }
+  $("#csQuick").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-cq]"); if (!b) return;
+    csKind = b.dataset.cq;
+    $("#csCustom").hidden = csKind !== "custom";
+    if (csKind === "custom" && !$("#csFrom").value) { const m0 = midnight(Date.now()); $("#csFrom").value = stamp(m0 - 86400e3); $("#csTo").value = stamp(m0); }
+    $$("[data-cq]").forEach((x) => x.setAttribute("aria-pressed", String(x.dataset.cq === csKind)));
+    if (csKind !== "custom") loadConsumption();
+  });
+  $("#csApply").addEventListener("click", loadConsumption);
+  [$("#csFrom"), $("#csTo")].forEach((el) => el.addEventListener("change", () => { const t = parseStamp(el.value); if (t !== null) el.value = stamp(t); }));
+  $("#csXlsx").addEventListener("click", () => { const q = csQuery(); if (q) download(`/api/v1/local/consumption.xlsx?${q}`, $("#csXlsx")); });
+  $("#csCsv").addEventListener("click", () => { const q = csQuery(); if (q) download(`/api/v1/local/consumption.csv?${q}`, $("#csCsv")); });
+  window.addEventListener("hashchange", () => { if (location.hash === "#consumption") loadConsumption(); });
+  setInterval(() => { if (csKind !== "custom") loadConsumption(); }, 60000);
+
   // ---- reading the devices (the master's live rate; each other device or gateway)
   let rdgData = null;
   function renderReading(r) {
@@ -4470,6 +4640,7 @@ dialog.upddlg > footer { display: flex; justify-content: flex-end; gap: 8px; pad
   setInterval(loadAlarms, 30000);
   setInterval(loadPoints, 30000);
   setInterval(refreshDefaults, 30000);
+  setTimeout(refreshDefaults, 4000);
   setInterval(renderClock, 1000);
   setInterval(() => { if (summary) paintAlarms(); }, 15000);
 })();

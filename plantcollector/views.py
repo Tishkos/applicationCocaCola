@@ -352,6 +352,63 @@ def catalog_values(c: Collector, catalog: list[dict]) -> list[dict]:
     return out
 
 
+# --- plant load consumption: each analyzer's (feeder's) energy over a window, from the meter's own counter -------
+
+def _counter_point(d):
+    """The meter's energy counter into the load (kWh), and its active power (kW), as point ids."""
+    pts = {p.id: p for p in d.points}
+    e = next((pid for pid in ("e_in_kwh", "energy_import_kwh", "energy_total_kwh") if pid in pts), None) \
+        or next((p.id for p in d.points if (p.unit or "").lower() == "kwh" and "out" not in p.id and "export" not in p.id), None)
+    k = "p_total_kw" if "p_total_kw" in pts else next((p.id for p in d.points if (p.unit or "").lower() == "kw"), None)
+    return e, k
+
+
+def consumption(c: Collector, since: datetime, until: datetime) -> dict:
+    """One row per analyzer: the counter at the start and at the end of the window and their difference (the
+    consumption), or the integral of its kW when the counter is not read; the kW now; each one's share of the
+    metered total; and the site load of the same window for comparison (what no meter covers is the rest)."""
+    reg, st = c.registry, c.store
+    names = getattr(c, "register_names", {}) or {}
+    removed = getattr(c, "removed", set())
+    rows = []
+    for d in reg.by_kind("analyzer"):
+        if d.id in removed:
+            continue
+        pid_e, pid_k = _counter_point(d)
+        row = {"id": d.id, "name": d.name if d.name and d.name != d.id else "", "added": d.id in getattr(c, "user_added", set()),
+               "register": names.get(d.id, {}).get(pid_e, "") if pid_e else "", "counter_point": pid_e,
+               "kw_now": st.value(d.id, pid_k) if pid_k else None,
+               "counter_kwh": None, "counter_at": None, "start_kwh": None, "start_at": None, "kwh": None, "method": None, "note": ""}
+        if pid_e:
+            hist = [(t, v) for t, v in st.history(d.id, pid_e, since - timedelta(days=3), until) if v is not None]
+            before = [(t, v) for t, v in hist if datetime.fromisoformat(t) <= since]
+            inside = [(t, v) for t, v in hist if datetime.fromisoformat(t) > since]
+            start = before[-1] if before else (inside[0] if inside else None)
+            end = hist[-1] if hist else None
+            if start and not before:
+                row["note"] = "no reading at the start of the window: counted from the first one in it"
+            if start and end:
+                row["start_at"], row["start_kwh"], row["counter_at"], row["counter_kwh"] = start[0], round(start[1], 3), end[0], round(end[1], 3)
+                if end[1] >= start[1]:
+                    row["kwh"], row["method"] = round(end[1] - start[1], 1), "counter"
+                else:
+                    row["note"] = "the counter went backwards in this window (reset or replaced meter)"
+        if row["kwh"] is None and pid_k:
+            if st.history(d.id, pid_k, since, until):
+                row["kwh"], row["method"] = st.integrate_kwh(d.id, pid_k, since, until), "from kW"
+                row["note"] = (row["note"] + "; " if row["note"] else "") + "the counter was not read: energy integrated from the kW readings"
+        rows.append(row)
+    total = round(sum(r["kwh"] for r in rows if r["kwh"] is not None), 1) if rows else 0.0
+    for r in rows:
+        r["share_pct"] = round(100 * r["kwh"] / total, 1) if total and r["kwh"] is not None else None
+    step = 300
+    ser = series(c, since, until, step, keys=["load_kw"])["series"].get("load_kw") or []
+    site = round(sum(x for x in ser if x is not None) * step / 3600, 1) if any(x is not None for x in ser) else None
+    return {"from": since.isoformat(), "to": until.isoformat(), "rows": rows, "metered_total_kwh": total,
+            "site_load_kwh": site, "unmetered_kwh": round(site - total, 1) if site is not None else None,
+            "counters": sum(1 for r in rows if r["method"] == "counter")}
+
+
 def parse_range(frm: str | None, to: str | None, hours: float | None, now: datetime) -> tuple[datetime, datetime]:
     def parse(s: str) -> datetime:
         d = datetime.fromisoformat(s.replace("Z", "+00:00"))
