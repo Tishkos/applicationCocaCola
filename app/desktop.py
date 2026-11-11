@@ -425,6 +425,9 @@ def main():
     store = os.path.join(os.environ.get("LOCALAPPDATA") or DATA, "CCI Plant Monitoring", "appwindow") if installed \
         else os.path.join(DATA, "appwindow")
     fresh_cache(store)                        # a new version: its page, not the old one from the cache
+    # the Export page's files: without this the window's browser component drops every download in silence;
+    # with it, a Save As dialog opens in the user's Downloads folder with the file's own name
+    webview.settings["ALLOW_DOWNLOADS"] = True
     try:
         webview.start(icon=ICON, private_mode=False, storage_path=store)
     except Exception:

@@ -41,6 +41,7 @@ WHATS_NEW = {
     "1.0.18": "The Gensets and Grid import tiles show the energy so far today in kWh, like Site load and Solar PV. The Setup has two new boxes: Turkey's Modbus feed, switched on in the settings by itself, and opening the window when a user signs in to Windows.",
     "1.0.19": "The Gensets and Grid import tiles show the energy so far today in kWh, like Site load and Solar PV. The Setup has two new boxes: Turkey's Modbus feed, switched on in the settings by itself, and opening the window when a user signs in to Windows.",
     "1.0.20": "Wording of the Add analyzer help on the Analyzers tab.",
+    "1.0.21": "Files from the Export page now download from the application window too: a Save As dialog opens in your Downloads folder. Before, only a browser could save them.",
 }
 
 

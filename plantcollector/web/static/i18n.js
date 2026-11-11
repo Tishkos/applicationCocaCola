@@ -348,6 +348,11 @@
     ["Remove", "إزالة", "لابردن", "Kaldır"], ["Keep", "إبقاء", "بیهێڵەوە", "Tut"], ["Remove it? Its readings stay.", "إزالته؟ تبقى قراءاته.", "لایببەیت؟ خوێندنەوەکانی دەمێننەوە.", "Kaldırılsın mı? Okumaları kalır."],
     ["Stop reading this analyzer (added here); its readings stay in the database", "إيقاف قراءة هذا المحلل (أُضيف هنا)؛ تبقى قراءاته في قاعدة البيانات", "وەستاندنی خوێندنەوەی ئەم شیکەرەوەیە (لێرە زیاد کراوە)؛ خوێندنەوەکانی لە بنکەی داتادا دەمێننەوە", "Bu analizörü okumayı durdur (burada eklendi); okumaları veritabanında kalır"],
     ["Removed: the analyzer is not read any more; its readings stay in the database.", "تمت الإزالة: لم يعد المحلل يُقرأ؛ تبقى قراءاته في قاعدة البيانات.", "لابرا: شیکەرەوەکە چیتر ناخوێندرێتەوە؛ خوێندنەوەکانی لە بنکەی داتادا دەمێننەوە.", "Kaldırıldı: analizör artık okunmuyor; okumaları veritabanında kalır."],
+    // 1.0.21: downloads from the application window
+    ["Files from the Export page now download from the application window too: a Save As dialog opens in your Downloads folder. Before, only a browser could save them.",
+     "ملفات صفحة التصدير تُنزَّل الآن من نافذة التطبيق أيضاً: يُفتح مربع حوار حفظ باسم في مجلد التنزيلات. سابقاً كان المتصفح وحده يحفظها.",
+     "فایلەکانی پەڕەی هەناردە ئێستا لە پەنجەرەی بەرنامەکەشەوە دادەبەزێنرێن: دیالۆگی پاشەکەوتکردن لە فۆڵدەری داگرتنەکان دەکرێتەوە. پێشتر تەنها وێبگەڕ دەیتوانی پاشەکەوتیان بکات.",
+     "Dışa aktarma sayfasındaki dosyalar artık uygulama penceresinden de indirilir: İndirilenler klasörünüzde bir Farklı Kaydet iletişim kutusu açılır. Daha önce yalnızca bir tarayıcı kaydedebiliyordu."],
     // 1.0.18: kWh today on the Gensets and Grid import tiles; the Setup's Turkey feed and window-at-sign-in boxes
     ["The Gensets and Grid import tiles show the energy so far today in kWh, like Site load and Solar PV. The Setup has two new boxes: Turkey's Modbus feed, switched on in the settings by itself, and opening the window when a user signs in to Windows.",
      "تعرض بطاقتا المولدات واستيراد الشبكة الطاقة حتى الآن اليوم بالـ kWh، مثل حمل الموقع والطاقة الشمسية. في برنامج التثبيت خياران جديدان: بث Modbus لتركيا، يُفعَّل في الإعدادات تلقائياً، وفتح النافذة عند تسجيل دخول المستخدم إلى Windows.",
