@@ -194,7 +194,7 @@ def test_modbus_publisher_serves_catalog_read_only(tmp_path):
         pub.refresh()
         cl = ModbusTcpClient("127.0.0.1", port=15031); assert cl.connect()
         hdr = cl.read_holding_registers(address=0, count=7, device_id=1).registers
-        assert abs(((hdr[0] << 16) | hdr[1]) - time.time()) < 60 and hdr[2] == 0 and hdr[3] == 2 and hdr[4] == 305 and hdr[5] == 1
+        assert abs(((hdr[0] << 16) | hdr[1]) - time.time()) < 60 and hdr[2] == 0 and hdr[3] == 2 and hdr[4] == 305 and hdr[5] == 2
         t = m["INVERTER_1.INV1_AC_POWER"]
         regs = cl.read_holding_registers(address=t["address"], count=2, device_id=1).registers
         assert abs(struct.unpack(">f", struct.pack(">HH", *regs))[0] - 71.6) < 1e-4

@@ -4,7 +4,7 @@ Server: the plant data collector on the plant PC — `<plant-pc-ip>:502`, unit i
 
 The values are the collector's last read of the site devices: **every 10 minutes** (it can be set to 30 minutes, 1 hour or 2 hours on site). Please poll every 10 minutes or slower; faster polling only returns the same values again. Registers 0–2 give the time of the last site read, so you can see how fresh the values are. Polling never reaches the SAU or the InteliNeo.
 
-Register map version 1. Addresses are 0-based protocol addresses (address 100 = holding register 40101 in 1-based notation).
+Register map version 2 (version 1 plus the analyzer block below; every register of version 1 is unchanged). Addresses are 0-based protocol addresses (address 100 = holding register 40101 in 1-based notation).
 
 ## Header
 
@@ -16,6 +16,8 @@ Register map version 1. Addresses are 0-based protocol addresses (address 100 = 
 | 4 | uint16 | Total number of tags (305) |
 | 5 | uint16 | Register map version |
 | 6 | uint16 | Heartbeat, +1 at every site read |
+| 7 | uint16 | Analyzers published (slots in use), map version 2 |
+| 8 | uint16 | Analyzer slots (48), map version 2 |
 
 ## Encoding
 
@@ -334,3 +336,39 @@ Register map version 1. Addresses are 0-based protocol addresses (address 100 = 
 | 304 | Total_Energy | 695 | 2 | float32 | kWh | 1304 | pv-array.energy_total_kwh | Ready |
 
 Value block: 100–696. Quality block: 1000–1304.
+
+## Analyzer block (map version 2)
+
+The plant's power analyzers (Schneider PM800 meters on the LV feeders), read every 15 s by the collector; the feed shows the latest reading. One **fixed slot per analyzer number** *n* (1 to 48): analyzer 7 is slot 7 whether or not 3 to 6 exist, so a meter added or removed on the dashboard never moves another one's registers. An empty slot reads 0 in every register, quality 0.
+
+- Value address = **2000 + 32 × (n − 1) + offset**
+- Quality address = **4000 + 16 × (n − 1) + index**
+- Values are float32, 2 registers, high word first (ABCD), engineering units — except `E_IN_KWH`, the meter's own energy counter: **uint32**, 2 registers, high word first, whole kWh.
+- Quality as above: 1 good, 2 stale, 0 bad / no data / empty slot.
+- Tag names: `ANALYZER_<n>.<POINT>`, for example `ANALYZER_7.P_TOTAL_KW`.
+- Header register 7 says how many analyzers are published, register 8 how many slots exist.
+
+| Index | Offset | Point | Type | Unit | Meaning |
+|---|---|---|---|---|---|
+| 0 | 0 | P_TOTAL_KW | float32 | kW | Active power, total (+ into the load) |
+| 1 | 2 | Q_TOTAL_KVAR | float32 | kvar | Reactive power, total |
+| 2 | 4 | S_TOTAL_KVA | float32 | kVA | Apparent power, total |
+| 3 | 6 | PF_TOTAL | float32 |  | Power factor, total |
+| 4 | 8 | I_L1_A | float32 | A | Current L1 |
+| 5 | 10 | I_L2_A | float32 | A | Current L2 |
+| 6 | 12 | I_L3_A | float32 | A | Current L3 |
+| 7 | 14 | I_N_A | float32 | A | Current neutral |
+| 8 | 16 | V_L1L2_V | float32 | V | Voltage L1-L2 |
+| 9 | 18 | V_L2L3_V | float32 | V | Voltage L2-L3 |
+| 10 | 20 | V_L3L1_V | float32 | V | Voltage L3-L1 |
+| 11 | 22 | V_L1N_V | float32 | V | Voltage L1-N |
+| 12 | 24 | V_L2N_V | float32 | V | Voltage L2-N |
+| 13 | 26 | V_L3N_V | float32 | V | Voltage L3-N |
+| 14 | 28 | F_HZ | float32 | Hz | Frequency |
+| 15 | 30 | E_IN_KWH | uint32 | kWh | Active energy into the load, the meter's counter (whole kWh) |
+
+Example, analyzer 7: `P_TOTAL_KW` at 2192–2193 (holding register 42193), `E_IN_KWH` at 2222–2223, quality of `P_TOTAL_KW` at 4096, of `E_IN_KWH` at 4111.
+
+Which analyzers exist on the plant right now, with their names and addresses filled in, comes from the collector itself: `http://<plant-pc-ip>:8080/api/v1/tags/analyzers.xlsx` (also `.csv`, and live values as JSON at `/api/v1/tags/analyzers`). The full map, solar and analyzers, is at `/api/v1/tags/registers`.
+
+Value block (analyzers): 2000–3535. Quality block (analyzers): 4000–4767. Registers 0–8 and 100–1304 as above; everything else reads 0.

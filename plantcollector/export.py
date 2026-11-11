@@ -164,6 +164,59 @@ def to_xlsx(c: Collector, headers: list[str], rows: list[list], since: datetime,
     return out.getvalue()
 
 
+# --- the analyzer block of the Turkey feed as a tag list file ---------------------------------------------
+
+AN_HEADERS = ["tag name", "analyzer", "analyzer name", "register name", "address (0-based)", "holding register (1-based)", "registers",
+              "type", "unit", "quality address (0-based)", "value now", "quality", "read at (UTC)"]
+
+
+def analyzer_tag_rows(rows: list[dict]) -> list[list]:
+    return [[r["name"], r["device"], r["analyzer_name"], r["register_name"], r["address"], 40001 + r["address"], r["registers"],
+             r["type"], r["unit"], r["quality_address"], r["value"], r["quality"], (r["ts"] or "")[:19].replace("T", " ")] for r in rows]
+
+
+def analyzer_tags_csv(rows: list[dict]) -> bytes:
+    return to_csv(AN_HEADERS, analyzer_tag_rows(rows))
+
+
+def analyzer_tags_xlsx(c: Collector, rows: list[dict]) -> bytes:
+    from .publish import AN_QUALITY_START, AN_SLOT_QUALITY, AN_SLOT_REGISTERS, AN_SLOTS, AN_VALUES_START, ANALYZER_POINTS, MAP_VERSION
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Analyzer tags"
+    ws.append(AN_HEADERS)
+    for r in analyzer_tag_rows(rows):
+        ws.append(r)
+    _style_header(ws)
+    for row in ws.iter_rows(min_row=2):
+        for cell in row:
+            cell.font = BODY_FONT
+    _autowidth(ws, 10, 36)
+    h = wb.create_sheet("How to read")
+    cfg = (c.registry.extra.get("publish") or {}).get("modbus_tcp") or {}
+    lines = [
+        f"{c.registry.site.name} — analyzer block of the Modbus TCP feed (register map version {MAP_VERSION})",
+        f"Server: this PC, port {cfg.get('port', 502)}, unit id {cfg.get('unit_id', 1)}, function code 03 (04 gives the same), read-only.",
+        "Same server and same rules as the solar tags; the solar registers (0-1304) are unchanged.",
+        "",
+        f"One fixed slot per analyzer number n (1..{AN_SLOTS}): analyzer-7 is slot 7 whether or not 3..6 exist, so a meter added or removed never moves another one.",
+        f"Value address = {AN_VALUES_START} + {AN_SLOT_REGISTERS} x (n - 1) + offset.   Quality address = {AN_QUALITY_START} + {AN_SLOT_QUALITY} x (n - 1) + index.",
+        "Values: float32, 2 registers, high word first (ABCD), engineering units; E_IN_KWH: uint32, 2 registers, high word first, whole kWh (the meter's own counter).",
+        "Quality: 1 good, 2 stale (older than two read intervals), 0 bad / no data / empty slot. Every register of an empty slot is 0.",
+        "Header register 7 = analyzers published, register 8 = slots. The meters are read every 15 s; the feed shows the latest reading.",
+        "",
+        "Offsets in a slot:",
+    ]
+    for j, (tag, pid, typ, unit, off) in enumerate(ANALYZER_POINTS):
+        lines.append(f"  offset {off:2d}  index {j:2d}  {tag:14s} {typ:8s} {unit}")
+    for i, t in enumerate(lines, 1):
+        h.cell(row=i, column=1, value=t).font = TITLE_FONT if i == 1 else BODY_FONT
+    h.column_dimensions["A"].width = 120
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()
+
+
 # --- plant load consumption: the table of views.consumption as a file -------------------------------
 
 CONS_HEADERS = ["feeder", "device", "name", "register name", "kW now", "counter now [kWh]", "counter read at (UTC)",

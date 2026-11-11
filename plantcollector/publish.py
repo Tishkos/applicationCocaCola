@@ -19,6 +19,14 @@ Register map (0-based protocol addresses, unit id from the config):
             boolean uint16, 1 register, 0 / 1
   1000+i  uint16   quality of tag i: 1 good, 2 stale, 0 bad / no data yet
 
+  Analyzer block (map version 2): one fixed slot per analyzer number, so a meter added or
+  removed on the dashboard never moves another one's registers.
+  7       uint16   analyzers published (slots in use)
+  8       uint16   analyzer slots (48)
+  2000+32*(n-1)+o   the values of analyzer n (n = 1..48), o = the point's offset (ANALYZER_POINTS):
+                    float32 (2 registers, high word first), except the energy counter, uint32 kWh
+  4000+16*(n-1)+j   quality of point j of analyzer n; every register of an empty slot is 0
+
 What a bad tag shows in its value registers is `bad_value` in the config: the last good
 value (default), zero, or NaN. The quality register tells the truth either way.
 """
@@ -28,6 +36,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
+import re
 import struct
 import threading
 import time
@@ -42,11 +51,30 @@ from .views import load_tag_catalog
 
 logging.getLogger("pymodbus").setLevel(logging.CRITICAL)
 
-MAP_VERSION = 1
+MAP_VERSION = 2
 VALUES_START = 100
 QUALITY_START = 1000
-BLOCK_SIZE = 2000
-HEADER = {"last_read_time": 0, "minutes_since_read": 2, "good_tags": 3, "total_tags": 4, "map_version": 5, "heartbeat": 6}
+BLOCK_SIZE = 5000
+HEADER = {"last_read_time": 0, "minutes_since_read": 2, "good_tags": 3, "total_tags": 4, "map_version": 5, "heartbeat": 6,
+          "analyzers_published": 7, "analyzer_slots": 8}
+
+# the analyzer block: a fixed slot per analyzer number (analyzer-7 -> slot 7, whether or not 3..6 exist)
+AN_VALUES_START = 2000
+AN_SLOT_REGISTERS = 32
+AN_QUALITY_START = 4000
+AN_SLOT_QUALITY = 16
+AN_SLOTS = 48
+# (tag, point id, type, unit, offset in the slot)
+ANALYZER_POINTS = [
+    ("P_TOTAL_KW", "p_total_kw", "float32", "kW", 0), ("Q_TOTAL_KVAR", "q_total_kvar", "float32", "kvar", 2),
+    ("S_TOTAL_KVA", "s_total_kva", "float32", "kVA", 4), ("PF_TOTAL", "pf_total", "float32", "", 6),
+    ("I_L1_A", "i_l1_a", "float32", "A", 8), ("I_L2_A", "i_l2_a", "float32", "A", 10), ("I_L3_A", "i_l3_a", "float32", "A", 12),
+    ("I_N_A", "i_n_a", "float32", "A", 14), ("V_L1L2_V", "v_l1l2_v", "float32", "V", 16), ("V_L2L3_V", "v_l2l3_v", "float32", "V", 18),
+    ("V_L3L1_V", "v_l3l1_v", "float32", "V", 20), ("V_L1N_V", "v_l1n_v", "float32", "V", 22), ("V_L2N_V", "v_l2n_v", "float32", "V", 24),
+    ("V_L3N_V", "v_l3n_v", "float32", "V", 26), ("F_HZ", "f_hz", "float32", "Hz", 28), ("E_IN_KWH", "e_in_kwh", "uint32", "kWh", 30),
+]
+assert len(ANALYZER_POINTS) <= AN_SLOT_QUALITY and max(o for *_, o in ANALYZER_POINTS) + 2 <= AN_SLOT_REGISTERS
+assert AN_VALUES_START + AN_SLOTS * AN_SLOT_REGISTERS <= AN_QUALITY_START and AN_QUALITY_START + AN_SLOTS * AN_SLOT_QUALITY <= BLOCK_SIZE
 
 
 def build_map(catalog: list[dict]) -> list[dict]:
@@ -61,6 +89,40 @@ def build_map(catalog: list[dict]) -> list[dict]:
     if addr > QUALITY_START:
         raise ValueError(f"too many tags for the value block ({addr} > {QUALITY_START})")
     return out
+
+
+def analyzer_slot(did: str) -> int | None:
+    """analyzer-7 -> 7; None for anything else or a number past the last slot."""
+    m = re.match(r"^analyzer-(\d+)$", did or "")
+    n = int(m.group(1)) if m else 0
+    return n if 1 <= n <= AN_SLOTS else None
+
+
+def analyzer_map(c: Collector) -> list[dict]:
+    """The analyzer block's tags for the analyzers the collector reads now (the plant's and those added on the
+    dashboard, minus the removed ones), each at its own slot. Same shape as build_map()'s entries, plus the
+    analyzer's name and the register's own name from the Analyzers tab."""
+    names = getattr(c, "register_names", {}) or {}
+    removed = getattr(c, "removed", set())
+    out = []
+    for d in sorted(c.registry.by_kind("analyzer"), key=lambda d: analyzer_slot(d.id) or 0):
+        n = analyzer_slot(d.id)
+        if n is None or d.id in removed:
+            continue
+        pts = {p.id for p in d.points}
+        for j, (tag, pid, typ, unit, off) in enumerate(ANALYZER_POINTS):
+            if pid not in pts:
+                continue
+            out.append({"slot": n, "name": f"ANALYZER_{n}.{tag}", "device": d.id, "point": pid, "unit": unit, "type": typ,
+                        "address": AN_VALUES_START + AN_SLOT_REGISTERS * (n - 1) + off, "registers": 2,
+                        "quality_address": AN_QUALITY_START + AN_SLOT_QUALITY * (n - 1) + j,
+                        "analyzer_name": d.name if d.name and d.name != d.id else "", "register_name": names.get(d.id, {}).get(pid, "")})
+    return out
+
+
+def _u32(v: float) -> tuple[int, int]:
+    x = max(0, min(0xFFFFFFFF, int(round(v))))
+    return (x >> 16) & 0xFFFF, x & 0xFFFF
 
 
 def turkey_quality(c: Collector, r, now: datetime | None = None) -> Quality:
@@ -89,6 +151,7 @@ class ModbusPublisher:
         self.map = build_map(self.catalog)
         self.image = [0] * BLOCK_SIZE
         self._last_good: dict[int, float] = {}
+        self._last_good_an: dict[str, float] = {}
         self._lock = threading.Lock()
         self._loop: asyncio.AbstractEventLoop | None = None
         self._server = None
@@ -139,6 +202,23 @@ class ModbusPublisher:
         img[0], img[1] = (ts >> 16) & 0xFFFF, ts & 0xFFFF
         img[2] = min(65535, max(0, int((now - last).total_seconds() // 60))) if last else 65535
         img[3], img[4], img[5] = good, len(self.map), MAP_VERSION
+        # the analyzer block: the meter reader's latest values (the meters are read every 15 s anyway; nothing is
+        # asked of a device for the feed), a fixed slot per analyzer number
+        amap = analyzer_map(self.c)
+        for m in amap:
+            r = self.c.store.latest(m["device"]).get(m["point"])
+            q = turkey_quality(self.c, r, now)
+            val = r.value if r is not None and q != Quality.BAD and isinstance(r.value, (int, float, bool)) else None
+            key = f"{m['device']}.{m['point']}"
+            if val is not None:
+                self._last_good_an[key] = float(val)
+            else:
+                val = {"last": self._last_good_an.get(key, 0.0), "zero": 0.0, "nan": math.nan}[self.bad_value] if m["type"] == "float32" \
+                    else self._last_good_an.get(key, 0.0) if self.bad_value == "last" else 0.0
+            a = m["address"]
+            img[a], img[a + 1] = _u32(val if val == val else 0.0) if m["type"] == "uint32" else _f32(val)
+            img[m["quality_address"]] = {Quality.GOOD: 1, Quality.STALE: 2, Quality.BAD: 0}[q] if r is not None else 0
+        img[7], img[8] = len({m["slot"] for m in amap}), AN_SLOTS
         if last is not None and last != self._hb_poll:   # +1 per site read, not per refresh
             self._hb_poll = last
             self.heartbeat = (self.heartbeat + 1) & 0xFFFF
@@ -211,6 +291,7 @@ class ModbusPublisher:
     def status(self) -> dict:
         return {"enabled": True, "running": self.started_at is not None, "bind": self.bind, "port": self.port,
                 "unit_id": self.unit_id, "tags": len(self.map), "map_version": MAP_VERSION,
+                "analyzers": len({m["slot"] for m in analyzer_map(self.c)}), "analyzer_slots": AN_SLOTS,
                 "started_at": self.started_at.isoformat() if self.started_at else None,
                 "last_refresh": self.last_refresh.isoformat() if self.last_refresh else None,
                 "reads": self.reads, "rejected_writes": self.rejected_writes, "bad_value": self.bad_value}

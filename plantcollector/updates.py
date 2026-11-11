@@ -43,6 +43,7 @@ WHATS_NEW = {
     "1.0.20": "Wording of the Add analyzer help on the Analyzers tab.",
     "1.0.21": "Files from the Export page now download from the application window too: a Save As dialog opens in your Downloads folder. Before, only a browser could save them.",
     "1.0.22": "New tab Plant load consumption: each analyzer's energy over a period from its meter's own counter, kW now and share, as a table and as Excel or CSV. The custom export can take all devices, one kind, or your own choice, and uses your register names as column headers. Settings has a backup and restore of your own setup (added analyzers, register names, reading rates).",
+    "1.0.23": "The Modbus feed for Turkey now carries the analyzers too: a fixed block of registers per analyzer after the solar tags (register map version 2; the solar registers are unchanged), served from the meters' latest readings. The tag list for the Turkey platform is on the Export page (Analyzer tags for Turkey).",
 }
 
 

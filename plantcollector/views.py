@@ -352,6 +352,21 @@ def catalog_values(c: Collector, catalog: list[dict]) -> list[dict]:
     return out
 
 
+# --- the analyzer block of the Turkey feed, with live values ------------------------------------------------------
+
+def analyzer_tag_values(c: Collector) -> list[dict]:
+    from .publish import analyzer_map, turkey_quality
+    now = c.now()
+    out = []
+    for m in analyzer_map(c):
+        r = c.store.latest(m["device"]).get(m["point"])
+        q = turkey_quality(c, r, now)
+        out.append({**m, "value": (r.value if r is not None and q != Quality.BAD else None),
+                    "quality": {Quality.GOOD: "good", Quality.STALE: "stale"}.get(q, "bad") if r is not None else "no data",
+                    "ts": r.source_ts.isoformat() if r is not None else None})
+    return out
+
+
 # --- plant load consumption: each analyzer's (feeder's) energy over a window, from the meter's own counter -------
 
 def _counter_point(d):

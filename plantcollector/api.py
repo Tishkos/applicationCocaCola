@@ -6,7 +6,8 @@ HTTP API + dashboard. Nothing here can write to a device; the one POST triggers 
   /api/v1/local/summary           live values, KPIs, device comms, active faults
   POST /api/v1/local/poll         read every device now (a read, not a write)
   GET/POST /api/v1/local/settings site read rate, the master's live reading, each device's rate (data/settings.json)
-  /api/v1/tags/registers          the Modbus register map published for the Turkey platform
+  /api/v1/tags/registers          the Modbus register map published for the Turkey platform (solar + analyzer block)
+  /api/v1/tags/analyzers[.csv|.xlsx]  the analyzer block's tags with live values, and as a file
   /api/v1/local/series            time series (hours= | from= to=, step=, keys=)
   /api/v1/local/alarms            event log (hours=)
   /api/v1/local/tags              every point with its latest value
@@ -322,10 +323,33 @@ def create_app(c: Collector) -> FastAPI:
 
     @app.get("/api/v1/tags/registers")
     def tag_registers():
-        """The Modbus register map published for the Turkey platform (same whether the server runs or not)."""
-        from .publish import MAP_VERSION, build_map
-        return {"map_version": MAP_VERSION, "unit_id": ((c.registry.extra.get("publish") or {}).get("modbus_tcp") or {}).get("unit_id", 1),
-                "encoding": "float32 ABCD (2 registers) / boolean uint16", "tags": build_map(catalog)}
+        """The Modbus register map published for the Turkey platform (same whether the server runs or not): the
+        solar tags, and the analyzer block (a fixed slot per analyzer number; the analyzers read now)."""
+        from . import publish as pb
+        return {"map_version": pb.MAP_VERSION, "unit_id": ((c.registry.extra.get("publish") or {}).get("modbus_tcp") or {}).get("unit_id", 1),
+                "encoding": "float32 ABCD (2 registers) / boolean uint16; the analyzers' energy counter uint32 (2 registers, high word first)",
+                "tags": pb.build_map(catalog),
+                "analyzers": {"values_start": pb.AN_VALUES_START, "slot_registers": pb.AN_SLOT_REGISTERS, "quality_start": pb.AN_QUALITY_START,
+                              "slot_quality_registers": pb.AN_SLOT_QUALITY, "slots": pb.AN_SLOTS,
+                              "slot_formula": "value address = 2000 + 32 x (n - 1) + offset; quality address = 4000 + 16 x (n - 1) + index; n = the analyzer's number",
+                              "points": [{"index": j, "tag": t, "point": pid, "type": typ, "unit": u, "offset": o} for j, (t, pid, typ, u, o) in enumerate(pb.ANALYZER_POINTS)],
+                              "tags": pb.analyzer_map(c)}}
+
+    @app.get("/api/v1/tags/analyzers")
+    def analyzer_tags():
+        """The analyzer block's tags with their live values: what the Turkey platform reads from registers 2000+."""
+        return {"map_version": __import__("plantcollector.publish", fromlist=["MAP_VERSION"]).MAP_VERSION, "time": c.now().isoformat(),
+                "tags": views.analyzer_tag_values(c)}
+
+    @app.get("/api/v1/tags/analyzers.{fmt}")
+    def analyzer_tag_file(fmt: str):
+        """The analyzer tag list as a file for the Turkey platform: tag, analyzer, its names, addresses, type, unit."""
+        rows = views.analyzer_tag_values(c)
+        if fmt == "csv":
+            return _file(export.analyzer_tags_csv(rows), "analyzer-tags.csv", "csv")
+        if fmt == "xlsx":
+            return _file(export.analyzer_tags_xlsx(c, rows), "analyzer-tags.xlsx", "xlsx")
+        raise HTTPException(404)
 
     @app.get("/api/v1/tags")
     def tag_values():
