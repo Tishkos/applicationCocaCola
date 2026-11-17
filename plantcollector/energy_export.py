@@ -413,12 +413,12 @@ def workbook(c: Collector, data: dict | None = None) -> bytes:
     for k in range(DAYS):
         if k == DAYS - 1:
             chips.append(f"{_dm(days[k])}: partial through {through}" if through else f"{_dm(days[k])}: no readings yet")
-        elif cover[k] is None or cover[k] >= 99:
+        elif cover[k] is None or cover[k] >= 99.95:
             chips.append(f"{_dm(days[k])}: complete")
         elif cover[k] <= 0:
             chips.append(f"{_dm(days[k])}: no readings")
         else:
-            chips.append(f"{_dm(days[k])}: {cover[k]:.0f} % of readings")
+            chips.append(f"{_dm(days[k])}: {cover[k]:.1f} % of readings" if cover[k] >= 99 else f"{_dm(days[k])}: {cover[k]:.0f} % of readings")
     for (cols, text), (tx, bg) in zip((("BC", chips[0]), ("DE", chips[1]), ("FGHI", chips[2])), DAY_CHIP):
         for col in cols:
             _put(cws, f"{col}5", None, _font(10, True, tx), _fill(bg), MID)
