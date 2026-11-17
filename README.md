@@ -8,4 +8,4 @@ reads the branch `setup-download` and the Releases), so nothing installs by itse
 
 Install over an earlier version: `CCI-Plant-Monitoring-Setup-1.0.24.exe /S /UPDATE` in an administrator PowerShell, or
 double-click it. Settings and history stay. `SHA256SUMS.txt` holds the Setup's SHA-256. Built from branch
-`live-dashboard`, commit 8a7a9a8.
+`live-dashboard`, commit 0059c4c.
