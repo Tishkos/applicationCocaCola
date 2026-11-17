@@ -14,6 +14,7 @@ HTTP API + dashboard. Nothing here can write to a device; the one POST triggers 
   /api/v1/local/daily             daily totals (date=YYYY-MM-DD)
   /api/v1/local/export.csv|xlsx   wide table (from=, to=, step=, devices=)
   /api/v1/local/consumption[.csv|.xlsx]  plant load consumption per analyzer (from=, to=)
+  /api/v1/local/analyzers/energy[.xlsx]   the analyzers' kWh for today and the two days before: daily, 5-minute charts
   /api/v1/local/settings/backup, POST /settings/restore  the dashboard's own setup as a file
   /api/v1/local/report.xlsx       daily report workbook (date=)
   /api/v1/tags                    the DT Turkey tag list with live values
@@ -295,6 +296,21 @@ def create_app(c: Collector) -> FastAPI:
         data = views.consumption(c, since, until)
         name = f"{c.registry.site.site_id}_consumption_{since.strftime('%Y%m%d-%H%M')}_{until.strftime('%Y%m%d-%H%M')}.{fmt}"
         return _file(export.consumption_csv(data) if fmt == "csv" else export.consumption_xlsx(c, data), name, fmt)
+
+    @app.get("/api/v1/local/analyzers/energy")
+    def analyzer_energy():
+        """Each analyzer's kWh for today and the two days before, per day and per 5-minute interval, worked out
+        from its own energy counter (what the Excel file below shows)."""
+        from . import energy_export
+        return energy_export.analyzer_energy(c)
+
+    @app.get("/api/v1/local/analyzers/energy.xlsx")
+    def analyzer_energy_file():
+        """The analyzer export: daily kWh per analyzer with totals, one 5-minute chart per analyzer comparing the
+        three days, and the 5-minute numbers. Always today and the two days before, up to the latest reading."""
+        from . import energy_export
+        data = energy_export.analyzer_energy(c)
+        return _file(energy_export.workbook(c, data), energy_export.filename(c, data), "xlsx")
 
     @app.get("/api/v1/local/settings/backup")
     def settings_backup():
