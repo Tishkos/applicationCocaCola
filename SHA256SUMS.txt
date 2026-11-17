@@ -1,1 +1,1 @@
-82e587df390365971ed273ca153c7620aec59e4fa8b37b7a2ac04543ff4f6663  CCI-Plant-Monitoring-Setup-1.0.23.exe
+2fda0b0a4300dcd6dc52e136f32c82a2dc5cdd16109e23fa85dea4d2221d9dc8  CCI-Plant-Monitoring-Setup-1.0.24.exe
